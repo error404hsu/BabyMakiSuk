@@ -10,12 +10,23 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.error404hsu.babymakisuk.featuregrowth.domain.GrowthRecordWithPercentile
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GrowthScreen(viewModel: GrowthViewModel = hiltViewModel()) {
+fun GrowthScreen(
+    viewModel: GrowthViewModel? = if (LocalInspectionMode.current) null else hiltViewModel()
+) {
+    if (viewModel == null) {
+        // Preview mode - show a simple loading state or empty state
+        Box(Modifier.fillMaxSize()) {
+            Text("Growth Screen Preview", modifier = Modifier.align(Alignment.Center))
+        }
+        return
+    }
+
     val uiState by viewModel.uiState.collectAsState()
     val showForm by viewModel.showForm.collectAsState()
     var showChart by remember { mutableStateOf(value = false) }

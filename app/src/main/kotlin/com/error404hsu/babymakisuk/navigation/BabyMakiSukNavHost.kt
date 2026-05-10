@@ -1,5 +1,7 @@
 package com.error404hsu.babymakisuk.navigation
 
+import androidx.compose.ui.tooling.preview.Preview
+import com.error404hsu.babymakisuk.ui.theme.BabyMakiSukTheme
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -18,7 +20,6 @@ import androidx.navigation.compose.rememberNavController
 import com.error404hsu.babymakisuk.featurehome.HomeScreen
 import com.error404hsu.babymakisuk.featuregrowth.GrowthScreen
 import com.error404hsu.babymakisuk.featuremedical.MedicalScreen
-import com.error404hsu.babymakisuk.featurevaccine.VaccineScreen
 import com.error404hsu.babymakisuk.featurelog.LogScreen
 import com.error404hsu.babymakisuk.featuresettings.SettingsScreen
 
@@ -26,7 +27,6 @@ sealed class BottomNavItem(val route: String, val label: String, val icon: Image
     data object Home : BottomNavItem("home", "首頁", Icons.Filled.Home)
     data object Growth : BottomNavItem("growth", "成長", Icons.Filled.BarChart)
     data object Medical : BottomNavItem("medical", "醫療", Icons.Filled.LocalHospital)
-    data object Vaccine : BottomNavItem("vaccine", "疫苗", Icons.Filled.Vaccines)
     data object Log : BottomNavItem("log", "日誌", Icons.Filled.Book)
     data object Settings : BottomNavItem("settings", "設定", Icons.Filled.Settings)
 }
@@ -39,11 +39,10 @@ fun BabyMakiSukNavHost() {
 
     val items = remember {
         listOf(
-            BottomNavItem.Home,
-            BottomNavItem.Growth,
-            BottomNavItem.Medical,
-            BottomNavItem.Vaccine,
             BottomNavItem.Log,
+            BottomNavItem.Growth,
+            BottomNavItem.Home,
+            BottomNavItem.Medical,
             BottomNavItem.Settings,
         )
     }
@@ -78,9 +77,16 @@ fun BabyMakiSukNavHost() {
             composable(BottomNavItem.Home.route) { HomeScreen() }
             composable(BottomNavItem.Growth.route) { GrowthScreen() }
             composable(BottomNavItem.Medical.route) { MedicalScreen() }
-            composable(BottomNavItem.Vaccine.route) { VaccineScreen() }
             composable(BottomNavItem.Log.route) { LogScreen() }
             composable(BottomNavItem.Settings.route) { SettingsScreen() }
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun BabyMakiSukNavHostPreview() {
+    BabyMakiSukTheme {
+        BabyMakiSukNavHost()
     }
 }
