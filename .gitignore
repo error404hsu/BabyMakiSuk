@@ -1,0 +1,18 @@
+# Gradle files
+.gradle/
+build/
+**/build/
+
+# Local configuration files
+local.properties
+
+# Android Studio / IntelliJ files
+.idea/
+*.iml
+
+# Heap dumps
+*.hprof
+
+# OS generated files
+.DS_Store
+Thumbs.db
