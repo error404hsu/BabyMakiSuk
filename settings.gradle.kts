@@ -5,6 +5,9 @@ pluginManagement {
         gradlePluginPortal()
     }
 }
+plugins {
+    id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
+}
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
@@ -16,13 +19,17 @@ dependencyResolutionManagement {
 rootProject.name = "BabyMakiSuk"
 
 include(":app")
-include(":coremodel")
-include(":coredata")
-include(":coreui")
-include(":coreai")
-include(":featurehome")
-include(":featuregrowth")
-include(":featuremedical")
-include(":featurevaccine")
-include(":featurelog")
-include(":featuresettings")
+
+// Core modules
+include(":core:model")
+include(":core:data")
+include(":core:ui")
+include(":core:ai")
+
+// Feature modules
+include(":feature:home")
+include(":feature:growth")
+include(":feature:medical")
+include(":feature:vaccine")
+include(":feature:log")
+include(":feature:settings")

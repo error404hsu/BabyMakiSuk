@@ -5,17 +5,19 @@
 ## 模組結構
 
 ```
-app/
-coremodel/   - 資料模型 (純 Kotlin)
-coredata/    - Room DB + Repository
-coreui/      - 共用 UI 元件 / Theme
-coreai/      - ServiceAI Client 封裝
-featurehome/       - 首頁 (Child 列表)
-featuregrowth/     - 成長紀錄 + 圖表
-featuremedical/    - 醫療紀錄
-featurevaccine/    - 疫苗紀錄
-featurelog/        - 每日日誌
-featuresettings/   - 設定 / Sync
+app/               - 入口模組 & Navigation
+core/
+  model/           - 資料模型 (純 Kotlin)
+  data/            - Room DB + Repository
+  ui/              - 共用 UI 元件 / Theme
+  ai/              - ServiceAI Client 封裝
+feature/
+  home/            - 首頁 (Child 列表)
+  growth/          - 成長紀錄 + 圖表
+  medical/         - 醫療紀錄
+  vaccine/         - 疫苗紀錄
+  log/             - 每日日誌
+  settings/        - 設定 / Sync
 ```
 
 ## Roadmap
