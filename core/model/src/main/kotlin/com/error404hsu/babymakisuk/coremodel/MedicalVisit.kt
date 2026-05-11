@@ -14,5 +14,8 @@ data class MedicalVisit(
     // AI 產出欄位
     val diagnosisSummary: String = "",
     val prescriptions: String = "",
-    val careInstructions: String = ""
+    val careInstructions: String = "",
+    // Phase E-0：Firebase Storage 路徑與 AI 處理旗標
+    val imageStoragePath: String? = null,
+    val aiPending: Boolean = false
 )

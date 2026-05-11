@@ -25,6 +25,8 @@ include(":core:model")
 include(":core:data")
 include(":core:ui")
 include(":core:ai")
+include(":core:firebase")
+include(":core:drive")
 
 // Feature modules
 include(":feature:home")
