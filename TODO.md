@@ -68,13 +68,13 @@
 
 > 詳細規格見 docs/SYNC_ARCHITECTURE.md
 
-### E-0 立即執行（Model 留位，不影響現有功能）
+### E-0 立即執行（Model 留位，不影響現有功能）——✅ 全部完成
 
 - [x] `core/model`：`MedicalVisit` 新增欄位 `imageStoragePath: String?`、`aiPending: Boolean`
 - [x] `core/model`：新增 `WeeklyReport.kt` domain model
-- [ ] `core/data`：新增 `WeeklyReportEntity.kt`、`WeeklyReportFts.kt`
-- [ ] `core/data`：新增 `WeeklyReportDao.kt`（FTS 搜尋介面）
-- [ ] `core/data`：`AppDatabase` 新增週報表，bump 版本號
+- [x] `core/data`：新增 `WeeklyReportEntity.kt`、`WeeklyReportFts.kt`
+- [x] `core/data`：新增 `WeeklyReportDao.kt`（FTS 搜尋介面）
+- [x] `core/data`：`AppDatabase` 新增週報表，bump 版本號（v2）
 - [x] 新增空模組 `core/firebase`（build.gradle.kts 留位）
 - [x] 新增空模組 `core/drive`（build.gradle.kts 留位）
 - [x] `settings.gradle.kts` 注冊新模組
