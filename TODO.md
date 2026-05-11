@@ -64,15 +64,51 @@
 
 ---
 
-## Phase E - Sync / Backup / Reminders
+## Phase E - Firebase 同步（雙機協作）
 
-- [ ] Settings 同步模式
-- [ ] Firestore 同步
-- [ ] Google 登入
-- [ ] 疫苗提醒推播
-- [ ] 自訂提醒
-- [ ] 匯出 JSON / CSV
-- [ ] 匯入資料
+> 詳細規格見 docs/SYNC_ARCHITECTURE.md
+
+### E-0 立即執行（Model 留位，不影響現有功能）
+
+- [ ] `core/model`：`MedicalVisit` 新增欄位 `imageStoragePath: String?`、`aiPending: Boolean`
+- [ ] `core/model`：新增 `WeeklyReport.kt` domain model
+- [ ] `core/data`：新增 `WeeklyReportEntity.kt`、`WeeklyReportFts.kt`
+- [ ] `core/data`：新增 `WeeklyReportDao.kt`（FTS 搜尋介面）
+- [ ] `core/data`：`AppDatabase` 新增週報表，bump 版本號
+- [ ] 新增空模組 `core/firebase`（build.gradle.kts 留位）
+- [ ] 新增空模組 `core/drive`（build.gradle.kts 留位）
+- [ ] `settings.gradle.kts` 注冊新模組
+
+### E-1 Firebase 基礎
+
+- [ ] Firebase Auth + Google 登入
+- [ ] Custom Claims 設定（`data_manager` / `ai_operator` 角色）
+- [ ] Firestore Security Rules 部署
+- [ ] Firestore 離線持久化啟用（`isPersistenceEnabled = true`）
+- [ ] `feature/settings` Google 登入 UI
+
+### E-2 資料同步
+
+- [ ] `core/firebase`：`FirestoreChildRepository`
+- [ ] `core/firebase`：`FirestoreMedicalRepository`（含 `aiPending` 旗標監聽）
+- [ ] `core/firebase`：`ImageUploadRepository`（圖片壓縮 + Storage 上傳）
+- [ ] `core/firebase`：`MedicalImageCacheManager`（本機圖片快取）
+- [ ] 雙機同步測試（低階機寫入 → 高階機 AI 觸發 → 結果同步回低階機）
+
+---
+
+## Phase F - 週報 + Google Drive 永久備份
+
+> 詳細規格見 docs/SYNC_ARCHITECTURE.md
+
+- [ ] `feature/weeklyreport`：`WeeklyReportScreen` UI
+- [ ] `feature/weeklyreport`：`WeeklyReportViewModel`
+- [ ] `core/ai`：`weekly_baby_log_summary` prompt schema（含 searchKeywords 萃取）
+- [ ] `core/drive`：`DriveExportRepository`（Markdown 週報 + JSON 匯出）
+- [ ] `core/drive`：`DriveImageBackupManager`（舊照片遷移 > 6 個月）
+- [ ] Firestore `driveExported` / `driveFileId` 欄位寫回
+- [ ] `WeeklyReportSearchScreen`（FTS 搜尋就醫紀錄）
+- [ ] WorkManager 週期任務（週日 22:00 自動觸發，可選）
 
 ---
 
@@ -84,3 +120,4 @@
 - [ ] LINE / 短訊分享就診摘要
 - [ ] 多語系（繁中 / 英文）
 - [ ] 里程碑氣泡（成長百分位跨區震動提示）
+- [ ] Storage 舊照片自動清理（> 6 個月 → 遷移至 Drive）
