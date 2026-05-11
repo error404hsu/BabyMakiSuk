@@ -34,18 +34,16 @@ class HomeViewModel @Inject constructor(
         if (existing.isNotEmpty()) return  // 已有資料，跳過
 
         val defaultBoy = ChildProfile(
-            id        = "default_boy",                        // 固定 ID，確保不重複新增
+            id        = 1L,                                  // 固定 ID，確保不重複新增
             name      = "小明",
             gender    = Gender.MALE,
-            birthDate = LocalDate.now().minusMonths(6),      // 預設 6 個月大
-            photoUrl  = null
+            birthday = LocalDate.now().minusMonths(6),      // 預設 6 個月大
         )
         val defaultGirl = ChildProfile(
-            id        = "default_girl",
+            id        = 2L,
             name      = "小美",
             gender    = Gender.FEMALE,
-            birthDate = LocalDate.now().minusMonths(8),      // 預設 8 個月大
-            photoUrl  = null
+            birthday = LocalDate.now().minusMonths(8),      // 預設 8 個月大
         )
 
         childRepository.save(defaultBoy)

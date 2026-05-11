@@ -31,13 +31,13 @@ import kotlin.math.min
 fun GrowthChartScreen(records: List<GrowthRecordWithPercentile>) {
     if (records.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("蟆夂┌雉・侭")
+            Text("尚無資料")
         }
         return
     }
 
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("霄ｫ鬮・(cm)", "鬮秘㍾ (kg)")
+    val tabs = listOf("身高(cm)", "體重(kg)")
 
     Column(Modifier.fillMaxSize()) {
         TabRow(selectedTabIndex = selectedTab) {
@@ -83,7 +83,7 @@ private fun PercentileLegend() {
         LegendItem(Color(0xFFBDBDBD), "P3/P97")
         LegendItem(Color(0xFF90CAF9), "P15/P85")
         LegendItem(Color(0xFF42A5F5), "P50")
-        LegendItem(Color(0xFFFF7043), "蟇ｦ貂ｬ")
+        LegendItem(Color(0xFFFF7043), "實測")
     }
 }
 
@@ -197,8 +197,8 @@ private fun GrowthLineChart(
         )
 
         val label = when (metric) {
-            PercentileCalculator.Metric.HEIGHT -> "WHO 霄ｫ鬮伜純閠・ｷ・+ 蟇ｦ貂ｬ"
-            PercentileCalculator.Metric.WEIGHT -> "WHO 鬮秘㍾蜿・・ｷ・+ 蟇ｦ貂ｬ"
+            PercentileCalculator.Metric.HEIGHT -> "WHO 身高參考線 + 實測"
+            PercentileCalculator.Metric.WEIGHT -> "WHO 體重參考線 + 實測"
         }
 
         drawText(

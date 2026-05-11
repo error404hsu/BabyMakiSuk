@@ -13,18 +13,19 @@ import java.time.LocalDate
 @Composable
 fun NewMedicalVisitDialog(
     childId: Long,
+    initialVisit: MedicalVisit? = null,
     onDismiss: () -> Unit,
     onConfirm: (MedicalVisit) -> Unit
 ) {
-    var hospital      by remember { mutableStateOf("") }
-    var department    by remember { mutableStateOf("") }
-    var diagnosis     by remember { mutableStateOf("") }
-    var notes         by remember { mutableStateOf("") }
+    var hospital      by remember { mutableStateOf(initialVisit?.hospital ?: "") }
+    var department    by remember { mutableStateOf(initialVisit?.department ?: "") }
+    var diagnosis     by remember { mutableStateOf(initialVisit?.diagnosis ?: "") }
+    var notes         by remember { mutableStateOf(initialVisit?.notes ?: "") }
     var hospitalError by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("新增就診紀錄") },
+        title = { Text(if (initialVisit == null) "新增就診紀錄" else "編輯就診紀錄") },
         text = {
             Column(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
@@ -67,12 +68,16 @@ fun NewMedicalVisitDialog(
                 if (hospital.isBlank()) { hospitalError = true; return@TextButton }
                 onConfirm(
                     MedicalVisit(
+                        id = initialVisit?.id ?: 0L,
                         childId = childId,
-                        date = LocalDate.now(),
+                        date = initialVisit?.date ?: LocalDate.now(),
                         hospital = hospital.trim(),
                         department = department.trim(),
                         diagnosis = diagnosis.trim(),
-                        notes = notes.trim()
+                        notes = notes.trim(),
+                        diagnosisSummary = initialVisit?.diagnosisSummary ?: "",
+                        prescriptions = initialVisit?.prescriptions ?: "",
+                        careInstructions = initialVisit?.careInstructions ?: ""
                     )
                 )
             }) { Text("儲存") }

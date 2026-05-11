@@ -5,10 +5,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.babymakisuk.featuregrowth.domain.GrowthRecordWithPercentile
@@ -16,6 +18,7 @@ import com.babymakisuk.featuregrowth.domain.GrowthRecordWithPercentile
 @Composable
 fun GrowthListScreen(
     records: List<GrowthRecordWithPercentile>,
+    onEdit: (GrowthRecordWithPercentile) -> Unit,
     onDelete: (GrowthRecordWithPercentile) -> Unit,
 ) {
     if (records.isEmpty()) {
@@ -26,7 +29,11 @@ fun GrowthListScreen(
     }
     LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         items(records, key = { it.record.id }) { item ->
-            GrowthRecordCard(item) { onDelete(item) }
+            GrowthRecordCard(
+                item = item,
+                onEdit = { onEdit(item) },
+                onDelete = { onDelete(item) }
+            )
         }
     }
 }
@@ -34,6 +41,7 @@ fun GrowthListScreen(
 @Composable
 private fun GrowthRecordCard(
     item: GrowthRecordWithPercentile,
+    onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     val r = item.record
@@ -54,8 +62,11 @@ private fun GrowthRecordCard(
                 }
                 if (r.note.isNotBlank()) Text(r.note, style = MaterialTheme.typography.bodySmall)
             }
+            IconButton(onClick = onEdit) {
+                Icon(Icons.Filled.Edit, contentDescription = "編輯", tint = Color.LightGray)
+            }
             IconButton(onClick = onDelete) {
-                Icon(Icons.Filled.Delete, contentDescription = "刪除")
+                Icon(Icons.Filled.Delete, contentDescription = "刪除", tint = Color.LightGray)
             }
         }
     }

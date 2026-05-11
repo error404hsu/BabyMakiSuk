@@ -1,5 +1,6 @@
 ﻿package com.babymakisuk.featurehome
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.*
@@ -57,6 +58,10 @@ fun HomeScreenContent(
 ) {
     var expandedGender by remember { mutableStateOf<Gender?>(null) }
     var isEditMode by remember { mutableStateOf(false) }
+
+    BackHandler(enabled = expandedGender != null) {
+        expandedGender = null
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -138,11 +143,11 @@ fun ChildHubCard(
     Card(
         modifier = Modifier
             .fillMaxSize()
-            .padding(if (isExpanded) 0.dp else 12.dp)
+            .padding(12.dp)
             .clickable(enabled = !isExpanded) { onExpand() },
-        shape = if (isExpanded) RoundedCornerShape(0.dp) else RoundedCornerShape(28.dp),
+        shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = if (isExpanded) CardDefaults.cardElevation(0.dp) else CardDefaults.cardElevation(6.dp)
+        elevation = CardDefaults.cardElevation(6.dp)
     ) {
         if (!isExpanded) {
             // --- Summary View (Dashboard Mode) ---
@@ -291,26 +296,31 @@ fun EditChildProfileDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
     ) {
         Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = MaterialTheme.colorScheme.surface
+            modifier = Modifier
+                .wrapContentWidth()
+                .wrapContentHeight(),
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 6.dp
         ) {
-            Column(modifier = Modifier.fillMaxSize().padding(24.dp).statusBarsPadding()) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, null) }
-                    Text("編輯 ${child.name} 的資料", style = MaterialTheme.typography.titleLarge)
-                }
+            Column(modifier = Modifier.padding(24.dp)) {
+                Text(
+                    text = "編輯 ${child.name} 的資料",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
 
-                Spacer(modifier = Modifier.height(32.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
                 var name by remember { mutableStateOf(child.name) }
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
                     label = { Text("姓名") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -320,19 +330,29 @@ fun EditChildProfileDialog(
                     value = birthday,
                     onValueChange = { birthday = it },
                     label = { Text("生日 (YYYY-MM-DD)") },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
                 )
 
-                Spacer(modifier = Modifier.weight(1f))
+                Spacer(modifier = Modifier.height(32.dp))
 
-                Button(
-                    onClick = {
-                        onSave(child.copy(name = name, birthday = LocalDate.parse(birthday)))
-                    },
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = accentColor)
+                    horizontalArrangement = Arrangement.End
                 ) {
-                    Text("確認儲存")
+                    TextButton(onClick = onDismiss) {
+                        Text("取消")
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            onSave(child.copy(name = name, birthday = LocalDate.parse(birthday)))
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = accentColor),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("儲存")
+                    }
                 }
             }
         }

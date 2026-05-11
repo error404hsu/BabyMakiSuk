@@ -13,6 +13,7 @@ import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.babymakisuk.coremodel.ChildProfile
 import com.babymakisuk.coremodel.Gender
 import com.babymakisuk.featuregrowth.domain.GrowthRecordWithPercentile
 
@@ -31,9 +32,10 @@ fun GrowthScreen(
         return
     }
 
-    val uiState  by viewModel.uiState.collectAsState()
-    val showForm by viewModel.showForm.collectAsState()
-    var showChart by remember { mutableStateOf(false) }
+    val uiState       by viewModel.uiState.collectAsState()
+    val showForm      by viewModel.showForm.collectAsState()
+    val editingRecord by viewModel.editingRecord.collectAsState()
+    var showChart     by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -61,6 +63,13 @@ fun GrowthScreen(
                 is GrowthUiState.Error   -> Text("錯誤：${state.message}", Modifier.align(Alignment.Center))
                 is GrowthUiState.Success -> {
                     Column(Modifier.fillMaxSize()) {
+                        ChildFilterRow(
+                            children = state.children,
+                            selectedId = state.selectedChildId,
+                            onSelect = viewModel::selectChild
+                        )
+                        HorizontalDivider()
+                        
                         state.records.maxByOrNull { it.record.date }?.let { latest ->
                             LatestGrowthBanner(latest)
                         }
@@ -68,9 +77,11 @@ fun GrowthScreen(
                             if (showChart) {
                                 GrowthChartScreen(records = state.records)
                             } else {
-                                GrowthListScreen(records = state.records) {
-                                    viewModel.deleteRecord(it.record)
-                                }
+                                GrowthListScreen(
+                                    records = state.records,
+                                    onEdit = { viewModel.editRecord(it) },
+                                    onDelete = { viewModel.deleteRecord(it.record) }
+                                )
                             }
                         }
                     }
@@ -81,9 +92,43 @@ fun GrowthScreen(
 
     if (showForm) {
         NewGrowthRecordDialog(
+            initialRecord = editingRecord,
             onDismiss = viewModel::closeForm,
             onConfirm = { h, w, hc, date, note -> viewModel.saveRecord(h, w, hc, date, note) }
         )
+    }
+}
+
+@Composable
+private fun ChildFilterRow(
+    children: List<ChildProfile>,
+    selectedId: Long,
+    onSelect: (Long) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        children.forEach { child ->
+            val isSelected = child.id == selectedId
+            val color = if (child.gender == Gender.MALE) BoyBlue else GirlPink
+            FilterChip(
+                selected = isSelected,
+                onClick = { onSelect(child.id) },
+                label = {
+                    Text(
+                        text = "${if (child.gender == Gender.MALE) "\uD83D\uDC66" else "\uD83D\uDC67"} ${child.name}",
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                    )
+                },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = color.copy(alpha = 0.15f),
+                    selectedLabelColor = color
+                )
+            )
+        }
     }
 }
 

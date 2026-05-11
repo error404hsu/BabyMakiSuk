@@ -23,8 +23,13 @@ class MedicalViewModel @Inject constructor(
 
     private val _selectedChildId = MutableStateFlow<Long?>(null)
 
-    val uiState: StateFlow<MedicalUiState> = childRepo.observeAll()
-        .flatMapLatest { children ->
+    val uiState: StateFlow<MedicalUiState> = combine(
+        childRepo.observeAll(),
+        _selectedChildId
+    ) { children, selectedId ->
+        children to selectedId
+    }
+        .flatMapLatest { (children, selectedId) ->
             if (children.isEmpty()) {
                 return@flatMapLatest flowOf<MedicalUiState>(
                     MedicalUiState.Success(
@@ -35,16 +40,14 @@ class MedicalViewModel @Inject constructor(
                 )
             }
 
-            val selectedId = _selectedChildId.value
+            val effectiveId = selectedId
                 ?: children.firstOrNull { it.gender == Gender.MALE }?.id
                 ?: children.first().id
 
-            if (_selectedChildId.value == null) _selectedChildId.value = selectedId
-
-            medicalDao.observeByChild(selectedId).map { entities ->
+            medicalDao.observeByChild(effectiveId).map { entities ->
                 MedicalUiState.Success(
                     children = children,
-                    selectedChildId = selectedId,
+                    selectedChildId = effectiveId,
                     visits = entities.map { it.toDomain() }
                 )
             }
@@ -55,12 +58,27 @@ class MedicalViewModel @Inject constructor(
     private val _showForm = MutableStateFlow(false)
     val showForm: StateFlow<Boolean> = _showForm.asStateFlow()
 
+    private val _editingVisit = MutableStateFlow<MedicalVisit?>(null)
+    val editingVisit: StateFlow<MedicalVisit?> = _editingVisit.asStateFlow()
+
     fun selectChild(childId: Long) {
         _selectedChildId.value = childId
     }
 
-    fun openForm()  { _showForm.value = true }
-    fun closeForm() { _showForm.value = false }
+    fun openForm()  {
+        _editingVisit.value = null
+        _showForm.value = true
+    }
+
+    fun editVisit(visit: MedicalVisit) {
+        _editingVisit.value = visit
+        _showForm.value = true
+    }
+
+    fun closeForm() {
+        _showForm.value = false
+        _editingVisit.value = null
+    }
 
     fun saveVisit(visit: MedicalVisit) {
         viewModelScope.launch {

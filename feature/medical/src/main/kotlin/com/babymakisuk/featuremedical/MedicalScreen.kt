@@ -25,8 +25,9 @@ private val GirlPink = Color(0xFFE07BBD)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MedicalScreen(viewModel: MedicalViewModel = hiltViewModel()) {
-    val uiState  by viewModel.uiState.collectAsState()
-    val showForm by viewModel.showForm.collectAsState()
+    val uiState      by viewModel.uiState.collectAsState()
+    val showForm     by viewModel.showForm.collectAsState()
+    val editingVisit by viewModel.editingVisit.collectAsState()
 
     Scaffold(
         topBar = { TopAppBar(title = { Text("就醫紀錄") }) },
@@ -77,6 +78,7 @@ fun MedicalScreen(viewModel: MedicalViewModel = hiltViewModel()) {
                                     MedicalVisitCard(
                                         visit = visit,
                                         accentColor = if (child?.gender == Gender.MALE) BoyBlue else GirlPink,
+                                        onEdit = { viewModel.editVisit(visit) },
                                         onDelete = { viewModel.deleteVisit(visit) }
                                     )
                                 }
@@ -92,6 +94,7 @@ fun MedicalScreen(viewModel: MedicalViewModel = hiltViewModel()) {
         val selectedChildId = (uiState as? MedicalUiState.Success)?.selectedChildId ?: 1L
         NewMedicalVisitDialog(
             childId = selectedChildId,
+            initialVisit = editingVisit,
             onDismiss = viewModel::closeForm,
             onConfirm = viewModel::saveVisit
         )
@@ -135,6 +138,7 @@ private fun ChildFilterRow(
 private fun MedicalVisitCard(
     visit: MedicalVisit,
     accentColor: Color,
+    onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -184,6 +188,9 @@ private fun MedicalVisitCard(
                         contentDescription = if (expanded) "收合" else "展開",
                         tint = accentColor
                     )
+                }
+                IconButton(onClick = onEdit) {
+                    Icon(Icons.Filled.Edit, contentDescription = "編輯", tint = Color.LightGray)
                 }
                 IconButton(onClick = onDelete) {
                     Icon(Icons.Filled.Delete, contentDescription = "刪除", tint = Color.LightGray)

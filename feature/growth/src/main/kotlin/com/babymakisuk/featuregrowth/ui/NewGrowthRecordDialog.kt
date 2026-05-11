@@ -9,21 +9,24 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import java.time.LocalDate
 
+import com.babymakisuk.featuregrowth.domain.GrowthRecordWithPercentile
+
 @Composable
 fun NewGrowthRecordDialog(
+    initialRecord: GrowthRecordWithPercentile? = null,
     onDismiss: () -> Unit,
     onConfirm: (heightCm: Float, weightKg: Float, headCircCm: Float?, date: LocalDate, note: String) -> Unit,
 ) {
-    var heightText   by remember { mutableStateOf("") }
-    var weightText   by remember { mutableStateOf("") }
-    var headCircText by remember { mutableStateOf("") }
-    var noteText     by remember { mutableStateOf("") }
+    var heightText   by remember { mutableStateOf(initialRecord?.record?.heightCm?.toString() ?: "") }
+    var weightText   by remember { mutableStateOf(initialRecord?.record?.weightKg?.toString() ?: "") }
+    var headCircText by remember { mutableStateOf(initialRecord?.record?.headCircumferenceCm?.toString() ?: "") }
+    var noteText     by remember { mutableStateOf(initialRecord?.record?.note ?: "") }
     var heightError  by remember { mutableStateOf(value = false) }
     var weightError  by remember { mutableStateOf(value = false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("新增成長紀錄") },
+        title = { Text(if (initialRecord == null) "新增成長紀錄" else "編輯成長紀錄") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 NumberField(
@@ -62,7 +65,7 @@ fun NewGrowthRecordDialog(
                         weightError = true
                         return@TextButton
                     }
-                    onConfirm(h, w, headCircText.toFloatOrNull(), LocalDate.now(), noteText)
+                    onConfirm(h, w, headCircText.toFloatOrNull(), initialRecord?.record?.date ?: LocalDate.now(), noteText)
                 }
             ) { Text("儲存") }
         },
