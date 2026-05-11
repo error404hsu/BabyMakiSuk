@@ -116,23 +116,30 @@
 
 ## Phase G - Settings 頁功能擴充
 
-> Settings 頁基礎 UI 已於 2026-05-11 完成（深色模式 + 匯出匯入架構）。
+> Settings 頁基礎 UI 已於 2026-05-11 完成。
 
 ### G-0 已完成 ✅
 
 - [x] `SettingsScreen`：分區 UI（外觀 / 資料管理 / 關於）
-- [x] `SettingsViewModel`：MVI 狀態管理 + Hilt 注入
-- [x] `SettingsRepository`：DataStore<Preferences> 深色模式持久化
-- [x] `DarkModeOption` enum：SYSTEM / LIGHT / DARK 三選一
+- [x] `SettingsViewModel`：MVI + `BackupUiState` sealed interface
+- [x] `SettingsRepository`：DataStore 深色模式 + 委派 BackupManager
+- [x] `DarkModeOption` enum：SYSTEM / LIGHT / DARK
 - [x] `SettingsPreferences`：DataStore Key 統一定義
-- [x] 匯出 / 匯入 UI 骨架（stub，待 E-2 正式串接）
-- [x] `BabyMakiSukTheme` 支援 `darkTheme: Boolean` 參數（新增 DarkColorScheme）
+- [x] `BabyMakiSukTheme` 支援 `darkTheme: Boolean`
 - [x] `MainActivity` 讀取 `SettingsViewModel.darkMode`，動態传入主題
 
-### G-1 待實作
+### G-1 已完成 ✅
 
-- [ ] 匯出：Room 全資料 → JSON，透過 ShareSheet 分享或存至 Downloads
-- [ ] 匯入：選取 JSON 備份，merge 或覆蓋寫入 Room（含確認 Dialog）
+- [x] `BackupManager`：Room 全資料 → JSON 備份 DTO
+- [x] `BackupManager.exportToShareIntent()`：JSON 寫入 cache，透過 FileProvider + ShareSheet 分享
+- [x] `BackupManager.importFromUri()`：讀取 JSON → merge 或覆蓋寫入 Room（`runInTransaction`）
+- [x] 全部 DAO 新增 `getAllOnce()` / `upsertAll()` / `deleteAll()`
+- [x] `SettingsScreen` 匯入前確認 Dialog、載入中過場、成功 / 錯誤 Alert
+
+### G-2 待實作
+
+- [ ] `AndroidManifest.xml` 新增 FileProvider `<provider>` 設定
+- [ ] `res/xml/file_paths.xml` 定義 cache-path
 - [ ] 多寶寶 Profile 管理（新增 / 切換 / 刪除）
 - [ ] 通知排程設定（餵奶提醒、疫苗到期推播）
 - [ ] 語言切換（繁中 / English）

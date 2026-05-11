@@ -1,4 +1,4 @@
-﻿package com.babymakisuk.coredata.dao
+package com.babymakisuk.coredata.dao
 
 import androidx.room.*
 import com.babymakisuk.coredata.entity.GrowthRecordEntity
@@ -9,9 +9,18 @@ interface GrowthDao {
     @Query("SELECT * FROM growth_record WHERE childId = :childId ORDER BY date DESC")
     fun observeByChild(childId: Long): Flow<List<GrowthRecordEntity>>
 
+    @Query("SELECT * FROM growth_record ORDER BY date DESC")
+    suspend fun getAllOnce(): List<GrowthRecordEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: GrowthRecordEntity): Long
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(entities: List<GrowthRecordEntity>)
+
     @Delete
     suspend fun delete(entity: GrowthRecordEntity)
+
+    @Query("DELETE FROM growth_record")
+    suspend fun deleteAll()
 }
