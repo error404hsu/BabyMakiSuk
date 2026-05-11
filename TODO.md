@@ -70,14 +70,14 @@
 
 ### E-0 立即執行（Model 留位，不影響現有功能）
 
-- [ ] `core/model`：`MedicalVisit` 新增欄位 `imageStoragePath: String?`、`aiPending: Boolean`
-- [ ] `core/model`：新增 `WeeklyReport.kt` domain model
+- [x] `core/model`：`MedicalVisit` 新增欄位 `imageStoragePath: String?`、`aiPending: Boolean`
+- [x] `core/model`：新增 `WeeklyReport.kt` domain model
 - [ ] `core/data`：新增 `WeeklyReportEntity.kt`、`WeeklyReportFts.kt`
 - [ ] `core/data`：新增 `WeeklyReportDao.kt`（FTS 搜尋介面）
 - [ ] `core/data`：`AppDatabase` 新增週報表，bump 版本號
-- [ ] 新增空模組 `core/firebase`（build.gradle.kts 留位）
-- [ ] 新增空模組 `core/drive`（build.gradle.kts 留位）
-- [ ] `settings.gradle.kts` 注冊新模組
+- [x] 新增空模組 `core/firebase`（build.gradle.kts 留位）
+- [x] 新增空模組 `core/drive`（build.gradle.kts 留位）
+- [x] `settings.gradle.kts` 注冊新模組
 
 ### E-1 Firebase 基礎
 
@@ -121,3 +121,4 @@
 - [ ] 多語系（繁中 / 英文）
 - [ ] 里程碑氣泡（成長百分位跨區震動提示）
 - [ ] Storage 舊照片自動清理（> 6 個月 → 遷移至 Drive）
+- [ ] `feature/vaccine` 疫苗模組實作（目錄已建立，待功能開發）
