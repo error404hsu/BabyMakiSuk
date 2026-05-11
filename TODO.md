@@ -18,8 +18,10 @@
 - [x] Phase B - P15-P85 區間帶
 - [x] Phase B - 首頁 Child 卡片顯示最近一次成長摘要（LatestGrowthBanner）
 - [x] Phase B - GrowthScreen 圖表切換 Icon 修正（ShowChart）
-- [ ] Phase B - head circumference percentile 與圖表
-- [ ] Phase B - 替換成 WHO 官方完整 0-60 月 LMS/CSV 資料
+- [x] Phase B - head circumference percentile 與圖表
+- [ ] Phase B - 替換成 WHO 官方完整 0-60 月 LMS/CSV 資料（目前為 stub，可升級）
+
+> ✅ Phase A & B 核心功能全部完成。WHO 官方完整 CSV 替換列為 Backlog 優化項。
 
 ---
 
@@ -42,13 +44,13 @@
 
 ## HomeScreen
 
-- [x] HomeUiState / HomeViewModel（feat/home-ui branch）
+- [x] HomeUiState / HomeViewModel（已 merge to main）
 - [x] 雙 ChildSummaryCard 並排（男藍 #4A90D9 / 女粉 #E07BBD）
 - [x] TwinDiffBadge 雙胞胎身高體重差距顯示
 - [x] DailyLogOverviewCard 今日日誌快覽（吃飯、睡眠、心情 emoji）
 - [x] HomeTopBar 日期問候
+- [x] HomeScreen 接入 feat/home-ui branch → merge to main
 - [ ] AI 晨報 Card（AiMorningBriefingCard，接 ServiceAI summarizeBabyDailyLog）
-- [ ] HomeScreen 接入 feat/home-ui branch → merge to main
 - [ ] 疫苗提醒 Card（VaccineReminderCard）
 - [ ] 下次回診 Card（NextVisitCard）
 
@@ -68,7 +70,7 @@
 
 > 詳細規格見 docs/SYNC_ARCHITECTURE.md
 
-### E-0 立即執行（Model 留位，不影響現有功能）——✅ 全部完成
+### E-0 立即執行（Model 留位，不影響現有功能）—— ✅ 全部完成
 
 - [x] `core/model`：`MedicalVisit` 新增欄位 `imageStoragePath: String?`、`aiPending: Boolean`
 - [x] `core/model`：新增 `WeeklyReport.kt` domain model
@@ -92,7 +94,7 @@
 - [ ] `core/firebase`：`FirestoreChildRepository`
 - [ ] `core/firebase`：`FirestoreMedicalRepository`（含 `aiPending` 旗標監聽）
 - [ ] `core/firebase`：`ImageUploadRepository`（圖片壓縮 + Storage 上傳）
-- [ ] `core/firebase`：`MedicalImageCacheManager`（本機圖片快取）
+- [ ] `core/firebase`：`FirestoreMedicalImageCacheManager`（本機圖片快取）
 - [ ] 雙機同步測試（低階機寫入 → 高階機 AI 觸發 → 結果同步回低階機）
 
 ---
@@ -114,6 +116,7 @@
 
 ## Backlog
 
+- [ ] 替換成 WHO 官方完整 0-60 月 LMS/CSV 資料（目前 stub 精度足夠，正式上架前升級）
 - [ ] 多家長共用 Child（OWNER / CAREGIVER）
 - [ ] PDF 報表輸出
 - [ ] Widget 顯示今日待辦

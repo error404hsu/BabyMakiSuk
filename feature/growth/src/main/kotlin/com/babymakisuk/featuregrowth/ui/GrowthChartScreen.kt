@@ -1,4 +1,4 @@
-﻿package com.babymakisuk.featuregrowth.ui
+package com.babymakisuk.featuregrowth.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.*
@@ -37,14 +37,20 @@ fun GrowthChartScreen(records: List<GrowthRecordWithPercentile>) {
     }
 
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("身高(cm)", "體重(kg)")
+    val tabs = listOf("身高(cm)", "體重(kg)", "頭圍(cm)")
+
+    // 頭圍 tab 僅在至少一筆紀錄有頭圍資料時才可點擊
+    val hasHeadCircData = records.any { it.record.headCircumferenceCm != null }
 
     Column(Modifier.fillMaxSize()) {
         TabRow(selectedTabIndex = selectedTab) {
             tabs.forEachIndexed { index, title ->
                 Tab(
                     selected = selectedTab == index,
-                    onClick = { selectedTab = index },
+                    onClick = {
+                        if (index != 2 || hasHeadCircData) selectedTab = index
+                    },
+                    enabled = index != 2 || hasHeadCircData,
                     text = { Text(title) }
                 )
             }
@@ -54,14 +60,21 @@ fun GrowthChartScreen(records: List<GrowthRecordWithPercentile>) {
         PercentileLegend()
         Spacer(Modifier.height(8.dp))
 
-        val metric = if (selectedTab == 0) {
-            PercentileCalculator.Metric.HEIGHT
+        val metric = when (selectedTab) {
+            0 -> PercentileCalculator.Metric.HEIGHT
+            1 -> PercentileCalculator.Metric.WEIGHT
+            else -> PercentileCalculator.Metric.HEAD_CIRC
+        }
+
+        // 頭圍圖表過濾掉無頭圍資料的紀錄
+        val chartRecords = if (metric == PercentileCalculator.Metric.HEAD_CIRC) {
+            records.filter { it.record.headCircumferenceCm != null }
         } else {
-            PercentileCalculator.Metric.WEIGHT
+            records
         }
 
         GrowthLineChart(
-            records = records,
+            records = chartRecords,
             metric = metric,
             modifier = Modifier
                 .fillMaxWidth()
@@ -106,14 +119,22 @@ private fun GrowthLineChart(
     metric: PercentileCalculator.Metric,
     modifier: Modifier = Modifier
 ) {
+    if (records.isEmpty()) {
+        Box(modifier, contentAlignment = Alignment.Center) {
+            Text("尚無頭圍資料", style = MaterialTheme.typography.bodyMedium)
+        }
+        return
+    }
+
     val textMeasurer = rememberTextMeasurer()
     val sorted = remember(records) { records.sortedBy { it.ageMonths } }
     val gender = sorted.first().gender
 
     val measuredValues = sorted.map {
         when (metric) {
-            PercentileCalculator.Metric.HEIGHT -> it.record.heightCm.toDouble()
-            PercentileCalculator.Metric.WEIGHT -> it.record.weightKg.toDouble()
+            PercentileCalculator.Metric.HEIGHT    -> it.record.heightCm.toDouble()
+            PercentileCalculator.Metric.WEIGHT    -> it.record.weightKg.toDouble()
+            PercentileCalculator.Metric.HEAD_CIRC -> it.record.headCircumferenceCm?.toDouble() ?: 0.0
         }
     }
 
@@ -122,18 +143,15 @@ private fun GrowthLineChart(
     val monthMax = max(monthMaxRaw, monthMin + 1)
     val months = (monthMin..monthMax).toList()
 
-    val ref3 = remember(sorted, metric) { buildReferenceMap(gender, metric, months, 3) }
+    val ref3  = remember(sorted, metric) { buildReferenceMap(gender, metric, months, 3) }
     val ref15 = remember(sorted, metric) { buildReferenceMap(gender, metric, months, 15) }
     val ref50 = remember(sorted, metric) { buildReferenceMap(gender, metric, months, 50) }
     val ref85 = remember(sorted, metric) { buildReferenceMap(gender, metric, months, 85) }
     val ref97 = remember(sorted, metric) { buildReferenceMap(gender, metric, months, 97) }
 
     val referenceAll = buildList {
-        addAll(ref3.values)
-        addAll(ref15.values)
-        addAll(ref50.values)
-        addAll(ref85.values)
-        addAll(ref97.values)
+        addAll(ref3.values); addAll(ref15.values); addAll(ref50.values)
+        addAll(ref85.values); addAll(ref97.values)
     }
 
     val minRef = referenceAll.minOrNull() ?: measuredValues.minOrNull() ?: 0.0
@@ -158,49 +176,25 @@ private fun GrowthLineChart(
             val ratio = (month - monthMin).toFloat() / (monthMax - monthMin).coerceAtLeast(1)
             return padLeft + ratio * chartW
         }
-
         fun yOf(value: Double): Float {
             val ratio = ((value - minY) / (maxY - minY)).toFloat()
             return h - padBottom - ratio * chartH
         }
 
-        drawAxes(
-            monthMin = monthMin,
-            monthMax = monthMax,
-            minY = minY,
-            maxY = maxY,
-            xOf = ::xOf,
-            yOf = ::yOf,
-            textMeasurer = textMeasurer
-        )
-
-        drawReferenceBand(
-            months = months,
-            upper = ref85,
-            lower = ref15,
-            xOf = ::xOf,
-            yOf = ::yOf,
-            color = Color(0xFFE3F2FD)
-        )
-
-        drawReferenceLine(months, ref3, ::xOf, ::yOf, Color(0xFFBDBDBD), dashed = true)
+        drawAxes(monthMin, monthMax, minY, maxY, ::xOf, ::yOf, textMeasurer)
+        drawReferenceBand(months, ref85, ref15, ::xOf, ::yOf, Color(0xFFE3F2FD))
+        drawReferenceLine(months, ref3,  ::xOf, ::yOf, Color(0xFFBDBDBD), dashed = true)
         drawReferenceLine(months, ref15, ::xOf, ::yOf, Color(0xFF90CAF9), dashed = true)
         drawReferenceLine(months, ref50, ::xOf, ::yOf, Color(0xFF42A5F5), dashed = false)
         drawReferenceLine(months, ref85, ::xOf, ::yOf, Color(0xFF90CAF9), dashed = true)
         drawReferenceLine(months, ref97, ::xOf, ::yOf, Color(0xFFBDBDBD), dashed = true)
-
-        drawMeasuredLine(
-            records = sorted,
-            metric = metric,
-            xOf = ::xOf,
-            yOf = ::yOf
-        )
+        drawMeasuredLine(sorted, metric, ::xOf, ::yOf)
 
         val label = when (metric) {
-            PercentileCalculator.Metric.HEIGHT -> "WHO 身高參考線 + 實測"
-            PercentileCalculator.Metric.WEIGHT -> "WHO 體重參考線 + 實測"
+            PercentileCalculator.Metric.HEIGHT    -> "WHO 身高參考線 + 實測"
+            PercentileCalculator.Metric.WEIGHT    -> "WHO 體重參考線 + 實測"
+            PercentileCalculator.Metric.HEAD_CIRC -> "WHO 頭圍參考線 + 實測"
         }
-
         drawText(
             textMeasurer = textMeasurer,
             text = label,
@@ -215,13 +209,10 @@ private fun buildReferenceMap(
     metric: PercentileCalculator.Metric,
     months: List<Int>,
     percentile: Int
-): Map<Int, Double> {
-    return months.associateWith { month ->
-        PercentileCalculator
-            .referenceValues(gender, metric, month)[percentile]
-            ?: 0.0
+): Map<Int, Double> =
+    months.associateWith { month ->
+        PercentileCalculator.referenceValues(gender, metric, month)[percentile] ?: 0.0
     }
-}
 
 private fun DrawScope.drawAxes(
     monthMin: Int,
@@ -237,121 +228,51 @@ private fun DrawScope.drawAxes(
     val padBottom = 36f
     val padLeft = 52f
 
-    drawLine(
-        color = Color.Gray,
-        start = Offset(padLeft, h - padBottom),
-        end = Offset(w, h - padBottom),
-        strokeWidth = 2f
-    )
-    drawLine(
-        color = Color.Gray,
-        start = Offset(padLeft, 16f),
-        end = Offset(padLeft, h - padBottom),
-        strokeWidth = 2f
-    )
+    drawLine(color = Color.Gray, start = Offset(padLeft, h - padBottom), end = Offset(w, h - padBottom), strokeWidth = 2f)
+    drawLine(color = Color.Gray, start = Offset(padLeft, 16f), end = Offset(padLeft, h - padBottom), strokeWidth = 2f)
 
-    val ySteps = 5
-    for (i in 0..ySteps) {
-        val value = minY + (maxY - minY) * i / ySteps
+    for (i in 0..5) {
+        val value = minY + (maxY - minY) * i / 5
         val y = yOf(value)
-        drawLine(
-            color = Color(0xFFE0E0E0),
-            start = Offset(padLeft, y),
-            end = Offset(w, y),
-            strokeWidth = 1f
-        )
-        drawText(
-            textMeasurer = textMeasurer,
-            text = "%.1f".format(value),
-            topLeft = Offset(0f, y - 8f),
-            style = TextStyle(fontSize = 9.sp, color = Color.Gray)
-        )
+        drawLine(color = Color(0xFFE0E0E0), start = Offset(padLeft, y), end = Offset(w, y), strokeWidth = 1f)
+        drawText(textMeasurer, "%.1f".format(value), Offset(0f, y - 8f), TextStyle(fontSize = 9.sp, color = Color.Gray))
     }
 
     val span = monthMax - monthMin
-    val xStep = when {
-        span <= 12 -> 2
-        span <= 24 -> 3
-        else -> 6
-    }
-
+    val xStep = when { span <= 12 -> 2; span <= 24 -> 3; else -> 6 }
     var month = monthMin
     while (month <= monthMax) {
         val x = xOf(month)
-        drawLine(
-            color = Color(0xFFF0F0F0),
-            start = Offset(x, 16f),
-            end = Offset(x, h - padBottom),
-            strokeWidth = 1f
-        )
-        drawText(
-            textMeasurer = textMeasurer,
-            text = "${month}m",
-            topLeft = Offset(x - 10f, h - padBottom + 6f),
-            style = TextStyle(fontSize = 9.sp, color = Color.Gray)
-        )
+        drawLine(color = Color(0xFFF0F0F0), start = Offset(x, 16f), end = Offset(x, h - padBottom), strokeWidth = 1f)
+        drawText(textMeasurer, "${month}m", Offset(x - 10f, h - padBottom + 6f), TextStyle(fontSize = 9.sp, color = Color.Gray))
         month += xStep
     }
 }
 
 private fun DrawScope.drawReferenceBand(
-    months: List<Int>,
-    upper: Map<Int, Double>,
-    lower: Map<Int, Double>,
-    xOf: (Int) -> Float,
-    yOf: (Double) -> Float,
-    color: Color
+    months: List<Int>, upper: Map<Int, Double>, lower: Map<Int, Double>,
+    xOf: (Int) -> Float, yOf: (Double) -> Float, color: Color
 ) {
     if (months.size < 2) return
-
     val path = Path().apply {
-        val first = months.first()
-        moveTo(xOf(first), yOf(upper.getValue(first)))
-
-        months.drop(1).forEach { month ->
-            lineTo(xOf(month), yOf(upper.getValue(month)))
-        }
-
-        months.asReversed().forEach { month ->
-            lineTo(xOf(month), yOf(lower.getValue(month)))
-        }
-
+        moveTo(xOf(months.first()), yOf(upper.getValue(months.first())))
+        months.drop(1).forEach { lineTo(xOf(it), yOf(upper.getValue(it))) }
+        months.asReversed().forEach { lineTo(xOf(it), yOf(lower.getValue(it))) }
         close()
     }
-
-    drawPath(path = path, color = color)
+    drawPath(path, color)
 }
 
 private fun DrawScope.drawReferenceLine(
-    months: List<Int>,
-    values: Map<Int, Double>,
-    xOf: (Int) -> Float,
-    yOf: (Double) -> Float,
-    color: Color,
-    dashed: Boolean
+    months: List<Int>, values: Map<Int, Double>,
+    xOf: (Int) -> Float, yOf: (Double) -> Float, color: Color, dashed: Boolean
 ) {
     if (months.size < 2) return
-
     val path = Path().apply {
-        val first = months.first()
-        moveTo(xOf(first), yOf(values.getValue(first)))
-        months.drop(1).forEach { month ->
-            lineTo(xOf(month), yOf(values.getValue(month)))
-        }
+        moveTo(xOf(months.first()), yOf(values.getValue(months.first())))
+        months.drop(1).forEach { lineTo(xOf(it), yOf(values.getValue(it))) }
     }
-
-    drawPath(
-        path = path,
-        color = color,
-        style = Stroke(
-            width = 2f,
-            pathEffect = if (dashed) {
-                PathEffect.dashPathEffect(floatArrayOf(12f, 8f), 0f)
-            } else {
-                null
-            }
-        )
-    )
+    drawPath(path, color, style = Stroke(width = 2f, pathEffect = if (dashed) PathEffect.dashPathEffect(floatArrayOf(12f, 8f), 0f) else null))
 }
 
 private fun DrawScope.drawMeasuredLine(
@@ -361,45 +282,23 @@ private fun DrawScope.drawMeasuredLine(
     yOf: (Double) -> Float
 ) {
     if (records.isEmpty()) return
-
     val path = Path().apply {
         val first = records.first()
-        val firstValue = when (metric) {
-            PercentileCalculator.Metric.HEIGHT -> first.record.heightCm.toDouble()
-            PercentileCalculator.Metric.WEIGHT -> first.record.weightKg.toDouble()
-        }
-        moveTo(xOf(first.ageMonths), yOf(firstValue))
-
-        records.drop(1).forEach { item ->
-            val value = when (metric) {
-                PercentileCalculator.Metric.HEIGHT -> item.record.heightCm.toDouble()
-                PercentileCalculator.Metric.WEIGHT -> item.record.weightKg.toDouble()
-            }
-            lineTo(xOf(item.ageMonths), yOf(value))
-        }
+        val firstVal = first.metricValue(metric)
+        moveTo(xOf(first.ageMonths), yOf(firstVal))
+        records.drop(1).forEach { lineTo(xOf(it.ageMonths), yOf(it.metricValue(metric))) }
     }
-
-    drawPath(
-        path = path,
-        color = Color(0xFFFF7043),
-        style = Stroke(width = 4f)
-    )
-
+    drawPath(path, Color(0xFFFF7043), style = Stroke(width = 4f))
     records.forEach { item ->
-        val value = when (metric) {
-            PercentileCalculator.Metric.HEIGHT -> item.record.heightCm.toDouble()
-            PercentileCalculator.Metric.WEIGHT -> item.record.weightKg.toDouble()
-        }
-
-        drawCircle(
-            color = Color.White,
-            radius = 7f,
-            center = Offset(xOf(item.ageMonths), yOf(value))
-        )
-        drawCircle(
-            color = Color(0xFFFF7043),
-            radius = 5f,
-            center = Offset(xOf(item.ageMonths), yOf(value))
-        )
+        val v = item.metricValue(metric)
+        drawCircle(Color.White,  radius = 7f, center = Offset(xOf(item.ageMonths), yOf(v)))
+        drawCircle(Color(0xFFFF7043), radius = 5f, center = Offset(xOf(item.ageMonths), yOf(v)))
     }
 }
+
+private fun GrowthRecordWithPercentile.metricValue(metric: PercentileCalculator.Metric): Double =
+    when (metric) {
+        PercentileCalculator.Metric.HEIGHT    -> record.heightCm.toDouble()
+        PercentileCalculator.Metric.WEIGHT    -> record.weightKg.toDouble()
+        PercentileCalculator.Metric.HEAD_CIRC -> record.headCircumferenceCm?.toDouble() ?: 0.0
+    }

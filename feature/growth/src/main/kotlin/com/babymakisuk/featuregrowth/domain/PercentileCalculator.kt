@@ -1,19 +1,19 @@
-﻿package com.babymakisuk.featuregrowth.domain
+package com.babymakisuk.featuregrowth.domain
 
 import com.babymakisuk.coremodel.Gender
 import kotlin.math.*
 
 /**
- * WHO Child Growth Standards 窶・邁｡蛹・LMS 譟･陦ｨ豕輔・
+ * WHO Child Growth Standards — LMS 計算工具
  * L = Box-Cox power, M = median, S = coefficient of variation
- * 雉・侭萓・ｺ・ WHO (2006), 萓晄怦鮨｡ 0-60 譛医・
- * 豁､轤ｺ stub 雉・侭・帶ｭ｣蠑冗沿隲句ｾ・WHO 螳俶婿 CSV 譖ｿ謠・lmsData縲・
+ * 參考來源: WHO (2006), 涵蓋 0-60 月
+ * 注意: 目前為 stub 資料，正式版請替換成 WHO 官方完整 CSV → lmsData
  */
 object PercentileCalculator {
 
     data class LmsPoint(val l: Double, val m: Double, val s: Double)
 
-    // --- Stub tables: (ageMonths -> LmsPoint)・梧ｭ｣蠑冗沿譖ｿ謠帷ぜ螳梧紛 WHO 陦ｨ ---
+    // --- 身高 ---
     private val heightBoyTable: Map<Int, LmsPoint> = mapOf(
         0  to LmsPoint(1.0, 49.9, 0.0379),
         3  to LmsPoint(1.0, 62.4, 0.0353),
@@ -36,6 +36,8 @@ object PercentileCalculator {
         48 to LmsPoint(1.0, 102.7, 0.0374),
         60 to LmsPoint(1.0, 109.4, 0.0375)
     )
+
+    // --- 體重 ---
     private val weightBoyTable: Map<Int, LmsPoint> = mapOf(
         0  to LmsPoint(0.3487, 3.3464, 0.14602),
         3  to LmsPoint(0.2671, 6.3762, 0.11980),
@@ -59,37 +61,63 @@ object PercentileCalculator {
         60 to LmsPoint(1.0641, 18.2479, 0.11380)
     )
 
-    enum class Metric { HEIGHT, WEIGHT }
+    // --- 頭圍 (WHO 2006 LMS stub, 0-60 月) ---
+    private val headCircBoyTable: Map<Int, LmsPoint> = mapOf(
+        0  to LmsPoint(1.0, 34.46, 0.03686),
+        3  to LmsPoint(1.0, 40.50, 0.03132),
+        6  to LmsPoint(1.0, 43.32, 0.02996),
+        9  to LmsPoint(1.0, 45.00, 0.02956),
+        12 to LmsPoint(1.0, 46.32, 0.02938),
+        18 to LmsPoint(1.0, 47.99, 0.02892),
+        24 to LmsPoint(1.0, 49.10, 0.02870),
+        36 to LmsPoint(1.0, 50.39, 0.02843),
+        48 to LmsPoint(1.0, 51.22, 0.02827),
+        60 to LmsPoint(1.0, 51.92, 0.02816)
+    )
+    private val headCircGirlTable: Map<Int, LmsPoint> = mapOf(
+        0  to LmsPoint(1.0, 33.81, 0.03533),
+        3  to LmsPoint(1.0, 38.95, 0.03132),
+        6  to LmsPoint(1.0, 42.00, 0.02996),
+        9  to LmsPoint(1.0, 43.71, 0.02956),
+        12 to LmsPoint(1.0, 44.95, 0.02938),
+        18 to LmsPoint(1.0, 46.67, 0.02892),
+        24 to LmsPoint(1.0, 47.82, 0.02870),
+        36 to LmsPoint(1.0, 49.10, 0.02843),
+        48 to LmsPoint(1.0, 49.95, 0.02827),
+        60 to LmsPoint(1.0, 50.63, 0.02816)
+    )
+
+    enum class Metric { HEIGHT, WEIGHT, HEAD_CIRC }
 
     /**
-     * 蝗槫さ 0~100 逧・卆蛻・ｽ肴丙蛟ｼ・亥屁謐ｨ莠泌・蛻ｰ謨ｴ謨ｸ・峨・
-     * @param ageMonths 譛磯ｽ｡
-     * @param value 驥乗ｸｬ蛟ｼ (cm 謌・kg)
+     * 回傳 0~100 的百分位數值（Hart 近似常態累積分佈）
+     * @param ageMonths 月齡
+     * @param value 實測值 (cm 或 kg)
      */
     fun percentile(gender: Gender, metric: Metric, ageMonths: Int, value: Double): Int {
-        val table = when (metric) {
-            Metric.HEIGHT -> if (gender == Gender.MALE) heightBoyTable else heightGirlTable
-            Metric.WEIGHT -> if (gender == Gender.MALE) weightBoyTable else weightGirlTable
-        }
+        val table = tableFor(gender, metric)
         val lms = interpolateLms(table, ageMonths) ?: return -1
         val z = calcZ(lms, value)
         return (normalCdf(z) * 100).roundToInt().coerceIn(0, 100)
     }
 
     /**
-     * 蝗槫さ萓帛恂陦ｨ郢ｪ陬ｽ逧・純閠・卆蛻・ｽ咲ｷ壽丙蛟ｼ・・3 / P15 / P50 / P85 / P97・峨・
+     * 回傳參考曲線指定百分位對應數值（P3 / P15 / P50 / P85 / P97）
      */
     fun referenceValues(gender: Gender, metric: Metric, ageMonths: Int): Map<Int, Double> {
-        val table = when (metric) {
-            Metric.HEIGHT -> if (gender == Gender.MALE) heightBoyTable else heightGirlTable
-            Metric.WEIGHT -> if (gender == Gender.MALE) weightBoyTable else weightGirlTable
-        }
+        val table = tableFor(gender, metric)
         val lms = interpolateLms(table, ageMonths) ?: return emptyMap()
         val zScores = mapOf(3 to -1.881, 15 to -1.036, 50 to 0.0, 85 to 1.036, 97 to 1.881)
         return zScores.mapValues { (_, z) -> lmsToValue(lms, z) }
     }
 
-    // ---- 蜈ｧ驛ｨ險育ｮ・----
+    private fun tableFor(gender: Gender, metric: Metric): Map<Int, LmsPoint> = when (metric) {
+        Metric.HEIGHT    -> if (gender == Gender.MALE) heightBoyTable else heightGirlTable
+        Metric.WEIGHT    -> if (gender == Gender.MALE) weightBoyTable else weightGirlTable
+        Metric.HEAD_CIRC -> if (gender == Gender.MALE) headCircBoyTable else headCircGirlTable
+    }
+
+    // ---- 內部計算 ----
 
     private fun interpolateLms(table: Map<Int, LmsPoint>, ageMonths: Int): LmsPoint? {
         val sorted = table.keys.sorted()
@@ -114,7 +142,7 @@ object PercentileCalculator {
         if (abs(lms.l) < 1e-6) lms.m * exp(lms.s * z)
         else lms.m * (1 + lms.l * lms.s * z).pow(1.0 / lms.l)
 
-    /** Hart (1968) 霑台ｼｼ蛟ｼ・檎ｲｾ蠎ｦ ﾂｱ0.0005 */
+    /** Hart (1968) 近似值，精度 ±0.0005 */
     private fun normalCdf(z: Double): Double {
         val t = 1.0 / (1.0 + 0.2316419 * abs(z))
         val poly = t * (0.319381530 + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))))

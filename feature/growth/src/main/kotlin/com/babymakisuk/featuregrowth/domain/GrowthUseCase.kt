@@ -1,4 +1,4 @@
-﻿package com.babymakisuk.featuregrowth.domain
+package com.babymakisuk.featuregrowth.domain
 
 import com.babymakisuk.coredata.repository.ChildRepository
 import com.babymakisuk.coredata.repository.GrowthRepository
@@ -15,7 +15,8 @@ data class GrowthRecordWithPercentile(
     val ageMonths: Int,
     val gender: Gender,
     val heightPercentile: Int,
-    val weightPercentile: Int
+    val weightPercentile: Int,
+    val headCircPercentile: Int?    // null when headCircumferenceCm is null
 )
 
 class ObserveGrowthWithPercentile @Inject constructor(
@@ -42,20 +43,28 @@ class ObserveGrowthWithPercentile @Inject constructor(
             ageMonths = ageMonths,
             value = heightCm.toDouble()
         )
-
         val wp = PercentileCalculator.percentile(
             gender = child.gender,
             metric = PercentileCalculator.Metric.WEIGHT,
             ageMonths = ageMonths,
             value = weightKg.toDouble()
         )
+        val hcp = headCircumferenceCm?.let {
+            PercentileCalculator.percentile(
+                gender = child.gender,
+                metric = PercentileCalculator.Metric.HEAD_CIRC,
+                ageMonths = ageMonths,
+                value = it.toDouble()
+            )
+        }
 
         return GrowthRecordWithPercentile(
             record = this,
             ageMonths = ageMonths,
             gender = child.gender,
             heightPercentile = hp,
-            weightPercentile = wp
+            weightPercentile = wp,
+            headCircPercentile = hcp
         )
     }
 }
