@@ -6,10 +6,10 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface VaccineDao {
-    @Query("SELECT * FROM vaccine_record WHERE childId = :childId ORDER BY scheduledDate ASC")
+    @Query("SELECT * FROM vaccine_record WHERE childId = :childId ORDER BY date ASC")
     fun observeByChild(childId: Long): Flow<List<VaccineRecordEntity>>
 
-    @Query("SELECT * FROM vaccine_record ORDER BY scheduledDate ASC")
+    @Query("SELECT * FROM vaccine_record ORDER BY date ASC")
     suspend fun getAllOnce(): List<VaccineRecordEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

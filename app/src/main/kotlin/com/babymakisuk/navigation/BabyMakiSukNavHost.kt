@@ -74,7 +74,24 @@ fun BabyMakiSukNavHost() {
             startDestination = BottomNavItem.Home.route,
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(BottomNavItem.Home.route) { HomeScreen() }
+            composable(BottomNavItem.Home.route) {
+                HomeScreen(
+                    onNavigateToGrowth = {
+                        navController.navigate(BottomNavItem.Growth.route) {
+                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    onNavigateToMedical = {
+                        navController.navigate(BottomNavItem.Medical.route) {
+                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
+                )
+            }
             composable(BottomNavItem.Growth.route) { GrowthScreen() }
             composable(BottomNavItem.Medical.route) { MedicalScreen() }
             composable(BottomNavItem.Log.route) { LogScreen() }

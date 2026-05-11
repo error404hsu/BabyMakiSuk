@@ -39,31 +39,31 @@ data class BackupDto(
 
 @Serializable data class GrowthRecordBackup(
     val id: Long, val childId: Long, val date: String,
-    val weightKg: Double? = null, val heightCm: Double? = null,
-    val headCircumferenceCm: Double? = null, val note: String = ""
+    val heightCm: Float, val weightKg: Float,
+    val headCircumferenceCm: Float? = null, val note: String = ""
 )
 
 @Serializable data class MedicalVisitBackup(
-    val id: Long, val childId: Long, val visitDate: String,
-    val hospital: String = "", val department: String = "",
-    val diagnosis: String = "", val note: String = "",
-    val diagnosisSummary: String? = null,
-    val prescriptions: String? = null,
-    val careInstructions: String? = null,
+    val id: Long, val childId: Long, val date: String,
+    val hospital: String, val department: String = "",
+    val diagnosis: String = "", val notes: String = "",
+    val attachments: String = "",
+    val diagnosisSummary: String = "",
+    val prescriptions: String = "",
+    val careInstructions: String = "",
     val imageStoragePath: String? = null,
     val aiPending: Boolean = false
 )
 
 @Serializable data class VaccineRecordBackup(
     val id: Long, val childId: Long, val vaccineName: String,
-    val scheduledDate: String, val completedDate: String? = null,
-    val note: String = ""
+    val dose: Int = 1, val date: String, val note: String = ""
 )
 
 @Serializable data class DailyLogBackup(
     val id: Long, val childId: Long, val date: String,
-    val mealNote: String = "", val sleepNote: String = "",
-    val moodEmoji: String = "", val note: String = ""
+    val sleepInfo: String = "", val mealsInfo: String = "",
+    val poopCount: Int = 0, val mood: String = "", val freeText: String = ""
 )
 
 // ── BackupManager ──────────────────────────────────────────
@@ -154,14 +154,15 @@ class BackupManager @Inject constructor(
 
     private fun GrowthRecordEntity.toBackup() = GrowthRecordBackup(
         id = id, childId = childId, date = date.toString(),
-        weightKg = weightKg, heightCm = heightCm,
+        heightCm = heightCm, weightKg = weightKg,
         headCircumferenceCm = headCircumferenceCm, note = note
     )
 
     private fun MedicalVisitEntity.toBackup() = MedicalVisitBackup(
-        id = id, childId = childId, visitDate = visitDate.toString(),
+        id = id, childId = childId, date = date.toString(),
         hospital = hospital, department = department,
-        diagnosis = diagnosis, note = note,
+        diagnosis = diagnosis, notes = notes,
+        attachments = attachments,
         diagnosisSummary = diagnosisSummary,
         prescriptions = prescriptions,
         careInstructions = careInstructions,
@@ -171,14 +172,13 @@ class BackupManager @Inject constructor(
 
     private fun VaccineRecordEntity.toBackup() = VaccineRecordBackup(
         id = id, childId = childId, vaccineName = vaccineName,
-        scheduledDate = scheduledDate.toString(),
-        completedDate = completedDate?.toString(), note = note
+        dose = dose, date = date.toString(), note = note
     )
 
     private fun DailyLogEntity.toBackup() = DailyLogBackup(
         id = id, childId = childId, date = date.toString(),
-        mealNote = mealNote, sleepNote = sleepNote,
-        moodEmoji = moodEmoji, note = note
+        sleepInfo = sleepInfo, mealsInfo = mealsInfo,
+        poopCount = poopCount, mood = mood, freeText = freeText
     )
 
     // ── Backup DTO → Entity 映射 ───────────────────────────
@@ -190,14 +190,15 @@ class BackupManager @Inject constructor(
 
     private fun GrowthRecordBackup.toEntity() = GrowthRecordEntity(
         id = id, childId = childId, date = LocalDate.parse(date),
-        weightKg = weightKg, heightCm = heightCm,
+        heightCm = heightCm, weightKg = weightKg,
         headCircumferenceCm = headCircumferenceCm, note = note
     )
 
     private fun MedicalVisitBackup.toEntity() = MedicalVisitEntity(
-        id = id, childId = childId, visitDate = LocalDate.parse(visitDate),
+        id = id, childId = childId, date = LocalDate.parse(date),
         hospital = hospital, department = department,
-        diagnosis = diagnosis, note = note,
+        diagnosis = diagnosis, notes = notes,
+        attachments = attachments,
         diagnosisSummary = diagnosisSummary,
         prescriptions = prescriptions,
         careInstructions = careInstructions,
@@ -207,14 +208,12 @@ class BackupManager @Inject constructor(
 
     private fun VaccineRecordBackup.toEntity() = VaccineRecordEntity(
         id = id, childId = childId, vaccineName = vaccineName,
-        scheduledDate = LocalDate.parse(scheduledDate),
-        completedDate = completedDate?.let { LocalDate.parse(it) },
-        note = note
+        dose = dose, date = LocalDate.parse(date), note = note
     )
 
     private fun DailyLogBackup.toEntity() = DailyLogEntity(
         id = id, childId = childId, date = LocalDate.parse(date),
-        mealNote = mealNote, sleepNote = sleepNote,
-        moodEmoji = moodEmoji, note = note
+        sleepInfo = sleepInfo, mealsInfo = mealsInfo,
+        poopCount = poopCount, mood = mood, freeText = freeText
     )
 }
