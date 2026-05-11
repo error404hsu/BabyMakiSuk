@@ -1,4 +1,4 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+﻿import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.android.library)
@@ -11,7 +11,7 @@ kotlin {
 }
 
 android {
-    namespace = "com.error404hsu.babymakisuk.coredrive"
+    namespace = "com.babymakisuk.coredrive"
     compileSdk = 35
     defaultConfig { minSdk = 26 }
     compileOptions {
@@ -24,5 +24,5 @@ dependencies {
     api(project(":core:model"))
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
-    // TODO Phase F: 加入 google-api-client-android, drive
+    // TODO Phase F: 蜉蜈･ google-api-client-android, drive
 }

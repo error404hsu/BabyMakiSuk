@@ -1,4 +1,4 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+﻿import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.android.library)
@@ -11,7 +11,7 @@ kotlin {
 }
 
 android {
-    namespace = "com.error404hsu.babymakisuk.corefirebase"
+    namespace = "com.babymakisuk.corefirebase"
     compileSdk = 35
     defaultConfig { minSdk = 26 }
     compileOptions {
@@ -24,5 +24,5 @@ dependencies {
     api(project(":core:model"))
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
-    // TODO Phase E-1: 加入 firebase-firestore-ktx, firebase-storage-ktx
+    // TODO Phase E-1: 蜉蜈･ firebase-firestore-ktx, firebase-storage-ktx
 }

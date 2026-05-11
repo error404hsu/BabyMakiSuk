@@ -1,4 +1,4 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+﻿import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.android.application)
@@ -15,11 +15,11 @@ kotlin {
 }
 
 android {
-    namespace = "com.error404hsu.babymakisuk"
+    namespace = "com.babymakisuk"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.error404hsu.babymakisuk"
+        applicationId = "com.babymakisuk"
         minSdk = 26
         targetSdk = 35
         versionCode = 1

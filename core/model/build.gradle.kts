@@ -1,4 +1,4 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+﻿import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.android.library)
@@ -11,7 +11,7 @@ kotlin {
 }
 
 android {
-    namespace = "com.error404hsu.babymakisuk.coremodel"
+    namespace = "com.babymakisuk.coremodel"
     compileSdk = 35
     defaultConfig { minSdk = 26 }
     compileOptions {
