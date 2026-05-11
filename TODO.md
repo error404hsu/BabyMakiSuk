@@ -126,12 +126,13 @@
 - [x] `DarkModeOption` enum：SYSTEM / LIGHT / DARK 三選一
 - [x] `SettingsPreferences`：DataStore Key 統一定義
 - [x] 匯出 / 匯入 UI 骨架（stub，待 E-2 正式串接）
+- [x] `BabyMakiSukTheme` 支援 `darkTheme: Boolean` 參數（新增 DarkColorScheme）
+- [x] `MainActivity` 讀取 `SettingsViewModel.darkMode`，動態传入主題
 
 ### G-1 待實作
 
 - [ ] 匯出：Room 全資料 → JSON，透過 ShareSheet 分享或存至 Downloads
 - [ ] 匯入：選取 JSON 備份，merge 或覆蓋寫入 Room（含確認 Dialog）
-- [ ] MainActivity 套用深色模式主題（讀取 `SettingsViewModel.darkMode` 動態切換）
 - [ ] 多寶寶 Profile 管理（新增 / 切換 / 刪除）
 - [ ] 通知排程設定（餵奶提醒、疫苗到期推播）
 - [ ] 語言切換（繁中 / English）
