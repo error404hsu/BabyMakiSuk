@@ -24,6 +24,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.babymakisuk.coreai.AiPreset
+import com.babymakisuk.coreai.GeminiModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -33,11 +35,11 @@ fun AiPortalScreen(
     viewModel: AiPortalViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    
+
     // 控制測試中模型選擇選單的顯示
-    val isTestingMode = true 
+    val isTestingMode = true
     var showModelMenu by remember { mutableStateOf(false) }
-    
+
     val listState = rememberLazyListState()
 
     // 當新訊息產生或打字機效果進行時，自動捲動到底部
@@ -50,11 +52,11 @@ fun AiPortalScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { 
+                title = {
                     Column {
                         Text("AI 助手")
                         Text(
-                            text = "角色: ${uiState.selectedPersona.title} | ${uiState.selectedModel}",
+                            text = "角色: ${uiState.selectedPreset.displayName} | ${uiState.selectedModel.displayName}",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -70,8 +72,9 @@ fun AiPortalScreen(
                     IconButton(onClick = { viewModel.summarizeToKnowledgeBase() }) {
                         Icon(Icons.Default.Book, contentDescription = "整理本次對話為知識庫")
                     }
-                    
-                    // 功能：強制使用模型的選項
+
+                    // 功能：測試模式下的模型切換選單
+                    // 選單選項從 GeminiModel.entries 動態產生，不再硬編碼字串
                     if (isTestingMode) {
                         Box {
                             IconButton(onClick = { showModelMenu = true }) {
@@ -81,18 +84,26 @@ fun AiPortalScreen(
                                 expanded = showModelMenu,
                                 onDismissRequest = { showModelMenu = false }
                             ) {
-                                DropdownMenuItem(
-                                    text = { Text("Gemini 1.5 Flash") },
-                                    onClick = { viewModel.switchModel("gemini-1.5-flash"); showModelMenu = false }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Gemini Pro") },
-                                    onClick = { viewModel.switchModel("gemini-pro"); showModelMenu = false }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Gemma 4 (Local LiteRT)") },
-                                    onClick = { viewModel.switchModel("gemma-4-local"); showModelMenu = false }
-                                )
+                                GeminiModel.entries.forEach { model ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(model.displayName)
+                                                Badge { Text(model.badge) }
+                                            }
+                                        },
+                                        onClick = {
+                                            viewModel.switchModel(model)
+                                            showModelMenu = false
+                                        },
+                                        trailingIcon = if (uiState.selectedModel == model) {
+                                            { Icon(Icons.Default.Check, contentDescription = "已選擇", modifier = Modifier.size(16.dp)) }
+                                        } else null
+                                    )
+                                }
                             }
                         }
                     }
@@ -106,20 +117,27 @@ fun AiPortalScreen(
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
         ) {
-            // UI/UX: 頂部角色選擇列 (Persona Selector)
+            // UI/UX: 頂部角色選擇列（Persona Selector）
+            // 來源改為 uiState.sortedPresets（型別為 AiPreset），統一使用 core 定義
             LazyRow(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(uiState.sortedPersonas) { persona ->
+                items(uiState.sortedPresets) { preset ->
                     FilterChip(
-                        selected = uiState.selectedPersona == persona,
-                        onClick = { viewModel.switchPersona(persona) },
-                        label = { Text(persona.title) },
-                        leadingIcon = if (uiState.selectedPersona == persona) {
-                            { Icon(Icons.Default.Check, contentDescription = "已選擇", modifier = Modifier.size(16.dp)) }
+                        selected = uiState.selectedPreset == preset,
+                        onClick  = { viewModel.switchPreset(preset) },
+                        label    = { Text(preset.displayName) },
+                        leadingIcon = if (uiState.selectedPreset == preset) {
+                            {
+                                Icon(
+                                    Icons.Default.Check,
+                                    contentDescription = "已選擇",
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
                         } else null
                     )
                 }
@@ -142,7 +160,7 @@ fun AiPortalScreen(
                 }
             }
 
-            // 預設問題 (僅在初始狀態且沒有對話時顯示)
+            // 預設問題（僅在初始狀態且沒有對話時顯示）
             if (uiState.isAwaitingInput && uiState.messages.isEmpty()) {
                 LazyRow(
                     modifier = Modifier
@@ -150,12 +168,22 @@ fun AiPortalScreen(
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    val presetQuestions = listOf("分析最新的生長數據", "規劃 6 個月寶寶副食品", "最近夜醒頻繁怎麼辦？")
+                    val presetQuestions = listOf(
+                        "分析最新的生長數據",
+                        "規劃 6 個月寶寶副食品",
+                        "最近夜醒頻繁怎麼辦？"
+                    )
                     items(presetQuestions) { question ->
                         AssistChip(
                             onClick = { viewModel.sendMessage(question) },
-                            label = { Text(question) },
-                            leadingIcon = { Icon(Icons.Default.Lightbulb, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                            label   = { Text(question) },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.Lightbulb,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
                         )
                     }
                 }
@@ -163,7 +191,7 @@ fun AiPortalScreen(
 
             // 底部輸入框與發送按鈕
             ChatInputBar(
-                onSend = { viewModel.sendMessage(it) },
+                onSend       = { viewModel.sendMessage(it) },
                 isGenerating = uiState.isGenerating
             )
         }
@@ -178,20 +206,22 @@ private fun ChatBubble(message: ChatMessage) {
         horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
     ) {
         Surface(
-            color = if (isUser) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+            color = if (isUser) MaterialTheme.colorScheme.primaryContainer
+                    else MaterialTheme.colorScheme.surfaceVariant,
             shape = RoundedCornerShape(
-                topStart = 16.dp,
-                topEnd = 16.dp,
+                topStart    = 16.dp,
+                topEnd      = 16.dp,
                 bottomStart = if (isUser) 16.dp else 4.dp,
-                bottomEnd = if (isUser) 4.dp else 16.dp
+                bottomEnd   = if (isUser) 4.dp else 16.dp
             ),
             modifier = Modifier.widthIn(max = 280.dp)
         ) {
             Text(
-                text = message.text,
+                text     = message.text,
                 modifier = Modifier.padding(12.dp),
-                color = if (isUser) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodyLarge
+                color    = if (isUser) MaterialTheme.colorScheme.onPrimaryContainer
+                           else MaterialTheme.colorScheme.onSurfaceVariant,
+                style    = MaterialTheme.typography.bodyLarge
             )
         }
     }
@@ -212,13 +242,13 @@ private fun ChatInputBar(
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         OutlinedTextField(
-            value = text,
+            value         = text,
             onValueChange = { text = it },
-            modifier = Modifier.weight(1f),
-            placeholder = { Text("輸入問題...") },
-            enabled = !isGenerating,
-            shape = RoundedCornerShape(24.dp),
-            maxLines = 3,
+            modifier      = Modifier.weight(1f),
+            placeholder   = { Text("輸入問題...") },
+            enabled       = !isGenerating,
+            shape         = RoundedCornerShape(24.dp),
+            maxLines      = 3,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
             keyboardActions = KeyboardActions(onSend = {
                 if (text.isNotBlank()) {
@@ -235,21 +265,28 @@ private fun ChatInputBar(
                     text = ""
                 }
             },
-            enabled = text.isNotBlank() && !isGenerating,
+            enabled  = text.isNotBlank() && !isGenerating,
             modifier = Modifier
                 .size(48.dp)
                 .background(
-                    color = if (text.isNotBlank() && !isGenerating) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                    color = if (text.isNotBlank() && !isGenerating)
+                        MaterialTheme.colorScheme.primary
+                    else
+                        MaterialTheme.colorScheme.surfaceVariant,
                     shape = RoundedCornerShape(24.dp)
                 )
         ) {
             if (isGenerating) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                CircularProgressIndicator(
+                    modifier    = Modifier.size(24.dp),
+                    strokeWidth = 2.dp
+                )
             } else {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.Send,
+                    imageVector    = Icons.AutoMirrored.Filled.Send,
                     contentDescription = "發送",
-                    tint = if (text.isNotBlank()) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = if (text.isNotBlank()) MaterialTheme.colorScheme.onPrimary
+                           else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

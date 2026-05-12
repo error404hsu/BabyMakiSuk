@@ -1,9 +1,11 @@
 package com.babymakisuk.featureai
 
+import com.babymakisuk.coreai.AiPreset
+import com.babymakisuk.coreai.GeminiModel
 import java.util.UUID
 
 /**
- * AI 角色枚舉
+ * AI 角色枚舉（UI 層）
  */
 enum class Role { USER, AI }
 
@@ -18,24 +20,20 @@ data class ChatMessage(
 )
 
 /**
- * 定義專業角色與對應的 System Prompt
- */
-enum class Persona(val title: String, val systemInstruction: String) {
-    ASSISTANT("育兒助手", "你是一個溫溫、具備同理心的 AI 育兒助手，能提供全面的日常育兒建議。"),
-    DOCTOR("兒科醫師", "你是一位具有多年臨床經驗的兒科醫師。請以專業、客觀且嚴謹的醫學角度回答兒童健康與疾病相關問題，並適時提醒家長需就醫的警訊。"),
-    PHARMACIST("專業藥師", "你是一位專精於小兒用藥的藥師。請針對兒童用藥安全、劑量注意事項、藥物副作用與交互作用提供精確且易懂的建議。"),
-    NUTRITIONIST("營養師", "你是一位兒童營養師。請針對各月齡嬰幼兒的副食品規劃、營養均衡、挑食問題及生長發育提供專業的飲食建議。")
-}
-
-/**
- * AiPortalScreen 的 UI 狀態
+ * AiPortalScreen 的 UI 狀態。
+ *
+ * 角色定義統一使用 core/ai 的 [AiPreset]，feature 層不再重複定義 Persona。
+ * 模型選擇使用強型別 [GeminiModel]，與 AiDispatcher Fallback Chain 完全對齊。
  */
 data class AiPortalUiState(
     val messages: List<ChatMessage> = emptyList(),
     val isGenerating: Boolean = false,
     val isAwaitingInput: Boolean = true,
-    val selectedModel: String = "gemini-1.5-flash",
-    val selectedPersona: Persona = Persona.ASSISTANT, // 預設角色為助手
-    val sortedPersonas: List<Persona> = Persona.entries,
+    /** 目前選擇的角色，對應 core/ai 的 AiPreset */
+    val selectedPreset: AiPreset = AiPreset.default,
+    /** UI 顯示用的排序後角色清單，presetHint 對應的角色置頂 */
+    val sortedPresets: List<AiPreset> = AiPreset.entries.toList(),
+    /** 目前選擇的模型，預設使用 GeminiModel 標記的 isDefault 項目 */
+    val selectedModel: GeminiModel = GeminiModel.default,
     val errorMessage: String? = null
 )
