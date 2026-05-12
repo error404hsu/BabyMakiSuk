@@ -45,10 +45,13 @@ fun MedicalScreen(
     } ?: MaterialTheme.colorScheme.primary
 
     Scaffold(
-        containerColor = selectedChildColor.copy(alpha = 0.05f),
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            Surface(shadowElevation = 3.dp) {
-                Column(modifier = Modifier.background(MaterialTheme.colorScheme.surface)) {
+            Surface(
+                shadowElevation = 3.dp,
+                color = MaterialTheme.colorScheme.surface
+            ) {
+                Column {
                     TopAppBar(
                         title = {
                             Text(
@@ -103,7 +106,7 @@ fun MedicalScreen(
                                     ) {
                                         Surface(
                                             shape = CircleShape,
-                                            color = Color.White.copy(alpha = 0.8f),
+                                            color = if (isSelected) Color.White.copy(alpha = 0.2f) else childColor.copy(alpha = 0.1f),
                                             modifier = Modifier.size(28.dp)
                                         ) {
                                             Box(contentAlignment = Alignment.Center) {
@@ -167,17 +170,20 @@ fun MedicalScreen(
                         } ?: Box(Modifier.height(16.dp))
 
                         Surface(
-                            modifier = Modifier.weight(1f).fillMaxWidth(),
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth(),
                             shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
                             shadowElevation = 8.dp,
-                            color = MaterialTheme.colorScheme.surface
+                            color = MaterialTheme.colorScheme.surface,
+                            tonalElevation = 2.dp
                         ) {
                             if (state.visits.isEmpty()) {
                                 Box(
                                     Modifier.fillMaxSize(),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text("尚無就診紀錄", color = Color.Gray)
+                                    Text("尚無就診紀錄", color = MaterialTheme.colorScheme.outline)
                                 }
                             } else {
                                 LazyColumn(
@@ -222,7 +228,11 @@ private fun LatestMedicalHero(visit: MedicalVisit, accentColor: Color) {
             .padding(bottom = 24.dp, start = 24.dp, end = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("最近一次就診", style = MaterialTheme.typography.labelMedium, color = Color.Gray)
+        Text(
+            "最近一次就診",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+        )
         Spacer(Modifier.height(4.dp))
         Text(
             text = visit.hospital,
@@ -231,7 +241,7 @@ private fun LatestMedicalHero(visit: MedicalVisit, accentColor: Color) {
         )
         if (visit.diagnosis.isNotBlank()) {
             Surface(
-                color = accentColor.copy(alpha = 0.1f),
+                color = accentColor.copy(alpha = 0.15f),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.padding(top = 8.dp)
             ) {
@@ -246,7 +256,7 @@ private fun LatestMedicalHero(visit: MedicalVisit, accentColor: Color) {
         Text(
             text = visit.date.toString(),
             style = MaterialTheme.typography.labelSmall,
-            color = Color.Gray,
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
             modifier = Modifier.padding(top = 4.dp)
         )
     }
@@ -268,14 +278,17 @@ private fun MedicalVisitCard(
             .fillMaxWidth()
             .animateContentSize(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(
                     shape = RoundedCornerShape(12.dp),
-                    color = accentColor.copy(alpha = 0.12f),
+                    color = accentColor.copy(alpha = 0.15f),
                     modifier = Modifier.size(44.dp)
                 ) {
                     Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
@@ -299,16 +312,26 @@ private fun MedicalVisitCard(
                             if (visit.department.isNotBlank()) append("  ·  ${visit.department}")
                         },
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 // 編輯 / 刪除僅 canEditData 顯示
                 if (canEdit) {
                     IconButton(onClick = onEdit) {
-                        Icon(Icons.Filled.Edit, contentDescription = "編輯", tint = Color.LightGray, modifier = Modifier.size(20.dp))
+                        Icon(
+                            Icons.Filled.Edit,
+                            contentDescription = "編輯",
+                            tint = MaterialTheme.colorScheme.outline,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                     IconButton(onClick = onDelete) {
-                        Icon(Icons.Filled.Delete, contentDescription = "刪除", tint = Color.LightGray, modifier = Modifier.size(20.dp))
+                        Icon(
+                            Icons.Filled.Delete,
+                            contentDescription = "刪除",
+                            tint = MaterialTheme.colorScheme.outline,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
             }
@@ -319,7 +342,7 @@ private fun MedicalVisitCard(
                     text = "診斷：${visit.diagnosis}",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF424242)
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
 
@@ -403,7 +426,7 @@ private fun MedicalVisitCard(
 private fun AiInfoCard(icon: String, title: String, content: String, color: Color) {
     Surface(
         shape = RoundedCornerShape(12.dp),
-        color = color.copy(alpha = 0.05f),
+        color = color.copy(alpha = 0.1f),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
@@ -420,7 +443,7 @@ private fun AiInfoCard(icon: String, title: String, content: String, color: Colo
             Text(
                 text = content,
                 style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFF424242),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 lineHeight = 18.sp
             )
         }
