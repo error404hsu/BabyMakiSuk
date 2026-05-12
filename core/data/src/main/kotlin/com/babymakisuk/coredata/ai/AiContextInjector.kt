@@ -1,4 +1,4 @@
-package com.babymakisuk.coreai
+package com.babymakisuk.coredata.ai
 
 import com.babymakisuk.coredata.dao.GrowthDao
 import com.babymakisuk.coredata.dao.MedicalDao
@@ -66,7 +66,7 @@ class AiContextInjector @Inject constructor(
         // ── 成長紀錄區塊 ─────────────────────────────────────────────────────
         val growthBlock = allGrowth.firstOrNull()?.let { rec ->
             val dateStr = rec.date.format(dateFmt)
-            "$dateStr 體重：${"%,.1f".format(rec.weightKg)} kg 身高：${"%,.1f".format(rec.heightCm)} cm"
+            "$dateStr 體重：${String.format("%,.1f", rec.weightKg)} kg 身高：${String.format("%,.1f", rec.heightCm)} cm"
         } ?: "尚無成長紀錄"
 
         buildString {

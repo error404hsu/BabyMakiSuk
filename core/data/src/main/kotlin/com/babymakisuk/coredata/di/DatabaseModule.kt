@@ -16,11 +16,15 @@ object DatabaseModule {
 
     @Provides @Singleton
     fun provideDatabase(@ApplicationContext ctx: Context): AppDatabase =
-        Room.databaseBuilder(ctx, AppDatabase::class.java, "babymakisuk.db").build()
+        Room.databaseBuilder(ctx, AppDatabase::class.java, "babymakisuk.db")
+            .addMigrations(AppDatabase.MIGRATION_1_2)
+            .addMigrations(AppDatabase.MIGRATION_2_3)
+            .build()
 
     @Provides fun provideChildDao(db: AppDatabase) = db.childDao()
     @Provides fun provideGrowthDao(db: AppDatabase) = db.growthDao()
     @Provides fun provideMedicalDao(db: AppDatabase) = db.medicalDao()
     @Provides fun provideVaccineDao(db: AppDatabase) = db.vaccineDao()
     @Provides fun provideDailyLogDao(db: AppDatabase) = db.dailyLogDao()
+    @Provides fun provideWeeklyReportDao(db: AppDatabase) = db.weeklyReportDao()
 }

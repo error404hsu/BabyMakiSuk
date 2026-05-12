@@ -16,7 +16,14 @@ kotlin {
 android {
     namespace = "com.babymakisuk.coredata"
     compileSdk = 35
-    defaultConfig { minSdk = 26 }
+    defaultConfig {
+        minSdk = 26
+
+        // 【順手修復】設定 Room Schema 匯出路徑，消除編譯時的警告
+        ksp {
+            arg("room.schemaLocation", "$projectDir/schemas")
+        }
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -25,6 +32,10 @@ android {
 
 dependencies {
     api(project(":core:model"))
+
+    // 【核心修復】引入 core:ai 模組，讓 KSP 與 Hilt 能看見 AiDispatcher
+    implementation(project(":core:ai"))
+
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)

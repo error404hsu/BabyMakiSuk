@@ -11,6 +11,9 @@ data class WeeklyReportEntity(
     @PrimaryKey
     val id: String,
 
+    @ColumnInfo(name = "rowid")
+    val rowId: Long = 0,
+
     @ColumnInfo(name = "child_id")
     val childId: String,
 

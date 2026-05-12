@@ -24,7 +24,6 @@ android {
 
 dependencies {
     api(project(":core:model"))
-    implementation(project(":core:data"))  // 存取 SettingsRepository (geminiApiKey)
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
     implementation(libs.kotlinx.coroutines.android)

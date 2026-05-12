@@ -1,7 +1,7 @@
 package com.babymakisuk.coredata.repository
 
 import android.util.Log
-import com.babymakisuk.coreai.AiContextInjector
+import com.babymakisuk.coredata.ai.AiContextInjector
 import com.babymakisuk.coreai.AiDispatcher
 import com.babymakisuk.coreai.AiTask
 import com.babymakisuk.coredata.dao.GrowthDao

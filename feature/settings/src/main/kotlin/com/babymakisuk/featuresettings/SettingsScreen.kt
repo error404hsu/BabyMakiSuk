@@ -1,11 +1,9 @@
 package com.babymakisuk.featuresettings
 
-import android.app.Activity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,10 +24,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.core.view.WindowCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.babymakisuk.coredata.DarkModeOption
 import com.babymakisuk.coremodel.UserRole
@@ -42,7 +38,6 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
-    val view = LocalView.current
 
     val darkMode by viewModel.darkMode.collectAsState()
     val userRole by viewModel.userRole.collectAsState()
@@ -59,29 +54,6 @@ fun SettingsScreen(
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri -> uri?.let { showImportConfirm = it } }
-
-    val isSystemDark = isSystemInDarkTheme()
-    val isDark = when (darkMode) {
-        DarkModeOption.DARK -> true
-        DarkModeOption.LIGHT -> false
-        DarkModeOption.SYSTEM -> isSystemDark
-        else -> isSystemDark
-    }
-
-    if (!view.isInEditMode) {
-        SideEffect {
-            val window = (view.context as? Activity)?.window
-            if (window != null) {
-                WindowCompat.setDecorFitsSystemWindows(window, false)
-                window.statusBarColor = android.graphics.Color.TRANSPARENT
-                window.navigationBarColor = android.graphics.Color.TRANSPARENT
-                WindowCompat.getInsetsController(window, view).apply {
-                    isAppearanceLightStatusBars = !isDark
-                    isAppearanceLightNavigationBars = !isDark
-                }
-            }
-        }
-    }
 
     LaunchedEffect(backupState) {
         when (val state = backupState) {

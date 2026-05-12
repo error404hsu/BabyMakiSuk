@@ -1,7 +1,7 @@
 package com.babymakisuk.coredata
 
 import android.util.Log
-import com.babymakisuk.coreai.AiContextInjector
+import com.babymakisuk.coredata.ai.AiContextInjector
 import com.babymakisuk.coreai.AiDispatcher
 import com.babymakisuk.coreai.AiTask
 import com.babymakisuk.coredata.dao.MedicalDao
@@ -29,7 +29,7 @@ class MedicalAiRepository @Inject constructor(
     companion object {
         private const val TAG = "MedicalAiRepository"
 
-        private const val PHARMACIST_SYSTEM_PROMPT = """
+        private val PHARMACIST_SYSTEM_PROMPT = """
 你是一位專業的兒科藥師 AI 助理。
 請根據提供的個案背景資訊與處方箋原始文字，分析用藥內容，
 確認劑量是否符合兒童體重與年齡，並標注任何潛在用藥疑慮。

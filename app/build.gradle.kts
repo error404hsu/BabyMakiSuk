@@ -68,6 +68,7 @@ dependencies {
     implementation(project(":feature:log"))
     implementation(project(":feature:settings"))
     implementation(project(":feature:ai"))
+    implementation(project(":feature:weeklyreport"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

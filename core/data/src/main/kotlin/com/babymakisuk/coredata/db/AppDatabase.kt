@@ -18,7 +18,7 @@ import com.babymakisuk.coredata.entity.*
         WeeklyReportEntity::class,
         WeeklyReportFts::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -32,14 +32,14 @@ abstract class AppDatabase : RoomDatabase() {
 
     companion object {
         /**
-         * Migration 1 竊・2
-         * 1. medical_visit 譁ｰ蠅・imageStoragePath, aiPending
-         * 2. 蟒ｺ遶・weekly_reports 荳ｻ陦ｨ
-         * 3. 蟒ｺ遶・weekly_reports_fts FTS4 陌帶闘陦ｨ
+         * Migration 1 -> 2
+         * 1. medical_visit 新增 imageStoragePath, aiPending
+         * 2. 建立 weekly_reports 主表
+         * 3. 建立 weekly_reports_fts FTS4 虛擬表
          */
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                // --- MedicalVisit 譁ｰ谺・ｽ・---
+                // --- MedicalVisit 新增欄位 ---
                 db.execSQL(
                     "ALTER TABLE medical_visit ADD COLUMN imageStoragePath TEXT"
                 )
@@ -47,7 +47,7 @@ abstract class AppDatabase : RoomDatabase() {
                     "ALTER TABLE medical_visit ADD COLUMN aiPending INTEGER NOT NULL DEFAULT 0"
                 )
 
-                // --- WeeklyReports 荳ｻ陦ｨ ---
+                // --- WeeklyReports 主表 ---
                 db.execSQL("""
                     CREATE TABLE IF NOT EXISTS weekly_reports (
                         id                  TEXT NOT NULL PRIMARY KEY,
@@ -66,15 +66,66 @@ abstract class AppDatabase : RoomDatabase() {
                     )
                 """.trimIndent())
 
-                // --- WeeklyReports FTS4 陌帶闘陦ｨ ---
+                // --- WeeklyReports FTS4 虛擬表 ---
                 db.execSQL("""
                     CREATE VIRTUAL TABLE IF NOT EXISTS weekly_reports_fts
                     USING fts4(
                         content=`weekly_reports`,
-                        aiSummary,
-                        searchKeywords
+                        ai_summary,
+                        search_keywords
                     )
                 """.trimIndent())
+            }
+        }
+
+        /**
+         * Migration 2 -> 3
+         * 1. 新增 child_profile 的 allergies 欄位
+         * 2. 重建 weekly_reports 表以包含 FTS4 必需的 rowid 欄位
+         */
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // 1. 處理 child_profile 的 allergies 欄位 (上一個修復的)
+                db.execSQL("ALTER TABLE child_profile ADD COLUMN allergies TEXT")
+
+                // 2. 建立包含 rowid 的新 weekly_reports 表
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS weekly_reports_new (
+                        id                  TEXT NOT NULL PRIMARY KEY,
+                        child_id            TEXT NOT NULL,
+                        week_start          TEXT NOT NULL,
+                        week_end            TEXT NOT NULL,
+                        ai_summary          TEXT NOT NULL,
+                        medical_visit_ids   TEXT NOT NULL,
+                        snapshot_weight     REAL,
+                        snapshot_height     REAL,
+                        snapshot_head_circ  REAL,
+                        vaccine_due         TEXT NOT NULL,
+                        search_keywords     TEXT NOT NULL,
+                        drive_file_id       TEXT,
+                        synced_at           INTEGER NOT NULL,
+                        `rowid`             INTEGER NOT NULL DEFAULT 0
+                    )
+                """.trimIndent())
+
+                // 3. 將原本的資料倒進新表
+                db.execSQL("""
+                    INSERT INTO weekly_reports_new (
+                        id, child_id, week_start, week_end, ai_summary, medical_visit_ids, 
+                        snapshot_weight, snapshot_height, snapshot_head_circ, 
+                        vaccine_due, search_keywords, drive_file_id, synced_at
+                    )
+                    SELECT id, child_id, week_start, week_end, ai_summary, medical_visit_ids, 
+                           snapshot_weight, snapshot_height, snapshot_head_circ, 
+                           vaccine_due, search_keywords, drive_file_id, synced_at 
+                    FROM weekly_reports
+                """.trimIndent())
+
+                // 4. 刪除舊表
+                db.execSQL("DROP TABLE weekly_reports")
+
+                // 5. 將新表改名為原名
+                db.execSQL("ALTER TABLE weekly_reports_new RENAME TO weekly_reports")
             }
         }
     }

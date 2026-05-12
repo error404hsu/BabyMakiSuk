@@ -25,6 +25,7 @@
             <option value="$PROJECT_DIR$/feature/medical" />
             <option value="$PROJECT_DIR$/feature/settings" />
             <option value="$PROJECT_DIR$/feature/vaccine" />
+            <option value="$PROJECT_DIR$/feature/weeklyreport" />
           </set>
         </option>
       </GradleProjectSettings>

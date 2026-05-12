@@ -31,11 +31,12 @@ interface WeeklyReportDao {
      * keyword 謾ｯ謠ｴ FTS4 隱樊ｳ包ｼ御ｾ句ｦ・"逋ｼ辯・"縲・
      */
     @Query("""
-        SELECT wr.* FROM weekly_reports wr
-        INNER JOIN weekly_reports_fts fts ON fts.rowid = wr.rowid
-        WHERE wr.child_id = :childId
-          AND weekly_reports_fts MATCH :keyword
-        ORDER BY wr.week_start DESC
+        SELECT * FROM weekly_reports
+        WHERE rowid IN (
+            SELECT rowid FROM weekly_reports_fts WHERE weekly_reports_fts MATCH :keyword
+        )
+          AND child_id = :childId
+        ORDER BY week_start DESC
     """)
     fun searchByKeyword(childId: String, keyword: String): Flow<List<WeeklyReportEntity>>
 
