@@ -1,13 +1,15 @@
-﻿package com.babymakisuk.featuremedical
+package com.babymakisuk.featuremedical
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.babymakisuk.coredata.SettingsRepository
 import com.babymakisuk.coredata.dao.MedicalDao
 import com.babymakisuk.coredata.entity.toDomain
 import com.babymakisuk.coredata.entity.toEntity
 import com.babymakisuk.coredata.repository.ChildRepository
 import com.babymakisuk.coremodel.Gender
 import com.babymakisuk.coremodel.MedicalVisit
+import com.babymakisuk.coremodel.UserRole
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
@@ -18,10 +20,20 @@ import javax.inject.Inject
 @HiltViewModel
 class MedicalViewModel @Inject constructor(
     private val childRepo: ChildRepository,
-    private val medicalDao: MedicalDao
+    private val medicalDao: MedicalDao,
+    private val settingsRepo: SettingsRepository
 ) : ViewModel() {
 
     private val _selectedChildId = MutableStateFlow<Long?>(null)
+
+    // 角色旗標
+    val canEditData: StateFlow<Boolean> = settingsRepo.userRoleFlow
+        .map { it.canEditData }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    val canUseLocalAi: StateFlow<Boolean> = settingsRepo.userRoleFlow
+        .map { it.canUseLocalAi }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     val uiState: StateFlow<MedicalUiState> = combine(
         childRepo.observeAll(),
@@ -39,11 +51,9 @@ class MedicalViewModel @Inject constructor(
                     )
                 )
             }
-
             val effectiveId = selectedId
                 ?: children.firstOrNull { it.gender == Gender.MALE }?.id
                 ?: children.first().id
-
             medicalDao.observeByChild(effectiveId).map { entities ->
                 MedicalUiState.Success(
                     children = children,
@@ -61,11 +71,9 @@ class MedicalViewModel @Inject constructor(
     private val _editingVisit = MutableStateFlow<MedicalVisit?>(null)
     val editingVisit: StateFlow<MedicalVisit?> = _editingVisit.asStateFlow()
 
-    fun selectChild(childId: Long) {
-        _selectedChildId.value = childId
-    }
+    fun selectChild(childId: Long) { _selectedChildId.value = childId }
 
-    fun openForm()  {
+    fun openForm() {
         _editingVisit.value = null
         _showForm.value = true
     }

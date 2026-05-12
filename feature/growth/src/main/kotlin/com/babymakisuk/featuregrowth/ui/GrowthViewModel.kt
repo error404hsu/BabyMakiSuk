@@ -1,8 +1,9 @@
-﻿package com.babymakisuk.featuregrowth.ui
+package com.babymakisuk.featuregrowth.ui
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.babymakisuk.coredata.SettingsRepository
 import com.babymakisuk.coredata.repository.ChildRepository
 import com.babymakisuk.coremodel.ChildProfile
 import com.babymakisuk.coremodel.Gender
@@ -36,10 +37,16 @@ class GrowthViewModel @Inject constructor(
     private val childRepo: ChildRepository,
     private val observeGrowth: ObserveGrowthWithPercentile,
     private val saveGrowth: SaveGrowthRecord,
-    private val deleteGrowth: DeleteGrowthRecord
+    private val deleteGrowth: DeleteGrowthRecord,
+    private val settingsRepo: SettingsRepository
 ) : ViewModel() {
 
     private val _selectedChildId = MutableStateFlow<Long?>(savedStateHandle["childId"])
+
+    // 角色旗標
+    val canEditData: StateFlow<Boolean> = settingsRepo.userRoleFlow
+        .map { it.canEditData }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     val uiState: StateFlow<GrowthUiState> = combine(
         childRepo.observeAll(),
@@ -57,11 +64,9 @@ class GrowthViewModel @Inject constructor(
                     )
                 )
             }
-
             val effectiveId = selectedId
                 ?: children.firstOrNull { it.gender == Gender.MALE }?.id
                 ?: children.first().id
-
             observeGrowth(effectiveId).map { records ->
                 GrowthUiState.Success(
                     children = children,
@@ -79,9 +84,7 @@ class GrowthViewModel @Inject constructor(
     private val _editingRecord = MutableStateFlow<GrowthRecordWithPercentile?>(null)
     val editingRecord: StateFlow<GrowthRecordWithPercentile?> = _editingRecord.asStateFlow()
 
-    fun selectChild(childId: Long) {
-        _selectedChildId.value = childId
-    }
+    fun selectChild(childId: Long) { _selectedChildId.value = childId }
 
     fun openForm() {
         _editingRecord.value = null

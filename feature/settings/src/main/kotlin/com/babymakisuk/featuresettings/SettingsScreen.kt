@@ -98,6 +98,47 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
         topBar = {
             TopAppBar(
                 title = { Text("設定", style = MaterialTheme.typography.titleLarge) },
+                // 角色 Badge 顯示於 TopAppBar 右側
+                actions = {
+                    if (userRole != UserRole.NONE) {
+                        AssistChip(
+                            onClick = { showRoleSheet = true },
+                            label = { Text(userRole.label, style = MaterialTheme.typography.labelMedium) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = userRole.toIcon(),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            },
+                            modifier = Modifier.padding(end = 8.dp),
+                            colors = AssistChipDefaults.assistChipColors(
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                labelColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                leadingIconContentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        )
+                    } else {
+                        // NONE 狀態提示設定
+                        AssistChip(
+                            onClick = { showRoleSheet = true },
+                            label = { Text("請設定角色", style = MaterialTheme.typography.labelMedium) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.ManageAccounts,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            },
+                            modifier = Modifier.padding(end = 8.dp),
+                            colors = AssistChipDefaults.assistChipColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer,
+                                labelColor = MaterialTheme.colorScheme.onErrorContainer,
+                                leadingIconContentColor = MaterialTheme.colorScheme.onErrorContainer
+                            )
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.Transparent,
                     scrolledContainerColor = Color.Transparent
@@ -193,7 +234,6 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)
                 )
-                // 排除 NONE，讓使用者只能選三個有意義的角色
                 UserRole.entries
                     .filter { it != UserRole.NONE }
                     .forEach { role ->
@@ -216,12 +256,9 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                             )
                             Spacer(Modifier.width(12.dp))
                             Column {
+                                Text(role.label, style = MaterialTheme.typography.bodyLarge)
                                 Text(
-                                    text = role.label,
-                                    style = MaterialTheme.typography.bodyLarge
-                                )
-                                Text(
-                                    text = role.description,
+                                    role.description,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -312,7 +349,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
 }
 
 // ── 角色對應 Icon ──────────────────────────────────────────
-private fun UserRole.toIcon(): ImageVector = when (this) {
+internal fun UserRole.toIcon(): ImageVector = when (this) {
     UserRole.DATA_MANAGER -> Icons.Default.ManageAccounts
     UserRole.AI_OPERATOR  -> Icons.Default.SmartToy
     UserRole.ADMIN        -> Icons.Default.AdminPanelSettings

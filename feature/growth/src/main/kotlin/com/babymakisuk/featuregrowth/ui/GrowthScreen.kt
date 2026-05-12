@@ -1,4 +1,4 @@
-﻿package com.babymakisuk.featuregrowth.ui
+package com.babymakisuk.featuregrowth.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -42,16 +42,16 @@ fun GrowthScreen(
     val uiState by viewModel.uiState.collectAsState()
     val showForm by viewModel.showForm.collectAsState()
     val editingRecord by viewModel.editingRecord.collectAsState()
+    val canEditData by viewModel.canEditData.collectAsState()
     var showChart by remember { mutableStateOf(false) }
 
-    // 取得當前選中的寶寶顏色
     val selectedChildColor = (uiState as? GrowthUiState.Success)?.let { state ->
         val gender = state.children.find { it.id == state.selectedChildId }?.gender
         if (gender == Gender.MALE) BoyBlue else GirlPink
     } ?: MaterialTheme.colorScheme.primary
 
     Scaffold(
-        containerColor = selectedChildColor.copy(alpha = 0.05f), // 輕微的底色延伸
+        containerColor = selectedChildColor.copy(alpha = 0.05f),
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text("成長紀錄", fontWeight = FontWeight.ExtraBold) },
@@ -69,15 +69,18 @@ fun GrowthScreen(
             )
         },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = viewModel::openForm,
-                containerColor = selectedChildColor,
-                contentColor = Color.White,
-                shape = CircleShape
-            ) {
-                Icon(Icons.Filled.Add, "新增")
-                Spacer(Modifier.width(8.dp))
-                Text("新增紀錄")
+            // 僅 canEditData 角色顯示 FAB
+            if (canEditData) {
+                ExtendedFloatingActionButton(
+                    onClick = viewModel::openForm,
+                    containerColor = selectedChildColor,
+                    contentColor = Color.White,
+                    shape = CircleShape
+                ) {
+                    Icon(Icons.Filled.Add, "新增")
+                    Spacer(Modifier.width(8.dp))
+                    Text("新增紀錄")
+                }
             }
         }
     ) { padding ->
@@ -91,20 +94,16 @@ fun GrowthScreen(
                 is GrowthUiState.Error -> Text("錯誤：${state.message}", Modifier.align(Alignment.Center))
                 is GrowthUiState.Success -> {
                     Column(Modifier.fillMaxSize()) {
-                        // 1. 寶寶選擇器
                         ChildAvatarSelector(
                             children = state.children,
                             selectedId = state.selectedChildId,
                             onSelect = viewModel::selectChild,
                             accentColor = selectedChildColor
                         )
-
-                        // 2. 最新數據 Hero Section
                         state.records.maxByOrNull { it.record.date }?.let { latest ->
                             LatestGrowthHero(latest, selectedChildColor)
                         } ?: Box(Modifier.height(100.dp))
 
-                        // 3. 滿版內容容器
                         Surface(
                             modifier = Modifier.weight(1f).fillMaxWidth(),
                             shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
@@ -127,7 +126,7 @@ fun GrowthScreen(
         }
     }
 
-    if (showForm) {
+    if (showForm && canEditData) {
         NewGrowthRecordDialog(
             initialRecord = editingRecord,
             onDismiss = viewModel::closeForm,
@@ -152,7 +151,6 @@ private fun ChildAvatarSelector(
         children.forEach { child ->
             val isSelected = child.id == selectedId
             val childColor = if (child.gender == Gender.MALE) BoyBlue else GirlPink
-            
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.clickable { onSelect(child.id) }

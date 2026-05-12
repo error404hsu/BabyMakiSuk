@@ -1,4 +1,4 @@
-﻿package com.babymakisuk.featuremedical
+package com.babymakisuk.featuremedical
 
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
@@ -34,6 +34,8 @@ fun MedicalScreen(viewModel: MedicalViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsState()
     val showForm by viewModel.showForm.collectAsState()
     val editingVisit by viewModel.editingVisit.collectAsState()
+    val canEditData by viewModel.canEditData.collectAsState()
+    val canUseLocalAi by viewModel.canUseLocalAi.collectAsState()
 
     val selectedChildColor = (uiState as? MedicalUiState.Success)?.let { state ->
         val gender = state.children.find { it.id == state.selectedChildId }?.gender
@@ -51,15 +53,18 @@ fun MedicalScreen(viewModel: MedicalViewModel = hiltViewModel()) {
             )
         },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = viewModel::openForm,
-                containerColor = selectedChildColor,
-                contentColor = Color.White,
-                shape = CircleShape
-            ) {
-                Icon(Icons.Filled.Add, "新增")
-                Spacer(Modifier.width(8.dp))
-                Text("新增就診")
+            // 僅 canEditData 角色顯示 FAB
+            if (canEditData) {
+                ExtendedFloatingActionButton(
+                    onClick = viewModel::openForm,
+                    containerColor = selectedChildColor,
+                    contentColor = Color.White,
+                    shape = CircleShape
+                ) {
+                    Icon(Icons.Filled.Add, "新增")
+                    Spacer(Modifier.width(8.dp))
+                    Text("新增就診")
+                }
             }
         }
     ) { innerPadding ->
@@ -73,20 +78,16 @@ fun MedicalScreen(viewModel: MedicalViewModel = hiltViewModel()) {
                 is MedicalUiState.Error -> Text("錯誤：${state.message}", Modifier.align(Alignment.Center))
                 is MedicalUiState.Success -> {
                     Column(Modifier.fillMaxSize()) {
-                        // 1. 寶寶選擇器
                         ChildAvatarSelector(
                             children = state.children,
                             selectedId = state.selectedChildId,
                             onSelect = viewModel::selectChild,
                             accentColor = selectedChildColor
                         )
-
-                        // 2. 最新就醫 Hero Section
                         state.visits.firstOrNull()?.let { latest ->
                             LatestMedicalHero(latest, selectedChildColor)
                         } ?: Box(Modifier.height(100.dp))
 
-                        // 3. 滿版內容容器 (大圓角)
                         Surface(
                             modifier = Modifier.weight(1f).fillMaxWidth(),
                             shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
@@ -109,6 +110,8 @@ fun MedicalScreen(viewModel: MedicalViewModel = hiltViewModel()) {
                                         MedicalVisitCard(
                                             visit = visit,
                                             accentColor = selectedChildColor,
+                                            canEdit = canEditData,
+                                            canUseLocalAi = canUseLocalAi,
                                             onEdit = { viewModel.editVisit(visit) },
                                             onDelete = { viewModel.deleteVisit(visit) }
                                         )
@@ -122,7 +125,7 @@ fun MedicalScreen(viewModel: MedicalViewModel = hiltViewModel()) {
         }
     }
 
-    if (showForm) {
+    if (showForm && canEditData) {
         val selectedChildId = (uiState as? MedicalUiState.Success)?.selectedChildId ?: 1L
         NewMedicalVisitDialog(
             childId = selectedChildId,
@@ -149,7 +152,6 @@ private fun ChildAvatarSelector(
         children.forEach { child ->
             val isSelected = child.id == selectedId
             val childColor = if (child.gender == Gender.MALE) BoyBlue else GirlPink
-
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.clickable { onSelect(child.id) }
@@ -225,6 +227,8 @@ private fun LatestMedicalHero(visit: MedicalVisit, accentColor: Color) {
 private fun MedicalVisitCard(
     visit: MedicalVisit,
     accentColor: Color,
+    canEdit: Boolean,
+    canUseLocalAi: Boolean,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -269,11 +273,14 @@ private fun MedicalVisitCard(
                         color = Color.Gray
                     )
                 }
-                IconButton(onClick = onEdit) {
-                    Icon(Icons.Filled.Edit, contentDescription = "編輯", tint = Color.LightGray, modifier = Modifier.size(20.dp))
-                }
-                IconButton(onClick = onDelete) {
-                    Icon(Icons.Filled.Delete, contentDescription = "刪除", tint = Color.LightGray, modifier = Modifier.size(20.dp))
+                // 編輯 / 刪除僅 canEditData 顯示
+                if (canEdit) {
+                    IconButton(onClick = onEdit) {
+                        Icon(Icons.Filled.Edit, contentDescription = "編輯", tint = Color.LightGray, modifier = Modifier.size(20.dp))
+                    }
+                    IconButton(onClick = onDelete) {
+                        Icon(Icons.Filled.Delete, contentDescription = "刪除", tint = Color.LightGray, modifier = Modifier.size(20.dp))
+                    }
                 }
             }
 
@@ -287,13 +294,18 @@ private fun MedicalVisitCard(
                 )
             }
 
+            // AI 提問按鈕：本機 AI 限 canUseLocalAi；Cloud API 所有角色可用
+            val aiButtonLabel = when {
+                canUseLocalAi -> "查看 AI 建議與備註"
+                else -> "雲端 AI 提問"
+            }
             TextButton(
                 onClick = { expanded = !expanded },
                 contentPadding = PaddingValues(0.dp),
                 modifier = Modifier.align(Alignment.End)
             ) {
                 Text(
-                    if (expanded) "收合詳情" else "查看 AI 建議與備註",
+                    if (expanded) "收合詳情" else aiButtonLabel,
                     style = MaterialTheme.typography.labelMedium,
                     color = accentColor
                 )
@@ -309,6 +321,34 @@ private fun MedicalVisitCard(
                 Spacer(Modifier.height(4.dp))
                 HorizontalDivider(color = accentColor.copy(alpha = 0.1f))
                 Spacer(Modifier.height(12.dp))
+
+                if (!canUseLocalAi) {
+                    // DATA_MANAGER 提示訊息
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.Cloud,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.secondary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = "此角色僅支援雲端 API 提問，本機 LLM 功能需切換至 AI 操作員",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
 
                 if (visit.diagnosisSummary.isNotBlank()) {
                     AiInfoCard(icon = "📋", title = "AI 診斷摘要", content = visit.diagnosisSummary, color = accentColor)
