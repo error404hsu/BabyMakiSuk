@@ -9,11 +9,14 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AdminPanelSettings
+import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.ManageAccounts
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.Upload
@@ -25,6 +28,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -41,10 +46,12 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     val darkMode by viewModel.darkMode.collectAsState()
     val userRole by viewModel.userRole.collectAsState()
     val backupState by viewModel.backupState.collectAsState()
+    val apiKeyState by viewModel.apiKeyState.collectAsState()
 
     var showDarkModeSheet by remember { mutableStateOf(false) }
     var showRoleSheet by remember { mutableStateOf(false) }
     var showImportConfirm by remember { mutableStateOf<android.net.Uri?>(null) }
+    var inputApiKey by remember { mutableStateOf("") }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
@@ -98,7 +105,6 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
         topBar = {
             TopAppBar(
                 title = { Text("設定", style = MaterialTheme.typography.titleLarge) },
-                // 角色 Badge 顯示於 TopAppBar 右側
                 actions = {
                     if (userRole != UserRole.NONE) {
                         AssistChip(
@@ -119,7 +125,6 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                             )
                         )
                     } else {
-                        // NONE 狀態提示設定
                         AssistChip(
                             onClick = { showRoleSheet = true },
                             label = { Text("請設定角色", style = MaterialTheme.typography.labelMedium) },
@@ -178,6 +183,99 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                         subtitle = darkMode.label,
                         onClick = { showDarkModeSheet = true }
                     )
+                }
+            }
+
+            // ── AI 雲端推論設定 ── (新增區塊)
+            item {
+                SettingsSection(title = "AI 雲端推論設定") {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Cloud,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text(
+                                text = "Gemini API Key",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+
+                        OutlinedTextField(
+                            value = inputApiKey,
+                            onValueChange = {
+                                inputApiKey = it
+                                // 重新輸入時清除先前的驗證狀態
+                                if (apiKeyState.isVerified || apiKeyState.errorMessage != null) {
+                                    viewModel.clearApiKeyState()
+                                }
+                            },
+                            label = { Text("貼上您的 API Key") },
+                            placeholder = { Text("AIzaSy...") },
+                            leadingIcon = {
+                                Icon(Icons.Default.Key, contentDescription = null)
+                            },
+                            visualTransformation = PasswordVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                            singleLine = true,
+                            isError = apiKeyState.errorMessage != null,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors()
+                        )
+
+                        Button(
+                            onClick = { viewModel.verifyAndSaveApiKey(inputApiKey) },
+                            enabled = inputApiKey.isNotBlank() && !apiKeyState.isVerifying,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            if (apiKeyState.isVerifying) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.onPrimary
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text("驗證中...")
+                            } else {
+                                Text("驗證並儲存")
+                            }
+                        }
+
+                        // 驗證結果回饋
+                        when {
+                            apiKeyState.isVerified -> {
+                                Text(
+                                    text = "✅ 驗證成功，API Key 已安全儲存",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            apiKeyState.errorMessage != null -> {
+                                Text(
+                                    text = "❌ ${apiKeyState.errorMessage}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
+
+                        Text(
+                            text = "Key 僅儲存於本機 DataStore，不會上傳至任何伺服器。",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
 
