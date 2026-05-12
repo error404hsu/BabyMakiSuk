@@ -52,26 +52,23 @@ class SettingsRepository @Inject constructor(
         }
     }
 
-    // ── Gemini API Key ────────────────────────────────────
+    // ── 雲端 AI 開關 ─────────────────────────────────────
 
-    /** 讀取已儲存的 Gemini API Key，若尚未設定則回傳 null */
-    val geminiApiKey: Flow<String?> = context.dataStore.data.map { prefs ->
-        prefs[SettingsPreferences.GEMINI_API_KEY]
+    /** 雲端 AI 開關狀態，預設啟用。Key 由編譯時注入，使用者只能開/關此功能 */
+    val aiCloudEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[SettingsPreferences.AI_CLOUD_ENABLED] ?: true
     }
 
-    /** 儲存 Gemini API Key 至 DataStore */
-    suspend fun setGeminiApiKey(key: String) {
+    suspend fun setAiCloudEnabled(enabled: Boolean) {
         context.dataStore.edit { prefs ->
-            prefs[SettingsPreferences.GEMINI_API_KEY] = key
+            prefs[SettingsPreferences.AI_CLOUD_ENABLED] = enabled
         }
     }
 
     // ── 匯出 / 匯入 ──────────────────────────────────────────
 
-    /** 建立可分享的 Intent，展示系統分享選單 */
     suspend fun buildExportIntent(): Intent = backupManager.exportToShareIntent()
 
-    /** 從用戶選取的 Uri 匯入資料 */
     suspend fun importFromUri(uri: Uri, merge: Boolean = true) =
         backupManager.importFromUri(uri, merge)
 }

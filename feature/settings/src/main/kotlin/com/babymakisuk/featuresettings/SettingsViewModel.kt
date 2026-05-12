@@ -4,7 +4,6 @@ import android.content.Intent
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.babymakisuk.coreai.CloudServiceAiClient
 import com.babymakisuk.coredata.DarkModeOption
 import com.babymakisuk.coredata.SettingsRepository
 import com.babymakisuk.coremodel.UserRole
@@ -14,7 +13,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -27,17 +25,9 @@ sealed interface BackupUiState {
     data class Error(val message: String) : BackupUiState
 }
 
-/** Gemini API Key 驗證的 UI 狀態 */
-data class ApiKeyUiState(
-    val isVerifying: Boolean = false,
-    val isVerified: Boolean = false,
-    val errorMessage: String? = null
-)
-
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val repository: SettingsRepository,
-    private val cloudAiClient: CloudServiceAiClient   // 直接注入具體類別以呼叫 testApiKeyValid()
+    private val repository: SettingsRepository
 ) : ViewModel() {
 
     // ── 深色模式 ──────────────────────────────────────────
@@ -60,6 +50,17 @@ class SettingsViewModel @Inject constructor(
 
     fun setUserRole(role: UserRole) {
         viewModelScope.launch { repository.setUserRole(role) }
+    }
+
+    // ── 雲端 AI 開關 ──────────────────────────────────────────
+    val aiCloudEnabled: StateFlow<Boolean> = repository.aiCloudEnabled.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = true
+    )
+
+    fun setAiCloudEnabled(enabled: Boolean) {
+        viewModelScope.launch { repository.setAiCloudEnabled(enabled) }
     }
 
     // ── 匯出 / 匯入 ──────────────────────────────────────────
@@ -86,39 +87,5 @@ class SettingsViewModel @Inject constructor(
 
     fun clearBackupState() {
         _backupState.value = BackupUiState.Idle
-    }
-
-    // ── Gemini API Key 驗證 ──────────────────────────────────
-    private val _apiKeyState = MutableStateFlow(ApiKeyUiState())
-    val apiKeyState: StateFlow<ApiKeyUiState> = _apiKeyState.asStateFlow()
-
-    /**
-     * 以 testKey 呼叫 Gemini Ping 驗證，成功後儲存至 DataStore。
-     * 驗證過程中鎖定按鈕；失敗時顯示錯誤訊息。
-     */
-    fun verifyAndSaveApiKey(key: String) {
-        viewModelScope.launch {
-            _apiKeyState.update { it.copy(isVerifying = true, isVerified = false, errorMessage = null) }
-
-            val isValid = cloudAiClient.testApiKeyValid(key)
-
-            if (isValid) {
-                repository.setGeminiApiKey(key)
-                _apiKeyState.update { it.copy(isVerifying = false, isVerified = true, errorMessage = null) }
-            } else {
-                _apiKeyState.update {
-                    it.copy(
-                        isVerifying = false,
-                        isVerified = false,
-                        errorMessage = "API Key 驗證失敗，請確認 Key 是否正確或已開啟 Gemini API 權限"
-                    )
-                }
-            }
-        }
-    }
-
-    /** 清除驗證狀態（離開頁面或重新輸入時呼叫） */
-    fun clearApiKeyState() {
-        _apiKeyState.value = ApiKeyUiState()
     }
 }

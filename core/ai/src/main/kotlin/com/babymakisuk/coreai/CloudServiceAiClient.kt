@@ -2,7 +2,7 @@ package com.babymakisuk.coreai
 
 import com.google.ai.client.generativeai.GenerativeModel
 import com.google.ai.client.generativeai.type.content
-import com.babymakisuk.coredata.SettingsRepository
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
 import javax.inject.Inject
 
@@ -18,59 +18,40 @@ private const val MEDICAL_AGENT_PROMPT = """
 
 /**
  * Gemini 雲端推論實作。
- * 動態取得 GenerativeModel 以確保 API Key 變更後立即生效，無需重啟 App。
+ * API Key 由編譯時的 [AiConfig] 提供，使用者無法在 App 內變更。
+ * [aiCloudEnabled] 供外部注入，來源為 DataStore 的開關狀態。
  */
 class CloudServiceAiClient @Inject constructor(
-    private val settingsRepository: SettingsRepository
+    private val aiConfig: AiConfig,
+    private val aiCloudEnabled: @JvmSuppressWildcards Flow<Boolean>
 ) : ServiceAiClient {
 
-    /**
-     * 每次呼叫時動態建立 GenerativeModel。
-     * API Key 若未設定則拋出 ServiceAiException。
-     */
-    private suspend fun getGenerativeModel(): GenerativeModel {
-        val apiKey = settingsRepository.geminiApiKey.firstOrNull()
-            ?: throw ServiceAiException("Gemini API Key 尚未設定，請至設定頁面輸入")
-
-        return GenerativeModel(
+    private val model: GenerativeModel by lazy {
+        GenerativeModel(
             modelName = "gemini-1.5-flash",
-            apiKey = apiKey,
+            apiKey = aiConfig.apiKey,
             systemInstruction = content { text(MEDICAL_AGENT_PROMPT) }
         )
     }
 
     /**
-     * 實作 ServiceAiClient 介面：傳入 prompt，回傳 Gemini 的純文字回應。
+     * 實作 ServiceAiClient 介面。
+     * - 若 Key 渪有結（沒有在 local.properties 設定），拋出 ServiceAiException。
+     * - 若使用者已關閉雲端 AI，拋出 ServiceAiException。
      */
     override suspend fun complete(prompt: String): String {
+        if (!aiConfig.hasValidKey) {
+            throw ServiceAiException("雲端 AI 尚未配置，請聯絡管理員設定 API Key")
+        }
+        val enabled = aiCloudEnabled.firstOrNull() ?: false
+        if (!enabled) {
+            throw ServiceAiException("雲端 AI 已由使用者關閉")
+        }
         return try {
-            val model = getGenerativeModel()
             val response = model.generateContent(prompt)
             response.text ?: "{}"
-        } catch (e: ServiceAiException) {
-            throw e  // Key 未設定的錯誤直接向上拋
         } catch (e: Exception) {
             throw ServiceAiException("Gemini API 呼叫失敗：${e.message}", e)
-        }
-    }
-
-    /**
-     * 供設定頁面使用的輕量 API Key 驗證。
-     * 直接以傳入的 testKey 建立臨時 model，不會污染已儲存的 Key。
-     *
-     * @param testKey 待驗證的 API Key 字串
-     * @return true = Key 有效；false = 驗證失敗
-     */
-    suspend fun testApiKeyValid(testKey: String): Boolean {
-        return try {
-            val testModel = GenerativeModel(
-                modelName = "gemini-1.5-flash",
-                apiKey = testKey
-            )
-            testModel.generateContent("Ping")
-            true
-        } catch (e: Exception) {
-            false
         }
     }
 }

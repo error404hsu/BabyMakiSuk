@@ -1,5 +1,6 @@
 package com.babymakisuk.coredata
 
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 
 /**
@@ -13,6 +14,6 @@ object SettingsPreferences {
     /** 使用者角色："DATA_MANAGER" | "AI_OPERATOR" | "ADMIN" | "NONE" */
     val USER_ROLE_KEY = stringPreferencesKey("user_role")
 
-    /** Gemini 雲端 API Key（加密儲存於 DataStore） */
-    val GEMINI_API_KEY = stringPreferencesKey("gemini_api_key")
+    /** 雲端 AI 開關（預設啟用）；Key 由編譯時注入，App 內不可變更 */
+    val AI_CLOUD_ENABLED = booleanPreferencesKey("ai_cloud_enabled")
 }
