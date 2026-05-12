@@ -40,6 +40,14 @@
 - [ ] AI 結果手動編輯 UI
 - [ ] 📷 掃描病歷 → OCR → 自動填入 AI 欄位
 
+### Sprint 1 — AiDispatcher 核心層（2026-05-12）✅
+
+- [x] `GeminiModel` 加入 `AiEngineType`，修正 Gemma 4 26B modelId 為 `gemma-4-26b-a4b-it`
+- [x] `AiTask` enum（6 個任務：MEDICAL_CONSULTATION / MEDICAL_OCR / VOICE_INPUT / WEEKLY_REPORT / QUICK_CHAT / CUSTOM_PRESET）
+- [x] `RateLimiter`（in-memory 滑動視窗 60s，per-task 獨立配額）
+- [x] `RateLimitException` / `AiDispatchException`
+- [x] `AiDispatcher`（Fallback Chain + Rate Limit 整合，支援 System Prompt）
+
 ---
 
 ## HomeScreen
