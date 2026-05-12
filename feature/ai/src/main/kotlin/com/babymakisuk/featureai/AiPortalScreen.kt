@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,7 +25,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import com.babymakisuk.coreai.AiPreset
 import com.babymakisuk.coreai.GeminiModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -36,13 +36,11 @@ fun AiPortalScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    // 控制測試中模型選擇選單的顯示
     val isTestingMode = true
     var showModelMenu by remember { mutableStateOf(false) }
 
     val listState = rememberLazyListState()
 
-    // 當新訊息產生或打字機效果進行時，自動捲動到底部
     LaunchedEffect(uiState.messages.size, uiState.messages.lastOrNull()?.text?.length) {
         if (uiState.messages.isNotEmpty()) {
             listState.animateScrollToItem(uiState.messages.size - 1)
@@ -55,10 +53,18 @@ fun AiPortalScreen(
                 title = {
                     Column {
                         Text("AI 助手")
+                        // TopBar 副標題顯示有效模型，並以文字區分建議/強制狀態
+                        val modelLabel = if (uiState.isModelOverridden)
+                            "${uiState.effectiveModel.displayName} ★強制"
+                        else
+                            "${uiState.effectiveModel.displayName} ·建議"
                         Text(
-                            text = "角色: ${uiState.selectedPreset.displayName} | ${uiState.selectedModel.displayName}",
+                            text  = "角色: ${uiState.selectedPreset.displayName} | $modelLabel",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = if (uiState.isModelOverridden)
+                                MaterialTheme.colorScheme.tertiary
+                            else
+                                MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 },
@@ -68,14 +74,24 @@ fun AiPortalScreen(
                     }
                 },
                 actions = {
-                    // 功能：整理為知識庫
+                    // 整理為知識庫
                     IconButton(onClick = { viewModel.summarizeToKnowledgeBase() }) {
                         Icon(Icons.Default.Book, contentDescription = "整理本次對話為知識庫")
                     }
 
-                    // 功能：測試模式下的模型切換選單
-                    // 選單選項從 GeminiModel.entries 動態產生，不再硬編碼字串
                     if (isTestingMode) {
+                        // 強制 override 時顯示「重置為建議」按鈕
+                        if (uiState.isModelOverridden) {
+                            IconButton(onClick = { viewModel.clearModelOverride() }) {
+                                Icon(
+                                    Icons.Default.RestartAlt,
+                                    contentDescription = "回復為角色建議模型",
+                                    tint = MaterialTheme.colorScheme.tertiary
+                                )
+                            }
+                        }
+
+                        // 模型選單：從 GeminiModel.entries 動態產生，標示建議/強制狀態
                         Box {
                             IconButton(onClick = { showModelMenu = true }) {
                                 Icon(Icons.Default.MoreVert, contentDescription = "選擇模型")
@@ -85,6 +101,9 @@ fun AiPortalScreen(
                                 onDismissRequest = { showModelMenu = false }
                             ) {
                                 GeminiModel.entries.forEach { model ->
+                                    val isRecommended = model == uiState.selectedPreset.preferredModel
+                                    val isActive      = model == uiState.effectiveModel
+
                                     DropdownMenuItem(
                                         text = {
                                             Row(
@@ -92,15 +111,27 @@ fun AiPortalScreen(
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
                                                 Text(model.displayName)
+                                                // 角色建議模型標示
+                                                if (isRecommended) {
+                                                    Badge(
+                                                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                                                    ) { Text("建議") }
+                                                }
                                                 Badge { Text(model.badge) }
                                             }
                                         },
                                         onClick = {
-                                            viewModel.switchModel(model)
+                                            viewModel.overrideModel(model)
                                             showModelMenu = false
                                         },
-                                        trailingIcon = if (uiState.selectedModel == model) {
-                                            { Icon(Icons.Default.Check, contentDescription = "已選擇", modifier = Modifier.size(16.dp)) }
+                                        trailingIcon = if (isActive) {
+                                            {
+                                                Icon(
+                                                    Icons.Default.Check,
+                                                    contentDescription = "使用中",
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
                                         } else null
                                     )
                                 }
@@ -117,8 +148,7 @@ fun AiPortalScreen(
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
         ) {
-            // UI/UX: 頂部角色選擇列（Persona Selector）
-            // 來源改為 uiState.sortedPresets（型別為 AiPreset），統一使用 core 定義
+            // 角色選擇列（Preset Selector）
             LazyRow(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -189,7 +219,6 @@ fun AiPortalScreen(
                 }
             }
 
-            // 底部輸入框與發送按鈕
             ChatInputBar(
                 onSend       = { viewModel.sendMessage(it) },
                 isGenerating = uiState.isGenerating
@@ -283,7 +312,7 @@ private fun ChatInputBar(
                 )
             } else {
                 Icon(
-                    imageVector    = Icons.AutoMirrored.Filled.Send,
+                    imageVector        = Icons.AutoMirrored.Filled.Send,
                     contentDescription = "發送",
                     tint = if (text.isNotBlank()) MaterialTheme.colorScheme.onPrimary
                            else MaterialTheme.colorScheme.onSurfaceVariant

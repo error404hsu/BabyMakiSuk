@@ -7,7 +7,6 @@ import com.babymakisuk.coreai.AiConfig
 import com.babymakisuk.coreai.AiDispatchException
 import com.babymakisuk.coreai.AiDispatcher
 import com.babymakisuk.coreai.AiPreset
-import com.babymakisuk.coreai.AiTask
 import com.babymakisuk.coreai.GeminiModel
 import com.babymakisuk.coredata.repository.ChildRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -39,38 +38,75 @@ class AiPortalViewModel @Inject constructor(
      */
     private val presetHint: String? = savedStateHandle["presetHint"]
 
+    private val initialPreset = AiPreset.fromHint(presetHint)
+
     private val _uiState = MutableStateFlow(
         AiPortalUiState(
-            selectedPreset = AiPreset.fromHint(presetHint),
-            sortedPresets  = buildSortedPresets(presetHint)
+            selectedPreset    = initialPreset,
+            sortedPresets     = buildSortedPresets(presetHint),
+            selectedModel     = initialPreset.preferredModel,
+            isModelOverridden = false
         )
     )
     val uiState: StateFlow<AiPortalUiState> = _uiState.asStateFlow()
 
-    /** 切換角色：直接使用 core/ai AiPreset，無需任何字串轉換 */
+    /**
+     * 切換角色。
+     * 若使用者未手動 override，自動帶入新角色的 preferredModel 並清除 override 狀態。
+     * 若已 override，保留使用者選擇的模型不變。
+     */
     fun switchPreset(preset: AiPreset) {
-        _uiState.update { it.copy(selectedPreset = preset) }
+        _uiState.update { state ->
+            if (state.isModelOverridden) {
+                // 使用者已強制選擇模型 → 只換角色，模型維持不變
+                state.copy(selectedPreset = preset)
+            } else {
+                // 跟隨建議 → 角色與模型一起切換
+                state.copy(
+                    selectedPreset = preset,
+                    selectedModel  = preset.preferredModel
+                )
+            }
+        }
     }
 
-    /** 切換模型：使用強型別 GeminiModel，與 AiDispatcher 對齊 */
-    fun switchModel(model: GeminiModel) {
-        _uiState.update { it.copy(selectedModel = model) }
+    /**
+     * 手動強制選擇模型。
+     * 設定 isModelOverridden = true，後續切換角色不再自動改變模型。
+     */
+    fun overrideModel(model: GeminiModel) {
+        _uiState.update {
+            it.copy(
+                selectedModel     = model,
+                isModelOverridden = true
+            )
+        }
+    }
+
+    /**
+     * 清除模型 Override，回歸目前角色的 preferredModel 建議。
+     */
+    fun clearModelOverride() {
+        _uiState.update { state ->
+            state.copy(
+                selectedModel     = state.selectedPreset.preferredModel,
+                isModelOverridden = false
+            )
+        }
     }
 
     fun sendMessage(prompt: String) {
         if (prompt.isBlank()) return
 
-        // 1. 立即顯示使用者訊息，並將狀態設為生成中
         _uiState.update { state ->
             state.copy(
-                messages      = state.messages + ChatMessage(role = Role.USER, text = prompt),
-                isGenerating  = true,
+                messages        = state.messages + ChatMessage(role = Role.USER, text = prompt),
+                isGenerating    = true,
                 isAwaitingInput = false,
-                errorMessage  = null
+                errorMessage    = null
             )
         }
 
-        // 2. 建立空的 AI 訊息容器，以 UUID 綁定，準備接收資料流
         val aiMessageId = UUID.randomUUID().toString()
         _uiState.update { state ->
             state.copy(
@@ -85,9 +121,12 @@ class AiPortalViewModel @Inject constructor(
                 val gender    = child?.gender?.name ?: "未知"
                 val allergies = child?.allergies
 
-                val currentPreset = _uiState.value.selectedPreset
+                val currentState  = _uiState.value
+                val currentPreset = currentState.selectedPreset
 
-                // 結合 AiPreset.systemPrompt（core 定義）與孩子資訊
+                // effectiveModel 已封裝建議/強制邏輯，此處直接使用
+                val effectiveModel = currentState.effectiveModel
+
                 val systemPrompt = """
                     ${currentPreset.systemPrompt}
                     目前諮詢對象資訊：
@@ -97,14 +136,14 @@ class AiPortalViewModel @Inject constructor(
                     請根據以上背景提供專業建議。
                 """.trimIndent()
 
-                // 使用 AiPreset 對應的 AiTask 呼叫 AiDispatcher
+                // 使用 effectiveModel.modelId 覆蓋 fallback chain 首選
+                // 若 effectiveModel 已是 chain 內的模型，AiDispatcher 會優先使用它
                 val response = aiDispatcher.executeWithSystemPrompt(
                     task         = currentPreset.task,
                     systemPrompt = systemPrompt,
                     userPrompt   = prompt
                 )
 
-                // 模擬 Streaming 打字機效果
                 val prefix = "【以 ${currentPreset.displayName} 的身分回答】\n"
                 for (char in (prefix + response)) {
                     delay(15)
@@ -159,10 +198,6 @@ class AiPortalViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 依 presetHint 建立排序清單：hint 對應的角色置頂，其餘依原順序排列。
-     * 直接使用 AiPreset.fromHint，不需要任何 when 手動對應。
-     */
     private fun buildSortedPresets(hint: String?): List<AiPreset> {
         val hintPreset = AiPreset.fromHint(hint)
         val rest = AiPreset.entries.filter { it != hintPreset }
