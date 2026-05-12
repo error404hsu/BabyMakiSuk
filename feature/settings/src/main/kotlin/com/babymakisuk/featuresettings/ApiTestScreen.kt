@@ -5,6 +5,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -15,6 +16,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -25,6 +27,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.babymakisuk.coreai.GeminiModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,8 +35,9 @@ fun ApiTestScreen(
     onNavigateBack: () -> Unit,
     viewModel: ApiTestViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
-    val hasValidKey = viewModel.aiConfig.hasValidKey
+    val uiState       by viewModel.uiState.collectAsState()
+    val selectedModel by viewModel.selectedModel.collectAsState()
+    val hasValidKey   = viewModel.aiConfig.hasValidKey
 
     Scaffold(
         topBar = {
@@ -110,16 +114,71 @@ fun ApiTestScreen(
                 )
             }
 
+            // ── 模型選擇區塊 ──
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.SmartToy,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "選擇模型",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                // 横向可滾動的 FilterChip 清單
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    viewModel.availableModels.forEach { model ->
+                        val isSelected = model == selectedModel
+                        FilterChip(
+                            selected  = isSelected,
+                            onClick   = { viewModel.selectModel(model) },
+                            label     = { Text(model.displayName, style = MaterialTheme.typography.labelMedium) },
+                            trailingIcon = {
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = if (isSelected)
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                    else
+                                        MaterialTheme.colorScheme.surfaceVariant
+                                ) {
+                                    Text(
+                                        text = model.badge,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                                        color = if (isSelected)
+                                            MaterialTheme.colorScheme.primary
+                                        else
+                                            MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+
             // ── 發送按鈕 ──
             Button(
-                onClick = { viewModel.sendTestRequest() },
-                enabled = hasValidKey && uiState !is ApiTestUiState.Loading,
+                onClick  = { viewModel.sendTestRequest() },
+                enabled  = hasValidKey && uiState !is ApiTestUiState.Loading,
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
+                shape    = RoundedCornerShape(12.dp)
             ) {
                 Icon(Icons.Default.Send, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
-                Text("發送測試請求")
+                Text("發送測試請求（${selectedModel.displayName}）")
             }
 
             // ── 狀態顯示區 ──
@@ -129,9 +188,7 @@ fun ApiTestScreen(
                 label = "ApiTestState"
             ) { state ->
                 when (state) {
-                    is ApiTestUiState.Idle -> {
-                        // 空狀態，不顯示任何內容
-                    }
+                    is ApiTestUiState.Idle -> {}
 
                     is ApiTestUiState.Loading -> {
                         Box(
@@ -146,7 +203,7 @@ fun ApiTestScreen(
                             ) {
                                 CircularProgressIndicator()
                                 Text(
-                                    "送出中，等待 Gemini 回應…",
+                                    "送出中，等待 ${selectedModel.displayName} 回應…",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -157,20 +214,20 @@ fun ApiTestScreen(
                     is ApiTestUiState.Success -> {
                         ResultCard(
                             isSuccess = true,
-                            label = "回應成功",
-                            body = state.response,
+                            label     = "回應成功（${selectedModel.displayName}）",
+                            body      = state.response,
                             elapsedMs = state.elapsedMs,
-                            onReset = viewModel::reset
+                            onReset   = viewModel::reset
                         )
                     }
 
                     is ApiTestUiState.Error -> {
                         ResultCard(
                             isSuccess = false,
-                            label = "回應失敗",
-                            body = state.message,
+                            label     = "回應失敗（${selectedModel.displayName}）",
+                            body      = state.message,
                             elapsedMs = state.elapsedMs,
-                            onReset = viewModel::reset
+                            onReset   = viewModel::reset
                         )
                     }
                 }
@@ -200,15 +257,14 @@ private fun ResultCard(
         MaterialTheme.colorScheme.onErrorContainer
 
     Surface(
-        shape = RoundedCornerShape(16.dp),
-        color = containerColor,
+        shape    = RoundedCornerShape(16.dp),
+        color    = containerColor,
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // 標題列
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -219,43 +275,34 @@ private fun ResultCard(
                     tint = contentColor
                 )
                 Text(
-                    text = label,
+                    text  = label,
                     style = MaterialTheme.typography.titleSmall,
                     color = contentColor
                 )
                 Spacer(Modifier.weight(1f))
                 AssistChip(
                     onClick = {},
-                    label = { Text("${elapsedMs} ms", style = MaterialTheme.typography.labelSmall) },
-                    colors = AssistChipDefaults.assistChipColors(
+                    label   = { Text("${elapsedMs} ms", style = MaterialTheme.typography.labelSmall) },
+                    colors  = AssistChipDefaults.assistChipColors(
                         containerColor = containerColor.copy(alpha = 0.6f),
-                        labelColor = contentColor
+                        labelColor     = contentColor
                     )
                 )
             }
-
-            // 回應內容
             Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+                shape    = RoundedCornerShape(8.dp),
+                color    = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = body,
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        fontFamily = FontFamily.Monospace
-                    ),
-                    color = if (isSuccess)
-                        MaterialTheme.colorScheme.onSurface
-                    else
-                        MaterialTheme.colorScheme.error,
+                    text     = body,
+                    style    = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace),
+                    color    = if (isSuccess) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.error,
                     modifier = Modifier.padding(12.dp)
                 )
             }
-
-            // 重置按鈕
             TextButton(
-                onClick = onReset,
+                onClick  = onReset,
                 modifier = Modifier.align(Alignment.End)
             ) {
                 Text("清除結果", color = contentColor)
