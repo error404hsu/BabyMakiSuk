@@ -1,6 +1,6 @@
 # BabyMakiSuk TODO
 
-更新日期：2026-05-11
+更新日期：2026-05-12
 
 ---
 
@@ -136,8 +136,21 @@
 - [x] 全部 DAO 新增 `getAllOnce()` / `upsertAll()` / `deleteAll()`
 - [x] `SettingsScreen` 匯入前確認 Dialog、載入中過場、成功 / 錯誤 Alert
 
-### G-2 待實作
+### G-2 已完成 ✅
 
+- [x] **`ApiTestScreen` — API 連線測試子頁面** ✅ 2026-05-12
+  - Key 狀態顯示（`AiConfig.hasValidKey` → 已注入 / 未注入）
+  - 發送固定 prompt 並計時（`System.currentTimeMillis()`）
+  - `sealed interface ApiTestUiState`（Idle / Loading / Success / Error）
+  - Loading `CircularProgressIndicator` 動畫
+  - 成功：等寬字體原始回應 + primaryContainer 卡片
+  - 失敗：紅色錯誤訊息 + errorContainer 卡片
+  - 回應耗時（ms）顯示於 `AssistChip`
+  - 路由：`settings/api_test`，TopAppBar 返回按鈕
+- [x] `ApiTestViewModel`：注入 `ServiceAiClient`（介面）+ `AiConfig`
+- [x] `SettingsScreen`：新增 `onNavigateToApiTest` callback + BugReport SettingsItem
+- [x] `BabyMakiSukNavHost`：新增 `settings/api_test` 子路由，子頁面隱藏 BottomBar
+- [x] `feature/settings/build.gradle.kts`：新增 `core:ai` 依賴
 - [ ] `AndroidManifest.xml` 新增 FileProvider `<provider>` 設定
 - [ ] `res/xml/file_paths.xml` 定義 cache-path
 - [ ] 多寶寶 Profile 管理（新增 / 切換 / 刪除）

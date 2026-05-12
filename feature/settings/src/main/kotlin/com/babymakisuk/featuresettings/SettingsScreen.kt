@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AdminPanelSettings
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Download
@@ -35,7 +36,10 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
+fun SettingsScreen(
+    onNavigateToApiTest: () -> Unit = {},
+    viewModel: SettingsViewModel = hiltViewModel()
+) {
     val context = LocalContext.current
     val view = LocalView.current
 
@@ -220,6 +224,16 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                             )
                         },
                         modifier = Modifier.padding(vertical = 4.dp)
+                    )
+                    HorizontalDivider(
+                        Modifier.padding(horizontal = 16.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                    SettingsItem(
+                        icon = Icons.Default.BugReport,
+                        title = "API 連線測試",
+                        subtitle = "驗證 Gemini API Key 是否可正常呼叫",
+                        onClick = onNavigateToApiTest
                     )
                 }
             }

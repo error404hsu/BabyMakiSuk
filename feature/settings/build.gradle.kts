@@ -25,7 +25,7 @@ dependencies {
     implementation(project(":core:data"))
     implementation(project(":core:model"))
     implementation(project(":core:ui"))
-    // core:ai 依賴移除：ViewModel 不再直接依賴 CloudServiceAiClient
+    implementation(project(":core:ai"))          // ApiTestViewModel 需要 ServiceAiClient & AiConfig
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
     implementation(libs.androidx.material3)

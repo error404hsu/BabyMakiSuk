@@ -1,4 +1,4 @@
-﻿package com.babymakisuk.navigation
+package com.babymakisuk.navigation
 
 import androidx.compose.ui.tooling.preview.Preview
 import com.babymakisuk.ui.theme.BabyMakiSukTheme
@@ -21,6 +21,7 @@ import com.babymakisuk.featurehome.HomeScreen
 import com.babymakisuk.featuregrowth.GrowthScreen
 import com.babymakisuk.featuremedical.MedicalScreen
 import com.babymakisuk.featurelog.LogScreen
+import com.babymakisuk.featuresettings.ApiTestScreen
 import com.babymakisuk.featuresettings.SettingsScreen
 
 sealed class BottomNavItem(val route: String, val label: String, val icon: ImageVector) {
@@ -47,24 +48,31 @@ fun BabyMakiSukNavHost() {
         )
     }
 
+    // 子頁面路由不顯示 BottomBar
+    val showBottomBar = currentDestination?.route?.let { route ->
+        items.any { it.route == route }
+    } ?: true
+
     Scaffold(
         bottomBar = {
-            NavigationBar {
-                items.forEach { item ->
-                    NavigationBarItem(
-                        icon = { Icon(item.icon, contentDescription = item.label) },
-                        label = { Text(item.label) },
-                        selected = currentDestination?.hierarchy?.any { it.route == item.route } == true,
-                        onClick = {
-                            navController.navigate(item.route) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
+            if (showBottomBar) {
+                NavigationBar {
+                    items.forEach { item ->
+                        NavigationBarItem(
+                            icon = { Icon(item.icon, contentDescription = item.label) },
+                            label = { Text(item.label) },
+                            selected = currentDestination?.hierarchy?.any { it.route == item.route } == true,
+                            onClick = {
+                                navController.navigate(item.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
                                 }
-                                launchSingleTop = true
-                                restoreState = true
                             }
-                        }
-                    )
+                        )
+                    }
                 }
             }
         }
@@ -95,7 +103,16 @@ fun BabyMakiSukNavHost() {
             composable(BottomNavItem.Growth.route) { GrowthScreen() }
             composable(BottomNavItem.Medical.route) { MedicalScreen() }
             composable(BottomNavItem.Log.route) { LogScreen() }
-            composable(BottomNavItem.Settings.route) { SettingsScreen() }
+            composable(BottomNavItem.Settings.route) {
+                SettingsScreen(
+                    onNavigateToApiTest = { navController.navigate("settings/api_test") }
+                )
+            }
+            composable("settings/api_test") {
+                ApiTestScreen(
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
         }
     }
 }
