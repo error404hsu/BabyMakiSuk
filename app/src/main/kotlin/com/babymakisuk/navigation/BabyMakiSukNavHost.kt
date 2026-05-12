@@ -23,7 +23,7 @@ import com.babymakisuk.featureai.AiPortalScreen
 import com.babymakisuk.featurehome.HomeScreen
 import com.babymakisuk.featuregrowth.GrowthScreen
 import com.babymakisuk.featuremedical.MedicalScreen
-import com.babymakisuk.featurelog.LogScreen
+import com.babymakisuk.featurelibrary.LibraryScreen
 import com.babymakisuk.featuresettings.ApiTestScreen
 import com.babymakisuk.featuresettings.SettingsScreen
 import com.babymakisuk.featureweeklyreport.WeeklyReportSearchScreen
@@ -121,7 +121,7 @@ fun BabyMakiSukNavHost() {
                     }
                 )
             }
-            composable(BottomNavItem.Log.route) { LogScreen() }
+            composable(BottomNavItem.Log.route) { LibraryScreen() }
             composable(BottomNavItem.Settings.route) {
                 SettingsScreen(
                     onNavigateToApiTest = { navController.navigate("settings/api_test") }

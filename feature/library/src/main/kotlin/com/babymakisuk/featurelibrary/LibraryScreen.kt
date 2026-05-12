@@ -1,4 +1,4 @@
-﻿package com.babymakisuk.featurelog
+﻿package com.babymakisuk.featurelibrary
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
@@ -14,7 +14,7 @@ import androidx.compose.ui.unit.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun LogScreen() {
+fun LibraryScreen() {
     Scaffold(
         topBar = {
             Surface(shadowElevation = 3.dp) {

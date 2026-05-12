@@ -65,7 +65,7 @@ dependencies {
     implementation(project(":feature:growth"))
     implementation(project(":feature:medical"))
     implementation(project(":feature:vaccine"))
-    implementation(project(":feature:log"))
+    implementation(project(":feature:library"))
     implementation(project(":feature:settings"))
     implementation(project(":feature:ai"))
     implementation(project(":feature:weeklyreport"))
