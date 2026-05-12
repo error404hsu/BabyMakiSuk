@@ -32,7 +32,7 @@ sealed class BottomNavItem(val route: String, val label: String, val icon: Image
     data object Home : BottomNavItem("home", "首頁", Icons.Filled.Home)
     data object Growth : BottomNavItem("growth", "成長", Icons.Filled.ShowChart)
     data object Medical : BottomNavItem("medical", "就醫", Icons.Filled.Favorite)
-    data object Log : BottomNavItem("log", "日誌", Icons.Filled.Book)
+    data object Library : BottomNavItem("library", "圖書", Icons.Filled.MenuBook)
     data object Settings : BottomNavItem("settings", "設定", Icons.Filled.Settings)
 }
 
@@ -44,7 +44,7 @@ fun BabyMakiSukNavHost() {
 
     val items = remember {
         listOf(
-            BottomNavItem.Log,
+            BottomNavItem.Library,
             BottomNavItem.Growth,
             BottomNavItem.Home,
             BottomNavItem.Medical,
@@ -121,7 +121,7 @@ fun BabyMakiSukNavHost() {
                     }
                 )
             }
-            composable(BottomNavItem.Log.route) { LibraryScreen() }
+            composable(BottomNavItem.Library.route) { LibraryScreen() }
             composable(BottomNavItem.Settings.route) {
                 SettingsScreen(
                     onNavigateToApiTest = { navController.navigate("settings/api_test") }
