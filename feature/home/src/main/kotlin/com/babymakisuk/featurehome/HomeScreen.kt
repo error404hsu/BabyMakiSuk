@@ -24,6 +24,7 @@ import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -31,6 +32,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.babymakisuk.coremodel.ChildProfile
 import com.babymakisuk.coremodel.Gender
 import com.babymakisuk.coremodel.GrowthRecord
+import com.babymakisuk.ui.theme.BabyMakiSukTheme
 import java.time.LocalDate
 import java.time.Period
 import java.time.format.DateTimeFormatter
@@ -58,6 +60,7 @@ fun HomeScreen(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreenContent(
     uiState: HomeUiState,
@@ -72,72 +75,155 @@ fun HomeScreenContent(
         expandedGender = null
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            // Girl Card (Top)
-            val girlWeight by animateFloatAsState(
-                targetValue = when (expandedGender) {
-                    Gender.FEMALE -> 1f
-                    Gender.MALE -> 0f
-                    else -> 0.5f
-                }, label = "girlWeight"
-            )
-
-            if (girlWeight > 0.01f) {
-                Box(modifier = Modifier.weight(girlWeight).fillMaxWidth()) {
-                    ChildHubCard(
-                        child = uiState.girl ?: ChildProfile(name = "妹妹", gender = Gender.FEMALE, birthday = LocalDate.now()),
-                        latestGrowth = uiState.girlLatestGrowth,
-                        isExpanded = expandedGender == Gender.FEMALE,
-                        accentColor = GirlPink,
-                        onExpand = { expandedGender = Gender.FEMALE },
-                        onCollapse = { expandedGender = null },
-                        onEditClick = { isEditMode = true },
-                        onNavigateToGrowth = onNavigateToGrowth,
-                        onNavigateToMedical = onNavigateToMedical
-                    )
-                }
-            }
-
-            // Boy Card (Bottom)
-            val boyWeight by animateFloatAsState(
-                targetValue = when (expandedGender) {
-                    Gender.MALE -> 1f
-                    Gender.FEMALE -> 0f
-                    else -> 0.5f
-                }, label = "boyWeight"
-            )
-
-            if (boyWeight > 0.01f) {
-                Box(modifier = Modifier.weight(boyWeight).fillMaxWidth()) {
-                    ChildHubCard(
-                        child = uiState.boy ?: ChildProfile(name = "弟弟", gender = Gender.MALE, birthday = LocalDate.now()),
-                        latestGrowth = uiState.boyLatestGrowth,
-                        isExpanded = expandedGender == Gender.MALE,
-                        accentColor = BoyBlue,
-                        onExpand = { expandedGender = Gender.MALE },
-                        onCollapse = { expandedGender = null },
-                        onEditClick = { isEditMode = true },
-                        onNavigateToGrowth = onNavigateToGrowth,
-                        onNavigateToMedical = onNavigateToMedical
-                    )
+    Scaffold(
+        topBar = {
+            Surface(shadowElevation = 2.dp) {
+                Column(
+                    modifier = Modifier
+                        .background(MaterialTheme.colorScheme.surface)
+                        .statusBarsPadding()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        // App 圖示與名稱
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.ChildCare,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(28.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "Baby Maki Suk",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
+                        Spacer(Modifier.weight(1f))
+                        // Google 帳號圖示 (預留)
+                        Surface(
+                            modifier = Modifier.size(32.dp),
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                        ) {
+                            Icon(
+                                Icons.Default.AccountCircle,
+                                contentDescription = "帳號",
+                                modifier = Modifier.padding(2.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    // AI 快速入口
+                    Surface(
+                        onClick = { /* TODO: Open AI Chat */ },
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 12.dp)
+                        ) {
+                            Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "問問 AI：寶寶最近喝奶狀況？",
+                                color = Color.Gray,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Spacer(Modifier.weight(1f))
+                            Icon(
+                                Icons.Default.AutoAwesome,
+                                contentDescription = null,
+                                tint = Color(0xFF673AB7),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
                 }
             }
         }
-
-        // Edit Dialog
-        if (isEditMode && expandedGender != null) {
-            val childToEdit = if (expandedGender == Gender.FEMALE) uiState.girl else uiState.boy
-            childToEdit?.let {
-                EditChildProfileDialog(
-                    child = it,
-                    accentColor = if (it.gender == Gender.FEMALE) GirlPink else BoyBlue,
-                    onDismiss = { isEditMode = false },
-                    onSave = { updated ->
-                        onUpdateChild(updated)
-                        isEditMode = false
-                    }
+    ) { innerPadding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = innerPadding.calculateTopPadding())
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                // Girl Card (Top)
+                val girlWeight by animateFloatAsState(
+                    targetValue = when (expandedGender) {
+                        Gender.FEMALE -> 1f
+                        Gender.MALE -> 0f
+                        else -> 0.5f
+                    }, label = "girlWeight"
                 )
+
+                if (girlWeight > 0.01f) {
+                    Box(modifier = Modifier.weight(girlWeight).fillMaxWidth()) {
+                        ChildHubCard(
+                            child = uiState.girl ?: ChildProfile(name = "妹妹", gender = Gender.FEMALE, birthday = LocalDate.now()),
+                            latestGrowth = uiState.girlLatestGrowth,
+                            isExpanded = expandedGender == Gender.FEMALE,
+                            accentColor = GirlPink,
+                            onExpand = { expandedGender = Gender.FEMALE },
+                            onCollapse = { expandedGender = null },
+                            onEditClick = { isEditMode = true },
+                            onNavigateToGrowth = onNavigateToGrowth,
+                            onNavigateToMedical = onNavigateToMedical
+                        )
+                    }
+                }
+
+                // Boy Card (Bottom)
+                val boyWeight by animateFloatAsState(
+                    targetValue = when (expandedGender) {
+                        Gender.MALE -> 1f
+                        Gender.FEMALE -> 0f
+                        else -> 0.5f
+                    }, label = "boyWeight"
+                )
+
+                if (boyWeight > 0.01f) {
+                    Box(modifier = Modifier.weight(boyWeight).fillMaxWidth()) {
+                        ChildHubCard(
+                            child = uiState.boy ?: ChildProfile(name = "弟弟", gender = Gender.MALE, birthday = LocalDate.now()),
+                            latestGrowth = uiState.boyLatestGrowth,
+                            isExpanded = expandedGender == Gender.MALE,
+                            accentColor = BoyBlue,
+                            onExpand = { expandedGender = Gender.MALE },
+                            onCollapse = { expandedGender = null },
+                            onEditClick = { isEditMode = true },
+                            onNavigateToGrowth = onNavigateToGrowth,
+                            onNavigateToMedical = onNavigateToMedical
+                        )
+                    }
+                }
+            }
+
+            // Edit Dialog
+            if (isEditMode && expandedGender != null) {
+                val childToEdit = if (expandedGender == Gender.FEMALE) uiState.girl else uiState.boy
+                childToEdit?.let {
+                    EditChildProfileDialog(
+                        child = it,
+                        accentColor = if (it.gender == Gender.FEMALE) GirlPink else BoyBlue,
+                        onDismiss = { isEditMode = false },
+                        onSave = { updated ->
+                            onUpdateChild(updated)
+                            isEditMode = false
+                        }
+                    )
+                }
             }
         }
     }
@@ -461,5 +547,48 @@ fun EditChildProfileDialog(
                 }
             }
         }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun HomeScreenPreview() {
+    val sampleBoy = ChildProfile(
+        id = 1L,
+        name = "小明",
+        gender = Gender.MALE,
+        birthday = LocalDate.now().minusMonths(6)
+    )
+    val sampleGirl = ChildProfile(
+        id = 2L,
+        name = "小美",
+        gender = Gender.FEMALE,
+        birthday = LocalDate.now().minusMonths(8)
+    )
+
+    val sampleUiState = HomeUiState(
+        boy = sampleBoy,
+        girl = sampleGirl,
+        boyLatestGrowth = GrowthRecord(
+            childId = 1L,
+            heightCm = 68.0f,
+            weightKg = 7.5f,
+            date = LocalDate.now()
+        ),
+        girlLatestGrowth = GrowthRecord(
+            childId = 2L,
+            heightCm = 70.0f,
+            weightKg = 8.2f,
+            date = LocalDate.now()
+        )
+    )
+
+    BabyMakiSukTheme {
+        HomeScreenContent(
+            uiState = sampleUiState,
+            onUpdateChild = {},
+            onNavigateToGrowth = {},
+            onNavigateToMedical = {}
+        )
     }
 }

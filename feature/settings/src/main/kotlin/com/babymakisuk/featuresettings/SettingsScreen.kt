@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -102,52 +103,46 @@ fun SettingsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("設定", style = MaterialTheme.typography.titleLarge) },
-                actions = {
-                    if (userRole != UserRole.NONE) {
-                        AssistChip(
-                            onClick = { showRoleSheet = true },
-                            label = { Text(userRole.label, style = MaterialTheme.typography.labelMedium) },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = userRole.toIcon(),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            },
-                            modifier = Modifier.padding(end = 8.dp),
-                            colors = AssistChipDefaults.assistChipColors(
-                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                labelColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                                leadingIconContentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
+            Surface(shadowElevation = 2.dp) {
+                TopAppBar(
+                    title = {
+                        Text(
+                            "設定",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.ExtraBold
                         )
-                    } else {
-                        AssistChip(
-                            onClick = { showRoleSheet = true },
-                            label = { Text("請設定角色", style = MaterialTheme.typography.labelMedium) },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = Icons.Default.ManageAccounts,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp)
+                    },
+                    actions = {
+                        if (userRole != UserRole.NONE) {
+                            AssistChip(
+                                onClick = { showRoleSheet = true },
+                                label = {
+                                    Text(
+                                        userRole.label,
+                                        style = MaterialTheme.typography.labelMedium
+                                    )
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = userRole.toIcon(),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                },
+                                modifier = Modifier.padding(end = 8.dp),
+                                colors = AssistChipDefaults.assistChipColors(
+                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                    labelColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    leadingIconContentColor = MaterialTheme.colorScheme.onSecondaryContainer
                                 )
-                            },
-                            modifier = Modifier.padding(end = 8.dp),
-                            colors = AssistChipDefaults.assistChipColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer,
-                                labelColor = MaterialTheme.colorScheme.onErrorContainer,
-                                leadingIconContentColor = MaterialTheme.colorScheme.onErrorContainer
                             )
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent,
-                    scrolledContainerColor = Color.Transparent
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent
+                    )
                 )
-            )
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = MaterialTheme.colorScheme.background

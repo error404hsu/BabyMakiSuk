@@ -80,7 +80,7 @@ fun BabyMakiSukNavHost() {
         NavHost(
             navController = navController,
             startDestination = BottomNavItem.Home.route,
-            modifier = Modifier.padding(innerPadding)
+            modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())
         ) {
             composable(BottomNavItem.Home.route) {
                 HomeScreen(

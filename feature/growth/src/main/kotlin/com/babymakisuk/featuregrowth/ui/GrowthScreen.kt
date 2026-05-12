@@ -1,9 +1,9 @@
 package com.babymakisuk.featuregrowth.ui
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -53,20 +53,89 @@ fun GrowthScreen(
     Scaffold(
         containerColor = selectedChildColor.copy(alpha = 0.05f),
         topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("成長紀錄", fontWeight = FontWeight.ExtraBold) },
-                actions = {
-                    IconButton(onClick = { showChart = !showChart }) {
-                        Icon(
-                            imageVector = if (showChart) Icons.AutoMirrored.Filled.List else Icons.Filled.ShowChart,
-                            contentDescription = if (showChart) "列表" else "圖表"
+            Surface(shadowElevation = 3.dp) {
+                Column(modifier = Modifier.background(MaterialTheme.colorScheme.surface)) {
+                    TopAppBar(
+                        title = {
+                            Text(
+                                "成長紀錄",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        },
+                        actions = {
+                            IconButton(onClick = { showChart = !showChart }) {
+                                Icon(
+                                    imageVector = if (showChart) Icons.AutoMirrored.Filled.List else Icons.Default.ShowChart,
+                                    contentDescription = if (showChart) "列表" else "圖表"
+                                )
+                            }
+                            IconButton(onClick = { /* TODO: Search */ }) {
+                                Icon(Icons.Default.Search, contentDescription = "搜尋")
+                            }
+                            IconButton(onClick = { /* TODO: AI Analysis */ }) {
+                                Icon(
+                                    imageVector = Icons.Default.AutoAwesome,
+                                    contentDescription = "問問AI",
+                                    tint = Color(0xFF673AB7)
+                                )
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = Color.Transparent
                         )
+                    )
+                    // 精緻版寶寶篩選列
+                    if (uiState is GrowthUiState.Success) {
+                        val state = uiState as GrowthUiState.Success
+                        LazyRow(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 12.dp),
+                            contentPadding = PaddingValues(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(state.children) { child ->
+                                val isSelected = child.id == state.selectedChildId
+                                val childColor = if (child.gender == Gender.MALE) BoyBlue else GirlPink
+                                
+                                Surface(
+                                    onClick = { viewModel.selectChild(child.id) },
+                                    shape = RoundedCornerShape(16.dp),
+                                    color = if (isSelected) childColor else childColor.copy(alpha = 0.1f),
+                                    border = BorderStroke(
+                                        width = if (isSelected) 2.dp else 1.dp,
+                                        color = if (isSelected) childColor else childColor.copy(alpha = 0.3f)
+                                    ),
+                                    modifier = Modifier.height(48.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 12.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = Color.White.copy(alpha = 0.8f),
+                                            modifier = Modifier.size(28.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Text(if (child.gender == Gender.MALE) "👦" else "👧", fontSize = 16.sp)
+                                            }
+                                        }
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(
+                                            text = child.name,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                            color = if (isSelected) Color.White else childColor
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color.Transparent
-                )
-            )
+                }
+            }
         },
         floatingActionButton = {
             // 僅 canEditData 角色顯示 FAB
@@ -94,15 +163,10 @@ fun GrowthScreen(
                 is GrowthUiState.Error -> Text("錯誤：${state.message}", Modifier.align(Alignment.Center))
                 is GrowthUiState.Success -> {
                     Column(Modifier.fillMaxSize()) {
-                        ChildAvatarSelector(
-                            children = state.children,
-                            selectedId = state.selectedChildId,
-                            onSelect = viewModel::selectChild,
-                            accentColor = selectedChildColor
-                        )
                         state.records.maxByOrNull { it.record.date }?.let { latest ->
+                            Spacer(Modifier.height(12.dp))
                             LatestGrowthHero(latest, selectedChildColor)
-                        } ?: Box(Modifier.height(100.dp))
+                        } ?: Box(Modifier.height(16.dp))
 
                         Surface(
                             modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -132,55 +196,6 @@ fun GrowthScreen(
             onDismiss = viewModel::closeForm,
             onConfirm = { h, w, hc, date, note -> viewModel.saveRecord(h, w, hc, date, note) }
         )
-    }
-}
-
-@Composable
-private fun ChildAvatarSelector(
-    children: List<ChildProfile>,
-    selectedId: Long,
-    onSelect: (Long) -> Unit,
-    accentColor: Color
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 12.dp, horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        children.forEach { child ->
-            val isSelected = child.id == selectedId
-            val childColor = if (child.gender == Gender.MALE) BoyBlue else GirlPink
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.clickable { onSelect(child.id) }
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(CircleShape)
-                        .background(if (isSelected) childColor else childColor.copy(alpha = 0.1f))
-                        .border(
-                            width = if (isSelected) 3.dp else 0.dp,
-                            color = childColor.copy(alpha = 0.5f),
-                            shape = CircleShape
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = if (child.gender == Gender.MALE) "👦" else "👧",
-                        fontSize = 24.sp
-                    )
-                }
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = child.name,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                    color = if (isSelected) accentColor else Color.Gray
-                )
-            }
-        }
     }
 }
 
