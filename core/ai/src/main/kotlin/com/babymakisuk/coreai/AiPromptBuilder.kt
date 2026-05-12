@@ -26,4 +26,20 @@ object AiPromptBuilder {
             append("過敏史：${allergies ?: "無"}")
         }
     }
+
+    /**
+     * 依 [preset] 與已組裝好的 [contextBlock] 合併 system prompt。
+     *
+     * Sprint 3 新增 overload：供 AiContextInjector 注入完整 RAG context 使用。
+     *
+     * - 若 [preset.systemPrompt] 為空白，回傳 ""。
+     * - 否則：preset.systemPrompt + "\n\n" + contextBlock
+     */
+    fun buildSystemPromptWithContext(
+        preset: AiPreset,
+        contextBlock: String
+    ): String {
+        if (preset.systemPrompt.isBlank()) return ""
+        return "${preset.systemPrompt}\n\n$contextBlock"
+    }
 }

@@ -26,6 +26,7 @@ import com.babymakisuk.featuremedical.MedicalScreen
 import com.babymakisuk.featurelog.LogScreen
 import com.babymakisuk.featuresettings.ApiTestScreen
 import com.babymakisuk.featuresettings.SettingsScreen
+import com.babymakisuk.featureweeklyreport.WeeklyReportSearchScreen
 
 sealed class BottomNavItem(val route: String, val label: String, val icon: ImageVector) {
     data object Home : BottomNavItem("home", "首頁", Icons.Filled.Home)
@@ -129,6 +130,23 @@ fun BabyMakiSukNavHost() {
             composable("settings/api_test") {
                 ApiTestScreen(
                     onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            // Sprint 3：週報 FTS 搜尋頁（子頁面，不顯示 BottomBar）
+            composable(
+                route = "weekly_report_search?childId={childId}",
+                arguments = listOf(
+                    navArgument("childId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = ""
+                    }
+                )
+            ) { backStackEntry ->
+                val childId = backStackEntry.arguments?.getString("childId") ?: ""
+                WeeklyReportSearchScreen(
+                    navController = navController,
+                    childId = childId
                 )
             }
             composable(

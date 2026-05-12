@@ -33,7 +33,7 @@
 - [x] MedicalVisitCard AI 三欄展示（diagnosisSummary / prescriptions / careInstructions）
 - [x] NewMedicalVisitDialog（醫院、科別、診斷、備註表單）
 - [ ] coreai / ServiceAI 真實 SDK 串接
-- [ ] MedicalAiRepository
+- [x] MedicalAiRepository（summarizeMedicalVisit + analyzePrescription）
 - [ ] medical_note_summarizer prompt schema
 - [ ] AI JSON 解析與寫入 MedicalVisit
 - [ ] 「AI 整理僅供參考」安全提示
@@ -56,6 +56,16 @@
 - [x] `AiPortalViewModel`（情境感知排序、RateLimitException 處理）
 - [x] Navigation：`ai_portal?presetHint={hint}` 路由
 - [x] `MedicalScreen` / `GrowthScreen` / `HomeScreen` 加入 AI FAB
+
+### Sprint 3 — MedicalAiRepository + 規則式 RAG Phase 1.5 + FTS 搜尋 UI（2026-05-12）✅
+
+- [x] `AiContextInjector`（規則式 RAG Phase 1.5，注入最近 3 筆就醫 + 1 筆成長紀錄）
+- [x] `AiPromptBuilder.buildSystemPromptWithContext()`（Sprint 3 新增 overload）
+- [x] `MedicalAiRepository`（summarizeMedicalVisit + analyzePrescription）
+- [x] `WeeklyReportRepository` AI 整合（generateWeeklyReport 使用 AiDispatcher + AiContextInjector）
+- [x] `WeeklyReportSearchScreen`（FTS 全文搜尋 + AnnotatedString keyword highlight）
+- [x] `WeeklyReportSearchViewModel`（HiltViewModel + debounce 300ms + FTS StateFlow）
+- [x] `BabyMakiSukNavHost`：新增 `weekly_report_search?childId={childId}` 路由
 
 ---
 
@@ -120,13 +130,15 @@
 
 > 詳細規格見 docs/SYNC_ARCHITECTURE.md
 
+- [x] `feature/weeklyreport`：`WeeklyReportSearchScreen`（FTS 搜尋 + keyword highlight）
+- [x] `feature/weeklyreport`：`WeeklyReportSearchViewModel`
+- [x] `core/data`：`WeeklyReportRepository`（AI 整合 generateWeeklyReport）
 - [ ] `feature/weeklyreport`：`WeeklyReportScreen` UI
 - [ ] `feature/weeklyreport`：`WeeklyReportViewModel`
 - [ ] `core/ai`：`weekly_baby_log_summary` prompt schema（含 searchKeywords 萃取）
 - [ ] `core/drive`：`DriveExportRepository`（Markdown 週報 + JSON 匯出）
 - [ ] `core/drive`：`DriveImageBackupManager`（舊照片遷移 > 6 個月）
 - [ ] Firestore `driveExported` / `driveFileId` 欄位寫回
-- [ ] `WeeklyReportSearchScreen`（FTS 搜尋就醫紀錄）
 - [ ] WorkManager 週期任務（週日 22:00 自動觸發，可選）
 
 ---
