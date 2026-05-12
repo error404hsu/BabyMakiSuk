@@ -30,5 +30,5 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
 
     // Gemini Android SDK
-    implementation("com.google.ai.client.generativeai:generativeai:0.9.0")
+    implementation(libs.generativeai)
 }
