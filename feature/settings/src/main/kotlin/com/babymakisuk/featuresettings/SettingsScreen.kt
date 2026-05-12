@@ -10,21 +10,26 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.ManageAccounts
+import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.babymakisuk.coredata.DarkModeOption
+import com.babymakisuk.coremodel.UserRole
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -34,10 +39,11 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     val view = LocalView.current
 
     val darkMode by viewModel.darkMode.collectAsState()
+    val userRole by viewModel.userRole.collectAsState()
     val backupState by viewModel.backupState.collectAsState()
 
-    // UI 狀態控制
     var showDarkModeSheet by remember { mutableStateOf(false) }
+    var showRoleSheet by remember { mutableStateOf(false) }
     var showImportConfirm by remember { mutableStateOf<android.net.Uri?>(null) }
 
     val snackbarHostState = remember { SnackbarHostState() }
@@ -47,7 +53,6 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
         contract = ActivityResultContracts.OpenDocument()
     ) { uri -> uri?.let { showImportConfirm = it } }
 
-    // ── 處理沉浸式滿版 (Edge-to-Edge) 與狀態列顏色 ──
     val isSystemDark = isSystemInDarkTheme()
     val isDark = when (darkMode) {
         DarkModeOption.DARK -> true
@@ -60,12 +65,9 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
         SideEffect {
             val window = (view.context as? Activity)?.window
             if (window != null) {
-                // 1. 讓畫面延伸到系統列底下 (滿版)
                 WindowCompat.setDecorFitsSystemWindows(window, false)
-                // 2. 將狀態列與導覽列背景設為透明
                 window.statusBarColor = android.graphics.Color.TRANSPARENT
                 window.navigationBarColor = android.graphics.Color.TRANSPARENT
-                // 3. 自動控制頂部(時間電量)與底部(導覽列)圖示為深色或淺色
                 WindowCompat.getInsetsController(window, view).apply {
                     isAppearanceLightStatusBars = !isDark
                     isAppearanceLightNavigationBars = !isDark
@@ -97,13 +99,12 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
             TopAppBar(
                 title = { Text("設定", style = MaterialTheme.typography.titleLarge) },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent, // 讓頂部不再是突兀的白色，完全融入背景
+                    containerColor = Color.Transparent,
                     scrolledContainerColor = Color.Transparent
                 )
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        // 統一將底色改為基礎 background，視覺最和諧
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         LazyColumn(
@@ -115,6 +116,19 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
         ) {
             item { Spacer(Modifier.height(8.dp)) }
 
+            // ── 裝置角色 ──
+            item {
+                SettingsSection(title = "裝置角色") {
+                    SettingsItem(
+                        icon = userRole.toIcon(),
+                        title = "目前角色：${userRole.label}",
+                        subtitle = userRole.description,
+                        onClick = { showRoleSheet = true }
+                    )
+                }
+            }
+
+            // ── 外觀 ──
             item {
                 SettingsSection(title = "外觀") {
                     SettingsItem(
@@ -126,6 +140,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 }
             }
 
+            // ── 資料管理 ──
             item {
                 SettingsSection(title = "資料管理") {
                     SettingsItem(
@@ -135,7 +150,10 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                         enabled = backupState !is BackupUiState.Loading,
                         onClick = { viewModel.triggerExport() }
                     )
-                    HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.surfaceVariant)
+                    HorizontalDivider(
+                        Modifier.padding(horizontal = 16.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant
+                    )
                     SettingsItem(
                         icon = Icons.Default.Download,
                         title = "匯入備份",
@@ -146,6 +164,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 }
             }
 
+            // ── 關於 ──
             item {
                 SettingsSection(title = "關於") {
                     SettingsItem(
@@ -161,6 +180,59 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
         }
     }
 
+    // ── 角色選擇 BottomSheet ──
+    if (showRoleSheet) {
+        ModalBottomSheet(onDismissRequest = { showRoleSheet = false }) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 32.dp)
+            ) {
+                Text(
+                    text = "選擇裝置角色",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp)
+                )
+                // 排除 NONE，讓使用者只能選三個有意義的角色
+                UserRole.entries
+                    .filter { it != UserRole.NONE }
+                    .forEach { role ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    viewModel.setUserRole(role)
+                                    coroutineScope.launch { showRoleSheet = false }
+                                }
+                                .padding(horizontal = 24.dp, vertical = 4.dp)
+                        ) {
+                            RadioButton(
+                                selected = userRole == role,
+                                onClick = {
+                                    viewModel.setUserRole(role)
+                                    coroutineScope.launch { showRoleSheet = false }
+                                }
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = role.label,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                                Text(
+                                    text = role.description,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+            }
+        }
+    }
+
+    // ── 深色模式 BottomSheet ──
     if (showDarkModeSheet) {
         ModalBottomSheet(onDismissRequest = { showDarkModeSheet = false }) {
             Column(
@@ -199,6 +271,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
         }
     }
 
+    // ── 匯入確認對話框 ──
     showImportConfirm?.let { uri ->
         AlertDialog(
             onDismissRequest = { showImportConfirm = null },
@@ -217,6 +290,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
         )
     }
 
+    // ── 載入遮罩 ──
     if (backupState is BackupUiState.Loading) {
         Box(
             modifier = Modifier
@@ -237,6 +311,14 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     }
 }
 
+// ── 角色對應 Icon ──────────────────────────────────────────
+private fun UserRole.toIcon(): ImageVector = when (this) {
+    UserRole.DATA_MANAGER -> Icons.Default.ManageAccounts
+    UserRole.AI_OPERATOR  -> Icons.Default.SmartToy
+    UserRole.ADMIN        -> Icons.Default.AdminPanelSettings
+    UserRole.NONE         -> Icons.Default.ManageAccounts
+}
+
 // ── 可複用子元件 ──────────────────────────────────────────
 
 @Composable
@@ -251,7 +333,6 @@ private fun SettingsSection(
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
         )
-        // 將卡片顏色改為 Elevated 顏色，與背景做出層次感區別
         Surface(
             shape = RoundedCornerShape(16.dp),
             color = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp),
@@ -264,7 +345,7 @@ private fun SettingsSection(
 
 @Composable
 private fun SettingsItem(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     title: String,
     subtitle: String,
     enabled: Boolean = true,
@@ -273,10 +354,15 @@ private fun SettingsItem(
     ListItem(
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         headlineContent = {
-            Text(title, color = if (enabled) MaterialTheme.colorScheme.onSurface
-            else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f))
+            Text(
+                title,
+                color = if (enabled) MaterialTheme.colorScheme.onSurface
+                else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+            )
         },
-        supportingContent = { Text(subtitle, style = MaterialTheme.typography.bodyMedium) },
+        supportingContent = {
+            Text(subtitle, style = MaterialTheme.typography.bodyMedium)
+        },
         leadingContent = {
             Box(
                 modifier = Modifier

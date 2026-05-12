@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.babymakisuk.coredata.DarkModeOption
 import com.babymakisuk.coredata.SettingsRepository
+import com.babymakisuk.coremodel.UserRole
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -38,6 +39,17 @@ class SettingsViewModel @Inject constructor(
 
     fun setDarkMode(option: DarkModeOption) {
         viewModelScope.launch { repository.setDarkMode(option) }
+    }
+
+    // ── 使用者角色 ──────────────────────────────────────────
+    val userRole: StateFlow<UserRole> = repository.userRoleFlow.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = UserRole.NONE
+    )
+
+    fun setUserRole(role: UserRole) {
+        viewModelScope.launch { repository.setUserRole(role) }
     }
 
     // ── 匯出 / 匯入 ──────────────────────────────────────────

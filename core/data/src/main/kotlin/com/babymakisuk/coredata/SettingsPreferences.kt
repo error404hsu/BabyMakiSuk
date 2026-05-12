@@ -9,4 +9,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 object SettingsPreferences {
     /** 深色模式選項："SYSTEM" | "LIGHT" | "DARK" */
     val DARK_MODE_KEY = stringPreferencesKey("dark_mode")
+
+    /** 使用者角色："DATA_MANAGER" | "AI_OPERATOR" | "ADMIN" | "NONE" */
+    val USER_ROLE_KEY = stringPreferencesKey("user_role")
 }

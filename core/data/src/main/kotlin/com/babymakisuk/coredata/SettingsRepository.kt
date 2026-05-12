@@ -6,6 +6,7 @@ import android.net.Uri
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.preferencesDataStore
 import com.babymakisuk.coredata.backup.BackupManager
+import com.babymakisuk.coremodel.UserRole
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -32,6 +33,22 @@ class SettingsRepository @Inject constructor(
     suspend fun setDarkMode(option: DarkModeOption) {
         context.dataStore.edit { prefs ->
             prefs[SettingsPreferences.DARK_MODE_KEY] = option.name
+        }
+    }
+
+    // ── 使用者角色 ──────────────────────────────────────────
+
+    val userRoleFlow: Flow<UserRole> = context.dataStore.data.map { prefs ->
+        runCatching {
+            UserRole.valueOf(
+                prefs[SettingsPreferences.USER_ROLE_KEY] ?: UserRole.NONE.name
+            )
+        }.getOrDefault(UserRole.NONE)
+    }
+
+    suspend fun setUserRole(role: UserRole) {
+        context.dataStore.edit { prefs ->
+            prefs[SettingsPreferences.USER_ROLE_KEY] = role.name
         }
     }
 
