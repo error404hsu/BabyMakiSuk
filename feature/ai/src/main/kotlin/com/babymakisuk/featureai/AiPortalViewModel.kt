@@ -7,6 +7,7 @@ import com.babymakisuk.coreai.AiConfig
 import com.babymakisuk.coreai.AiDispatchException
 import com.babymakisuk.coreai.AiDispatcher
 import com.babymakisuk.coreai.AiPreset
+import com.babymakisuk.coreai.AiPromptBuilder
 import com.babymakisuk.coreai.GeminiModel
 import com.babymakisuk.coredata.repository.ChildRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -52,16 +53,14 @@ class AiPortalViewModel @Inject constructor(
 
     /**
      * 切換角色。
-     * 若使用者未手動 override，自動帶入新角色的 preferredModel 並清除 override 狀態。
-     * 若已 override，保留使用者選擇的模型不變。
+     * - 未 override：自動帶入新角色的 preferredModel 並清除 override。
+     * - 已 override：只換角色，保留使用者選擇的模型。
      */
     fun switchPreset(preset: AiPreset) {
         _uiState.update { state ->
             if (state.isModelOverridden) {
-                // 使用者已強制選擇模型 → 只換角色，模型維持不變
                 state.copy(selectedPreset = preset)
             } else {
-                // 跟隨建議 → 角色與模型一起切換
                 state.copy(
                     selectedPreset = preset,
                     selectedModel  = preset.preferredModel
@@ -70,10 +69,7 @@ class AiPortalViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 手動強制選擇模型。
-     * 設定 isModelOverridden = true，後續切換角色不再自動改變模型。
-     */
+    /** 手動強制選擇模型，設定 isModelOverridden = true。 */
     fun overrideModel(model: GeminiModel) {
         _uiState.update {
             it.copy(
@@ -83,9 +79,7 @@ class AiPortalViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 清除模型 Override，回歸目前角色的 preferredModel 建議。
-     */
+    /** 清除模型 Override，回歸目前角色的 preferredModel 建議。 */
     fun clearModelOverride() {
         _uiState.update { state ->
             state.copy(
@@ -121,29 +115,24 @@ class AiPortalViewModel @Inject constructor(
                 val gender    = child?.gender?.name ?: "未知"
                 val allergies = child?.allergies
 
-                val currentState  = _uiState.value
-                val currentPreset = currentState.selectedPreset
+                val currentPreset = _uiState.value.selectedPreset
 
-                // effectiveModel 已封裝建議/強制邏輯，此處直接使用
-                val effectiveModel = currentState.effectiveModel
+                // 統一透過 AiPromptBuilder 組合 system prompt
+                // 全域限制（繁中、重點、安全規範等）由 AiPromptBuilder 自動附加
+                val systemPrompt = AiPromptBuilder.buildSystemPrompt(
+                    preset    = currentPreset,
+                    ageMonths = ageMonths,
+                    gender    = gender,
+                    allergies = allergies
+                )
 
-                val systemPrompt = """
-                    ${currentPreset.systemPrompt}
-                    目前諮詢對象資訊：
-                    - 月齡：$ageMonths 個月
-                    - 性別：$gender
-                    ${allergies?.let { "- 過敏史：$it" } ?: ""}
-                    請根據以上背景提供專業建議。
-                """.trimIndent()
-
-                // 使用 effectiveModel.modelId 覆蓋 fallback chain 首選
-                // 若 effectiveModel 已是 chain 內的模型，AiDispatcher 會優先使用它
                 val response = aiDispatcher.executeWithSystemPrompt(
                     task         = currentPreset.task,
                     systemPrompt = systemPrompt,
                     userPrompt   = prompt
                 )
 
+                // 打字機效果（含角色名稱前綴）
                 val prefix = "【以 ${currentPreset.displayName} 的身分回答】\n"
                 for (char in (prefix + response)) {
                     delay(15)
