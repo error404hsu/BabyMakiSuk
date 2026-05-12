@@ -52,6 +52,20 @@ class SettingsRepository @Inject constructor(
         }
     }
 
+    // ── Gemini API Key ────────────────────────────────────
+
+    /** 讀取已儲存的 Gemini API Key，若尚未設定則回傳 null */
+    val geminiApiKey: Flow<String?> = context.dataStore.data.map { prefs ->
+        prefs[SettingsPreferences.GEMINI_API_KEY]
+    }
+
+    /** 儲存 Gemini API Key 至 DataStore */
+    suspend fun setGeminiApiKey(key: String) {
+        context.dataStore.edit { prefs ->
+            prefs[SettingsPreferences.GEMINI_API_KEY] = key
+        }
+    }
+
     // ── 匯出 / 匯入 ──────────────────────────────────────────
 
     /** 建立可分享的 Intent，展示系統分享選單 */

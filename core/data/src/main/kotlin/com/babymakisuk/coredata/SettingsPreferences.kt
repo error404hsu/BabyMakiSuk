@@ -12,4 +12,7 @@ object SettingsPreferences {
 
     /** 使用者角色："DATA_MANAGER" | "AI_OPERATOR" | "ADMIN" | "NONE" */
     val USER_ROLE_KEY = stringPreferencesKey("user_role")
+
+    /** Gemini 雲端 API Key（加密儲存於 DataStore） */
+    val GEMINI_API_KEY = stringPreferencesKey("gemini_api_key")
 }
