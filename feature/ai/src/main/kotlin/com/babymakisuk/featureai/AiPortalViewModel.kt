@@ -9,7 +9,7 @@ import com.babymakisuk.coreai.AiConfig
 import com.babymakisuk.coreai.AiPreset
 import com.babymakisuk.coreai.AiPromptBuilder
 import com.babymakisuk.coreai.RateLimitException
-import com.babymakisuk.data.repository.ChildRepository
+import com.babymakisuk.coredata.repository.ChildRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

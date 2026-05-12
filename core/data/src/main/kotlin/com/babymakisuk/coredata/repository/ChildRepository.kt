@@ -12,6 +12,7 @@ import javax.inject.Singleton
 @Singleton
 class ChildRepository @Inject constructor(private val dao: ChildDao) {
     fun observeAll(): Flow<List<ChildProfile>> = dao.observeAll().map { list -> list.map { it.toDomain() } }
+    suspend fun getChildren(): List<ChildProfile> = dao.getAllOnce().map { it.toDomain() }
     suspend fun getById(id: Long): ChildProfile? = dao.getById(id)?.toDomain()
     suspend fun save(child: ChildProfile): Long = dao.upsert(child.toEntity())
     suspend fun delete(child: ChildProfile) = dao.delete(child.toEntity())

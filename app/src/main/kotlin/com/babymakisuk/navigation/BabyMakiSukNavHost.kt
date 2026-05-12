@@ -13,10 +13,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.babymakisuk.featureai.AiPortalScreen
 import com.babymakisuk.featurehome.HomeScreen
 import com.babymakisuk.featuregrowth.GrowthScreen
 import com.babymakisuk.featuremedical.MedicalScreen
@@ -97,11 +100,26 @@ fun BabyMakiSukNavHost() {
                             launchSingleTop = true
                             restoreState = true
                         }
+                    },
+                    onNavigateToAi = { hint ->
+                        navController.navigate("ai_portal?presetHint=$hint")
                     }
                 )
             }
-            composable(BottomNavItem.Growth.route) { GrowthScreen() }
-            composable(BottomNavItem.Medical.route) { MedicalScreen() }
+            composable(BottomNavItem.Growth.route) {
+                GrowthScreen(
+                    onNavigateToAi = { hint ->
+                        navController.navigate("ai_portal?presetHint=$hint")
+                    }
+                )
+            }
+            composable(BottomNavItem.Medical.route) {
+                MedicalScreen(
+                    onNavigateToAi = { hint ->
+                        navController.navigate("ai_portal?presetHint=$hint")
+                    }
+                )
+            }
             composable(BottomNavItem.Log.route) { LogScreen() }
             composable(BottomNavItem.Settings.route) {
                 SettingsScreen(
@@ -111,6 +129,22 @@ fun BabyMakiSukNavHost() {
             composable("settings/api_test") {
                 ApiTestScreen(
                     onNavigateBack = { navController.popBackStack() }
+                )
+            }
+            composable(
+                route = "ai_portal?presetHint={presetHint}",
+                arguments = listOf(
+                    navArgument("presetHint") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }
+                )
+            ) { backStackEntry ->
+                val presetHint = backStackEntry.arguments?.getString("presetHint")
+                AiPortalScreen(
+                    navController = navController,
+                    presetHint = presetHint
                 )
             }
         }

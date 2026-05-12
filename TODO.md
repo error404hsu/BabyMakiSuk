@@ -48,6 +48,15 @@
 - [x] `RateLimitException` / `AiDispatchException`
 - [x] `AiDispatcher`（Fallback Chain + Rate Limit 整合，支援 System Prompt）
 
+### Sprint 2 — AI Portal 與情境入口（2026-05-13）✅
+
+- [x] `AiPreset` enum（5 個角色，含 task 欄位對應 AiTask）
+- [x] `AiPromptBuilder`（buildSystemPrompt，CUSTOM 早期返回）
+- [x] `AiPortalScreen`（對話視窗 UI + PresetSelector + ChatHistory）
+- [x] `AiPortalViewModel`（情境感知排序、RateLimitException 處理）
+- [x] Navigation：`ai_portal?presetHint={hint}` 路由
+- [x] `MedicalScreen` / `GrowthScreen` / `HomeScreen` 加入 AI FAB
+
 ---
 
 ## HomeScreen

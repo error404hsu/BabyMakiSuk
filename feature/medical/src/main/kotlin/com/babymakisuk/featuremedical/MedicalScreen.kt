@@ -29,7 +29,10 @@ private val GirlPink = Color(0xFFE07BBD)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MedicalScreen(viewModel: MedicalViewModel = hiltViewModel()) {
+fun MedicalScreen(
+    viewModel: MedicalViewModel = hiltViewModel(),
+    onNavigateToAi: (String?) -> Unit = {}
+) {
     val uiState by viewModel.uiState.collectAsState()
     val showForm by viewModel.showForm.collectAsState()
     val editingVisit by viewModel.editingVisit.collectAsState()
@@ -58,7 +61,7 @@ fun MedicalScreen(viewModel: MedicalViewModel = hiltViewModel()) {
                             IconButton(onClick = { /* TODO: Search */ }) {
                                 Icon(Icons.Default.Search, contentDescription = "搜尋")
                             }
-                            IconButton(onClick = { /* TODO: AI Consultation */ }) {
+                            IconButton(onClick = { onNavigateToAi("PEDIATRIC_DOCTOR") }) {
                                 Icon(
                                     imageVector = Icons.Default.AutoAwesome,
                                     contentDescription = "問問AI",
@@ -123,17 +126,27 @@ fun MedicalScreen(viewModel: MedicalViewModel = hiltViewModel()) {
             }
         },
         floatingActionButton = {
-            // 僅 canEditData 角色顯示 FAB
-            if (canEditData) {
-                ExtendedFloatingActionButton(
-                    onClick = viewModel::openForm,
-                    containerColor = selectedChildColor,
-                    contentColor = Color.White,
-                    shape = CircleShape
+            Column(horizontalAlignment = Alignment.End) {
+                FloatingActionButton(
+                    onClick = { onNavigateToAi("PEDIATRIC_DOCTOR") },
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
                 ) {
-                    Icon(Icons.Filled.Add, "新增")
-                    Spacer(Modifier.width(8.dp))
-                    Text("新增就診")
+                    Icon(Icons.Default.AutoAwesome, contentDescription = "AI 兒科醫師")
+                }
+
+                if (canEditData) {
+                    Spacer(Modifier.height(16.dp))
+                    ExtendedFloatingActionButton(
+                        onClick = viewModel::openForm,
+                        containerColor = selectedChildColor,
+                        contentColor = Color.White,
+                        shape = CircleShape
+                    ) {
+                        Icon(Icons.Filled.Add, "新增")
+                        Spacer(Modifier.width(8.dp))
+                        Text("新增就診")
+                    }
                 }
             }
         }

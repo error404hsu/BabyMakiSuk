@@ -67,6 +67,7 @@ dependencies {
     implementation(project(":feature:vaccine"))
     implementation(project(":feature:log"))
     implementation(project(":feature:settings"))
+    implementation(project(":feature:ai"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

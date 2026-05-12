@@ -30,7 +30,8 @@ private val GirlPink = Color(0xFFE07BBD)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GrowthScreen(
-    viewModel: GrowthViewModel? = if (LocalInspectionMode.current) null else hiltViewModel()
+    viewModel: GrowthViewModel? = if (LocalInspectionMode.current) null else hiltViewModel(),
+    onNavigateToAi: (String?) -> Unit = {}
 ) {
     if (viewModel == null) {
         Box(Modifier.fillMaxSize()) {
@@ -73,7 +74,7 @@ fun GrowthScreen(
                             IconButton(onClick = { /* TODO: Search */ }) {
                                 Icon(Icons.Default.Search, contentDescription = "搜尋")
                             }
-                            IconButton(onClick = { /* TODO: AI Analysis */ }) {
+                            IconButton(onClick = { onNavigateToAi("GROWTH_ANALYST") }) {
                                 Icon(
                                     imageVector = Icons.Default.AutoAwesome,
                                     contentDescription = "問問AI",
@@ -138,17 +139,27 @@ fun GrowthScreen(
             }
         },
         floatingActionButton = {
-            // 僅 canEditData 角色顯示 FAB
-            if (canEditData) {
-                ExtendedFloatingActionButton(
-                    onClick = viewModel::openForm,
-                    containerColor = selectedChildColor,
-                    contentColor = Color.White,
-                    shape = CircleShape
+            Column(horizontalAlignment = Alignment.End) {
+                FloatingActionButton(
+                    onClick = { onNavigateToAi("GROWTH_ANALYST") },
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
                 ) {
-                    Icon(Icons.Filled.Add, "新增")
-                    Spacer(Modifier.width(8.dp))
-                    Text("新增紀錄")
+                    Icon(Icons.Default.AutoAwesome, contentDescription = "AI 發育分析師")
+                }
+
+                if (canEditData) {
+                    Spacer(Modifier.height(16.dp))
+                    ExtendedFloatingActionButton(
+                        onClick = viewModel::openForm,
+                        containerColor = selectedChildColor,
+                        contentColor = Color.White,
+                        shape = CircleShape
+                    ) {
+                        Icon(Icons.Filled.Add, "新增")
+                        Spacer(Modifier.width(8.dp))
+                        Text("新增紀錄")
+                    }
                 }
             }
         }

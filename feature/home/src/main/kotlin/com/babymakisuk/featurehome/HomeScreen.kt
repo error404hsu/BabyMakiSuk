@@ -44,7 +44,8 @@ private val GirlPink = Color(0xFFE07BBD)
 fun HomeScreen(
     viewModel: HomeViewModel? = if (LocalInspectionMode.current) null else hiltViewModel(),
     onNavigateToGrowth: () -> Unit = {},
-    onNavigateToMedical: () -> Unit = {}
+    onNavigateToMedical: () -> Unit = {},
+    onNavigateToAi: (String?) -> Unit = {}
 ) {
     val uiState by if (viewModel == null) {
         remember { mutableStateOf(HomeUiState()) }
@@ -56,7 +57,8 @@ fun HomeScreen(
         uiState = uiState,
         onUpdateChild = { viewModel?.updateChild(it) },
         onNavigateToGrowth = onNavigateToGrowth,
-        onNavigateToMedical = onNavigateToMedical
+        onNavigateToMedical = onNavigateToMedical,
+        onNavigateToAi = onNavigateToAi
     )
 }
 
@@ -66,7 +68,8 @@ fun HomeScreenContent(
     uiState: HomeUiState,
     onUpdateChild: (ChildProfile) -> Unit,
     onNavigateToGrowth: () -> Unit,
-    onNavigateToMedical: () -> Unit
+    onNavigateToMedical: () -> Unit,
+    onNavigateToAi: (String?) -> Unit = {}
 ) {
     var expandedGender by remember { mutableStateOf<Gender?>(null) }
     var isEditMode by remember { mutableStateOf(false) }
@@ -122,7 +125,7 @@ fun HomeScreenContent(
                     Spacer(Modifier.height(8.dp))
                     // AI 快速入口
                     Surface(
-                        onClick = { /* TODO: Open AI Chat */ },
+                        onClick = { onNavigateToAi("QUICK_CHAT") },
                         shape = RoundedCornerShape(12.dp),
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                         modifier = Modifier
@@ -150,6 +153,15 @@ fun HomeScreenContent(
                         }
                     }
                 }
+            }
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { onNavigateToAi("QUICK_CHAT") },
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+            ) {
+                Icon(Icons.Default.AutoAwesome, contentDescription = "AI 助理")
             }
         }
     ) { innerPadding ->
@@ -588,7 +600,8 @@ fun HomeScreenPreview() {
             uiState = sampleUiState,
             onUpdateChild = {},
             onNavigateToGrowth = {},
-            onNavigateToMedical = {}
+            onNavigateToMedical = {},
+            onNavigateToAi = {}
         )
     }
 }
