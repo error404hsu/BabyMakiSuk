@@ -90,24 +90,30 @@ private fun PercentileLegend() {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        LegendItem(Color(0xFFE3F2FD), "P15-P85")
-        LegendItem(Color(0xFFBDBDBD), "P3/P97")
-        LegendItem(Color(0xFF90CAF9), "P15/P85")
-        LegendItem(Color(0xFF42A5F5), "P50")
-        LegendItem(Color(0xFFFF7043), "實測")
+        LegendItem(Color(0xFFD6E8FA), "P15-P85")
+        LegendItem(Color(0xFF4A5568), "P3/P97", dashed = true)
+        LegendItem(Color(0xFF3182CE), "P15/P85", dashed = true)
+        LegendItem(Color(0xFF2B6CB0), "P50")
+        LegendItem(Color(0xFFDD6B20), "實測")
     }
 }
 
 @Composable
-private fun LegendItem(color: Color, label: String) {
+private fun LegendItem(color: Color, label: String, dashed: Boolean = false) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Canvas(modifier = Modifier.size(12.dp)) {
-            drawCircle(color)
+            if (dashed) {
+                drawCircle(color, radius = size.minDimension / 3)
+                drawCircle(Color.Transparent, radius = size.minDimension / 2)
+                drawArc(color, 0f, 90f, false, style = Stroke(width = 2f))
+            } else {
+                drawCircle(color)
+            }
         }
         Text(label, style = MaterialTheme.typography.labelSmall)
     }
@@ -182,12 +188,12 @@ private fun GrowthLineChart(
         }
 
         drawAxes(monthMin, monthMax, minY, maxY, ::xOf, ::yOf, textMeasurer)
-        drawReferenceBand(months, ref85, ref15, ::xOf, ::yOf, Color(0xFFE3F2FD))
-        drawReferenceLine(months, ref3,  ::xOf, ::yOf, Color(0xFFBDBDBD), dashed = true)
-        drawReferenceLine(months, ref15, ::xOf, ::yOf, Color(0xFF90CAF9), dashed = true)
-        drawReferenceLine(months, ref50, ::xOf, ::yOf, Color(0xFF42A5F5), dashed = false)
-        drawReferenceLine(months, ref85, ::xOf, ::yOf, Color(0xFF90CAF9), dashed = true)
-        drawReferenceLine(months, ref97, ::xOf, ::yOf, Color(0xFFBDBDBD), dashed = true)
+        drawReferenceBand(months, ref85, ref15, ::xOf, ::yOf, Color(0xFFD6E8FA))
+        drawReferenceLine(months, ref3,  ::xOf, ::yOf, Color(0xFF4A5568), dashed = true)
+        drawReferenceLine(months, ref15, ::xOf, ::yOf, Color(0xFF63A4D0), dashed = true)
+        drawReferenceLine(months, ref50, ::xOf, ::yOf, Color(0xFF2B6CB0), dashed = false)
+        drawReferenceLine(months, ref85, ::xOf, ::yOf, Color(0xFF63A4D0), dashed = true)
+        drawReferenceLine(months, ref97, ::xOf, ::yOf, Color(0xFF4A5568), dashed = true)
         drawMeasuredLine(sorted, metric, ::xOf, ::yOf)
 
         val label = when (metric) {
@@ -288,11 +294,11 @@ private fun DrawScope.drawMeasuredLine(
         moveTo(xOf(first.ageMonths), yOf(firstVal))
         records.drop(1).forEach { lineTo(xOf(it.ageMonths), yOf(it.metricValue(metric))) }
     }
-    drawPath(path, Color(0xFFFF7043), style = Stroke(width = 4f))
+    drawPath(path, Color(0xFFDD6B20), style = Stroke(width = 4f))
     records.forEach { item ->
         val v = item.metricValue(metric)
         drawCircle(Color.White,  radius = 7f, center = Offset(xOf(item.ageMonths), yOf(v)))
-        drawCircle(Color(0xFFFF7043), radius = 5f, center = Offset(xOf(item.ageMonths), yOf(v)))
+        drawCircle(Color(0xFFDD6B20), radius = 5f, center = Offset(xOf(item.ageMonths), yOf(v)))
     }
 }
 

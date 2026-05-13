@@ -147,7 +147,7 @@ fun HomeScreenContent(
                             Icon(
                                 Icons.Default.AutoAwesome,
                                 contentDescription = null,
-                                tint = Color(0xFF673AB7),
+                                tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -164,13 +164,52 @@ fun HomeScreenContent(
                 Icon(Icons.Default.AutoAwesome, contentDescription = "AI 助理")
             }
         }
-    ) { innerPadding ->
+        ) { innerPadding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(top = innerPadding.calculateTopPadding())
         ) {
-            Column(modifier = Modifier.fillMaxSize()) {
+            if (uiState.boy == null && uiState.girl == null) {
+                // ── Empty State ────────────────────────────────
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        Icons.Default.ChildCare,
+                        contentDescription = null,
+                        modifier = Modifier.size(80.dp),
+                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        "尚未建立孩子資料",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "開始記錄寶寶的每一個成長時刻",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(24.dp))
+                    Button(
+                        onClick = { /* TODO: 新增孩子流程 */ },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.tertiary
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("新增孩子")
+                    }
+                }
+            } else {
+                Column(modifier = Modifier.fillMaxSize()) {
                 // Girl Card (Top)
                 val girlWeight by animateFloatAsState(
                     targetValue = when (expandedGender) {
@@ -218,7 +257,8 @@ fun HomeScreenContent(
                             onNavigateToGrowth = onNavigateToGrowth,
                             onNavigateToMedical = onNavigateToMedical
                         )
-                    }
+                }
+            }
                 }
             }
 

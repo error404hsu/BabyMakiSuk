@@ -1,6 +1,6 @@
 # BabyMakiSuk TODO
 
-更新日期：2026-05-12
+更新日期：2026-05-13
 
 ---
 
@@ -82,6 +82,44 @@
 - [ ] 下次回診 Card（NextVisitCard）
 
 ---
+
+---
+
+## UI/UX 設計系統優化（2026-05-13）✅
+
+> 基於 ui-ury-pro-max 資料庫建議，實施完整的設計系統更新。
+
+- [x] **色票系統更新**
+  - Primary `#4FC3F7` → `#0369A1`（深穩藍，提升信賴感）
+  - Dark Primary → `#38BDF8`（深色模式高可讀性）
+  - 新增 Tertiary `#22C55E`（CTA 綠色，用於新增/發送等正向動作）
+  - Background `#FAFAFA` → `#F0F9FF`（淺藍白底）
+  - Text `#1A1A1A` → `#0C4A6E`（深藍灰，提升可讀性）
+- [x] **字型導入**（Lora + Raleway Typography scale）
+  - Headings: `FontFamily.Serif` ≈ Lora
+  - Body: `FontFamily.Default` ≈ Raleway
+  - 完整的 Material 3 14 級字型定義
+  - 附註：將 .ttf 放入 `res/font/` 後替換 `FontFamily` 即可啟用實際字型
+- [x] **Empty States 補強**
+  - HomeScreen：雙寶無資料時顯示圖示 + 引導 + 新增按鈕
+  - GrowthScreen：無成長紀錄時顯示引導 + 新增按鈕（限可編輯角色）
+  - MedicalScreen：無就診紀錄時顯示引導 + 新增按鈕（限可編輯角色）
+  - WeeklyReportSearchScreen：搜尋前/無結果分別顯示引導提示
+- [x] **Growth Chart 用色優化（色盲友善）**
+  - 改用藍色系參考線（不同亮度）+ 橘色實測線，紅綠色盲可辨
+  - 圖例加入 dash pattern 輔助辨識
+  - 實測線 `#FF7043` → `#DD6B20`
+- [x] **AI Chat Bubble 樣式優化**
+  - 使用者泡泡：`primary` 深藍底 + 白色字
+  - AI 泡泡：`surfaceVariant` 淺底 + shadow
+  - 角色標頭含 emoji icon + 名稱 + 時間
+  - 角色選取 Chip 加入 emoji icon
+  - 送出按鈕改用 `tertiary` CTA 綠色
+  - AI 紫色 (`#673AB7`) 全部移除，改為 theme primary
+  - Thinking indicator 陰影 + 圓角優化
+- [x] **HTML 原型產出**（`ui-ux-preview.html`）
+  - 7 個 Screen 完整 mockup，套用推薦設計系統
+  - 每個 Screen 附 CURRENT vs SUGGEST 註解
 
 ## Phase D - 每日日誌與 AI 每週總結
 

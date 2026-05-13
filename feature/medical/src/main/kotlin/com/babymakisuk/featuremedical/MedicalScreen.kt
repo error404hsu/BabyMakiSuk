@@ -68,7 +68,7 @@ fun MedicalScreen(
                                 Icon(
                                     imageVector = Icons.Default.AutoAwesome,
                                     contentDescription = "問問AI",
-                                    tint = Color(0xFF673AB7)
+                                    tint = MaterialTheme.colorScheme.primary
                                 )
                             }
                         },
@@ -183,7 +183,37 @@ fun MedicalScreen(
                                     Modifier.fillMaxSize(),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text("尚無就診紀錄", color = MaterialTheme.colorScheme.outline)
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Icon(
+                                            Icons.Default.MedicalServices,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(72.dp),
+                                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+                                        )
+                                        Spacer(Modifier.height(16.dp))
+                                        Text(
+                                            "尚無就診紀錄",
+                                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                                        )
+                                        Spacer(Modifier.height(8.dp))
+                                        Text(
+                                            "記錄寶寶的每一次就醫，方便追蹤健康狀況",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        if (canEditData) {
+                                            Spacer(Modifier.height(24.dp))
+                                            Button(
+                                                onClick = viewModel::openForm,
+                                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary),
+                                                shape = RoundedCornerShape(12.dp)
+                                            ) {
+                                                Icon(Icons.Default.Add, contentDescription = null)
+                                                Spacer(Modifier.width(8.dp))
+                                                Text("新增就診")
+                                            }
+                                        }
+                                    }
                                 }
                             } else {
                                 LazyColumn(

@@ -207,10 +207,17 @@ fun AiPortalScreenContent(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(uiState.sortedPresets) { preset ->
+                    val roleIcon = when (preset.name) {
+                        "PEDIATRIC_DOCTOR" -> "👨‍⚕️"
+                        "PHARMACIST" -> "💊"
+                        "NUTRITIONIST" -> "🥗"
+                        "GROWTH_ANALYST" -> "📊"
+                        else -> "💬"
+                    }
                     FilterChip(
                         selected = uiState.selectedPreset == preset,
                         onClick  = { onSwitchPreset(preset) },
-                        label    = { Text(preset.displayName) },
+                        label    = { Text(roleIcon + " " + preset.displayName) },
                         leadingIcon = if (uiState.selectedPreset == preset) {
                             {
                                 Icon(
@@ -237,7 +244,11 @@ fun AiPortalScreenContent(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(uiState.messages, key = { it.id }) { message ->
-                    ChatBubble(message = message)
+                    ChatBubble(
+                        message = message,
+                        aiPresetName = if (message.role == Role.AI) uiState.selectedPreset.displayName else null,
+                        aiPresetHint = if (message.role == Role.AI) uiState.selectedPreset.name else null
+                    )
                 }
 
                 // AI 正在輸入中的提示
@@ -286,67 +297,81 @@ fun AiPortalScreenContent(
 }
 
 @Composable
-private fun ChatBubble(message: ChatMessage) {
+private fun ChatBubble(
+    message: ChatMessage,
+    aiPresetName: String? = null,
+    aiPresetHint: String? = null
+) {
     val isUser = message.role == Role.USER
     val timeFormatter = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
     val timeString = timeFormatter.format(Date(message.timestampMs))
 
+    val roleIcon = when {
+        isUser -> "👤"
+        aiPresetHint == "PEDIATRIC_DOCTOR" -> "👨‍⚕️"
+        aiPresetHint == "PHARMACIST" -> "💊"
+        aiPresetHint == "NUTRITIONIST" -> "🥗"
+        aiPresetHint == "GROWTH_ANALYST" -> "📊"
+        else -> "🤖"
+    }
+
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp),
         horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
     ) {
-        if (!isUser) {
+        // Role label
+        Row(
+            modifier = Modifier.padding(
+                start = if (isUser) 0.dp else 8.dp,
+                end = if (isUser) 8.dp else 0.dp,
+                bottom = 4.dp
+            ),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Text(
-                text = "AI 助手",
+                text = "$roleIcon ${if (isUser) "你" else (aiPresetName ?: "AI 助手")}",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
+                fontWeight = FontWeight.SemiBold,
+                color = if (isUser) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = timeString,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.outline
             )
         }
 
+        // Bubble
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start,
             verticalAlignment = Alignment.Bottom
         ) {
-            if (isUser) {
-                Text(
-                    text = timeString,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline,
-                    modifier = Modifier.padding(end = 6.dp, bottom = 2.dp)
-                )
-            }
-
             Surface(
-                color = if (isUser) MaterialTheme.colorScheme.primaryContainer
+                color = if (isUser) MaterialTheme.colorScheme.primary
                 else MaterialTheme.colorScheme.surfaceVariant,
                 shape = RoundedCornerShape(
-                    topStart = 16.dp,
-                    topEnd = 16.dp,
-                    bottomStart = if (isUser) 16.dp else 4.dp,
-                    bottomEnd = if (isUser) 4.dp else 16.dp
+                    topStart = 20.dp,
+                    topEnd = 20.dp,
+                    bottomStart = if (isUser) 20.dp else 4.dp,
+                    bottomEnd = if (isUser) 4.dp else 20.dp
                 ),
                 modifier = Modifier.widthIn(max = 280.dp),
-                tonalElevation = if (isUser) 0.dp else 2.dp
+                shadowElevation = if (isUser) 0.dp else 2.dp,
+                tonalElevation = if (isUser) 0.dp else 1.dp
             ) {
                 Text(
                     text = message.text,
-                    modifier = Modifier.padding(12.dp),
-                    color = if (isUser) MaterialTheme.colorScheme.onPrimaryContainer
-                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    color = if (isUser) MaterialTheme.colorScheme.onPrimary
+                    else MaterialTheme.colorScheme.onSurface,
                     style = MaterialTheme.typography.bodyLarge.copy(
                         lineHeight = 24.sp
                     )
-                )
-            }
-
-            if (!isUser) {
-                Text(
-                    text = timeString,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline,
-                    modifier = Modifier.padding(start = 6.dp, bottom = 2.dp)
                 )
             }
         }
@@ -364,21 +389,22 @@ private fun ThinkingIndicator() {
     ) {
         Surface(
             color = MaterialTheme.colorScheme.surfaceVariant,
-            shape = RoundedCornerShape(16.dp, 16.dp, 16.dp, 4.dp),
-            tonalElevation = 2.dp
+            shape = RoundedCornerShape(20.dp, 20.dp, 20.dp, 4.dp),
+            shadowElevation = 2.dp,
+            tonalElevation = 1.dp
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 CircularProgressIndicator(
-                    modifier = Modifier.size(14.dp),
-                    strokeWidth = 2.dp,
+                    modifier = Modifier.size(16.dp),
+                    strokeWidth = 2.5.dp,
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "AI 正在思考中...",
+                    text = "正在回覆...",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -430,7 +456,7 @@ private fun ChatInputBar(
                 .size(48.dp)
                 .background(
                     color = if (text.isNotBlank() && !isGenerating)
-                        MaterialTheme.colorScheme.primary
+                        MaterialTheme.colorScheme.tertiary
                     else
                         MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                     shape = CircleShape
@@ -446,7 +472,7 @@ private fun ChatInputBar(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.Send,
                     contentDescription = "發送",
-                    tint = if (text.isNotBlank()) MaterialTheme.colorScheme.onPrimary
+                    tint = if (text.isNotBlank()) MaterialTheme.colorScheme.onTertiary
                     else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }

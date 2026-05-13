@@ -78,7 +78,7 @@ fun GrowthScreen(
                                 Icon(
                                     imageVector = Icons.Default.AutoAwesome,
                                     contentDescription = "問問AI",
-                                    tint = Color(0xFF673AB7)
+                                    tint = MaterialTheme.colorScheme.primary
                                 )
                             }
                         },
@@ -173,26 +173,63 @@ fun GrowthScreen(
                 is GrowthUiState.Loading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
                 is GrowthUiState.Error -> Text("錯誤：${state.message}", Modifier.align(Alignment.Center))
                 is GrowthUiState.Success -> {
-                    Column(Modifier.fillMaxSize()) {
-                        state.records.maxByOrNull { it.record.date }?.let { latest ->
-                            Spacer(Modifier.height(12.dp))
-                            LatestGrowthHero(latest, selectedChildColor)
-                        } ?: Box(Modifier.height(16.dp))
-
-                        Surface(
-                            modifier = Modifier.weight(1f).fillMaxWidth(),
-                            shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
-                            shadowElevation = 8.dp,
-                            color = MaterialTheme.colorScheme.surface
-                        ) {
-                            if (showChart) {
-                                GrowthChartScreen(records = state.records)
-                            } else {
-                                GrowthListScreen(
-                                    records = state.records,
-                                    onEdit = { viewModel.editRecord(it) },
-                                    onDelete = { viewModel.deleteRecord(it.record) }
+                    if (state.records.isEmpty()) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Spacer(Modifier.height(40.dp))
+                                Icon(
+                                    Icons.Default.ShowChart,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(72.dp),
+                                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
                                 )
+                                Spacer(Modifier.height(16.dp))
+                                Text(
+                                    "尚無成長紀錄",
+                                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    "點擊下方按鈕新增第一筆身高體重測量",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                if (canEditData) {
+                                    Spacer(Modifier.height(24.dp))
+                                    Button(
+                                        onClick = viewModel::openForm,
+                                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Icon(Icons.Default.Add, contentDescription = null)
+                                        Spacer(Modifier.width(8.dp))
+                                        Text("新增成長紀錄")
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        Column(Modifier.fillMaxSize()) {
+                            state.records.maxByOrNull { it.record.date }?.let { latest ->
+                                Spacer(Modifier.height(12.dp))
+                                LatestGrowthHero(latest, selectedChildColor)
+                            } ?: Box(Modifier.height(16.dp))
+
+                            Surface(
+                                modifier = Modifier.weight(1f).fillMaxWidth(),
+                                shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
+                                shadowElevation = 8.dp,
+                                color = MaterialTheme.colorScheme.surface
+                            ) {
+                                if (showChart) {
+                                    GrowthChartScreen(records = state.records)
+                                } else {
+                                    GrowthListScreen(
+                                        records = state.records,
+                                        onEdit = { viewModel.editRecord(it) },
+                                        onDelete = { viewModel.deleteRecord(it.record) }
+                                    )
+                                }
                             }
                         }
                     }

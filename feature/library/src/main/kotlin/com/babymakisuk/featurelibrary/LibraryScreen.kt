@@ -23,7 +23,7 @@ fun LibraryScreen() {
                     actions = {
                         IconButton(onClick = { /* TODO */ }) { Icon(Icons.Default.Search, "搜尋") }
                         IconButton(onClick = { /* TODO */ }) {
-                            Icon(Icons.Default.AutoAwesome, "問問AI", tint = Color(0xFF673AB7))
+                            Icon(Icons.Default.AutoAwesome, "問問AI", tint = MaterialTheme.colorScheme.primary)
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
