@@ -24,6 +24,9 @@ import com.babymakisuk.featurehome.HomeScreen
 import com.babymakisuk.featuregrowth.GrowthScreen
 import com.babymakisuk.featuremedical.MedicalScreen
 import com.babymakisuk.featurelibrary.LibraryScreen
+import com.babymakisuk.featurelibrary.shelf.aiinsight.AiInsightShelfScreen
+import com.babymakisuk.featurelibrary.shelf.memo.MemoShelfScreen
+import com.babymakisuk.featurelibrary.shelf.weekly.WeeklyShelfScreen
 import com.babymakisuk.featuresettings.ApiTestScreen
 import com.babymakisuk.featuresettings.SettingsScreen
 import com.babymakisuk.featureweeklyreport.WeeklyReportSearchScreen
@@ -121,7 +124,14 @@ fun BabyMakiSukNavHost() {
                     }
                 )
             }
-            composable(BottomNavItem.Library.route) { LibraryScreen() }
+            composable(BottomNavItem.Library.route) {
+                LibraryScreen(
+                    navController = navController,
+                    onNavigateToAi = { hint ->
+                        navController.navigate("ai_portal?presetHint=$hint")
+                    }
+                )
+            }
             composable(BottomNavItem.Settings.route) {
                 SettingsScreen(
                     onNavigateToApiTest = { navController.navigate("settings/api_test") }
@@ -163,6 +173,54 @@ fun BabyMakiSukNavHost() {
                 AiPortalScreen(
                     navController = navController,
                     presetHint = presetHint
+                )
+            }
+            composable(
+                route = "library/weekly?childId={childId}",
+                arguments = listOf(
+                    navArgument("childId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = ""
+                    }
+                )
+            ) { backStackEntry ->
+                val childId = backStackEntry.arguments?.getString("childId") ?: ""
+                WeeklyShelfScreen(
+                    navController = navController,
+                    childId = childId
+                )
+            }
+            composable(
+                route = "library/aiinsight?childId={childId}",
+                arguments = listOf(
+                    navArgument("childId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = ""
+                    }
+                )
+            ) { backStackEntry ->
+                val childId = backStackEntry.arguments?.getString("childId") ?: ""
+                AiInsightShelfScreen(
+                    navController = navController,
+                    childId = childId
+                )
+            }
+            composable(
+                route = "library/memo?childId={childId}",
+                arguments = listOf(
+                    navArgument("childId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = ""
+                    }
+                )
+            ) { backStackEntry ->
+                val childId = backStackEntry.arguments?.getString("childId") ?: ""
+                MemoShelfScreen(
+                    navController = navController,
+                    childId = childId
                 )
             }
         }

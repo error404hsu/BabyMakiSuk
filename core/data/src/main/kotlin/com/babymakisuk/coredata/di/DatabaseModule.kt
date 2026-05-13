@@ -19,6 +19,7 @@ object DatabaseModule {
         Room.databaseBuilder(ctx, AppDatabase::class.java, "babymakisuk.db")
             .addMigrations(AppDatabase.MIGRATION_1_2)
             .addMigrations(AppDatabase.MIGRATION_2_3)
+            .addMigrations(AppDatabase.MIGRATION_3_4)
             .build()
 
     @Provides fun provideChildDao(db: AppDatabase) = db.childDao()
@@ -27,4 +28,6 @@ object DatabaseModule {
     @Provides fun provideVaccineDao(db: AppDatabase) = db.vaccineDao()
     @Provides fun provideDailyLogDao(db: AppDatabase) = db.dailyLogDao()
     @Provides fun provideWeeklyReportDao(db: AppDatabase) = db.weeklyReportDao()
+    @Provides fun provideAiInsightDao(db: AppDatabase) = db.aiInsightDao()
+    @Provides fun provideMemoDao(db: AppDatabase) = db.memoDao()
 }

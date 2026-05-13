@@ -42,4 +42,12 @@ interface WeeklyReportDao {
 
     @Query("SELECT * FROM weekly_reports WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): WeeklyReportEntity?
+
+    @Query("""
+        SELECT * FROM weekly_reports
+        WHERE child_id = :childId
+        ORDER BY week_start DESC
+        LIMIT :limit
+    """)
+    fun getRecentReports(childId: String, limit: Int = 20): Flow<List<WeeklyReportEntity>>
 }

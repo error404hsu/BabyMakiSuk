@@ -16,9 +16,11 @@ import com.babymakisuk.coredata.entity.*
         VaccineRecordEntity::class,
         DailyLogEntity::class,
         WeeklyReportEntity::class,
-        WeeklyReportFts::class
+        WeeklyReportFts::class,
+        AiInsightEntity::class,
+        MemoEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -29,6 +31,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun vaccineDao(): VaccineDao
     abstract fun dailyLogDao(): DailyLogDao
     abstract fun weeklyReportDao(): WeeklyReportDao
+    abstract fun aiInsightDao(): AiInsightDao
+    abstract fun memoDao(): MemoDao
 
     companion object {
         /**
@@ -126,6 +130,33 @@ abstract class AppDatabase : RoomDatabase() {
 
                 // 5. 將新表改名為原名
                 db.execSQL("ALTER TABLE weekly_reports_new RENAME TO weekly_reports")
+            }
+        }
+
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS ai_insights (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        childId TEXT NOT NULL,
+                        title TEXT NOT NULL,
+                        content TEXT NOT NULL,
+                        sourceDate INTEGER NOT NULL,
+                        createdAt INTEGER NOT NULL
+                    )
+                """.trimIndent())
+
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS memos (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        childId TEXT NOT NULL,
+                        title TEXT NOT NULL,
+                        content TEXT NOT NULL,
+                        tags TEXT NOT NULL,
+                        createdAt INTEGER NOT NULL,
+                        updatedAt INTEGER NOT NULL
+                    )
+                """.trimIndent())
             }
         }
     }

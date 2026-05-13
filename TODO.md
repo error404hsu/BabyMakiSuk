@@ -226,6 +226,20 @@
 
 ---
 
+## Phase H - Feature Library（書庫功能）
+
+- [x] Task 1 — BabyMakiSukNavHost BottomNavItem 配置
+- [x] Task 2 — AiInsightEntity + MemoEntity
+- [x] Task 3 — AiInsightDao + MemoDao + WeeklyReportDao.getRecentReports
+- [x] Task 4 — AppDatabase v3→v4 + MIGRATION_3_4 + DatabaseModule
+- [x] Task 5 — LibraryScreen（3 書架卡片）+ LibraryViewModel
+- [x] Task 6 — WeeklyShelfScreen（週報列表搜尋入口）
+- [x] Task 7 — AiInsightShelfScreen（AI 精華列表 + 長按刪除）
+- [x] Task 8 — MemoShelfScreen（Memo CRUD + ModalBottomSheet + 長按刪除）
+- [x] Task 9 — NavHost 補齊 library 子路由（library/weekly, library/aiinsight, library/memo）
+
+---
+
 ## Backlog
 
 - [ ] 替換成 WHO 官方完整 0-60 月 LMS/CSV 資料（目前 stub 精度足夠，正式上架前升級）
