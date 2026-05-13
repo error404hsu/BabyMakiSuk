@@ -23,4 +23,20 @@ interface MedicalDao {
 
     @Query("DELETE FROM medical_visit")
     suspend fun deleteAll()
+
+    @Query("""
+        UPDATE medical_visit
+        SET diagnosis_summary = :diagnosisSummary,
+            prescriptions     = :prescriptions,
+            care_instructions = :careInstructions,
+            is_urgent         = :isUrgent
+        WHERE id = :id
+    """)
+    suspend fun updateAiFields(
+        id: Long,
+        diagnosisSummary: String,
+        prescriptions: String,
+        careInstructions: String,
+        isUrgent: Boolean
+    )
 }

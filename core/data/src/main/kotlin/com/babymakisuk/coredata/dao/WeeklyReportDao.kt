@@ -1,6 +1,7 @@
 ﻿package com.babymakisuk.coredata.dao
 
 import androidx.room.Dao
+import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
@@ -50,4 +51,7 @@ interface WeeklyReportDao {
         LIMIT :limit
     """)
     fun getRecentReports(childId: String, limit: Int = 20): Flow<List<WeeklyReportEntity>>
+
+    @Delete
+    suspend fun delete(report: WeeklyReportEntity)
 }

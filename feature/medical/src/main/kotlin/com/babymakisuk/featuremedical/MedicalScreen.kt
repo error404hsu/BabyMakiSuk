@@ -227,7 +227,11 @@ fun MedicalScreen(
                                             canEdit = canEditData,
                                             canUseLocalAi = canUseLocalAi,
                                             onEdit = { viewModel.editVisit(visit) },
-                                            onDelete = { viewModel.deleteVisit(visit) }
+                                            onDelete = { viewModel.deleteVisit(visit) },
+                                            onTriggerAi = { viewModel.triggerAiSummary(visit) },
+                                            onUpdateAiFields = { id, diagnosisSummary, prescriptions, careInstructions, isUrgent ->
+                                                viewModel.updateAiFields(id, diagnosisSummary, prescriptions, careInstructions, isUrgent)
+                                            }
                                         )
                                     }
                                 }
@@ -299,9 +303,18 @@ private fun MedicalVisitCard(
     canEdit: Boolean,
     canUseLocalAi: Boolean,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onTriggerAi: () -> Unit,
+    onUpdateAiFields: (Long, String, String, String, Boolean) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
+    var editingDiagnosis by remember(visit.id, visit.diagnosisSummary) { mutableStateOf(false) }
+    var editingPrescriptions by remember(visit.id, visit.prescriptions) { mutableStateOf(false) }
+    var editingCare by remember(visit.id, visit.careInstructions) { mutableStateOf(false) }
+
+    var editDiagnosisText by remember(visit.id, visit.diagnosisSummary) { mutableStateOf(visit.diagnosisSummary) }
+    var editPrescriptionsText by remember(visit.id, visit.prescriptions) { mutableStateOf(visit.prescriptions) }
+    var editCareText by remember(visit.id, visit.careInstructions) { mutableStateOf(visit.careInstructions) }
 
     Card(
         modifier = Modifier
@@ -345,7 +358,6 @@ private fun MedicalVisitCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                // 編輯 / 刪除僅 canEditData 顯示
                 if (canEdit) {
                     IconButton(onClick = onEdit) {
                         Icon(
@@ -376,27 +388,69 @@ private fun MedicalVisitCard(
                 )
             }
 
-            // AI 提問按鈕：本機 AI 限 canUseLocalAi；Cloud API 所有角色可用
-            val aiButtonLabel = when {
-                canUseLocalAi -> "查看 AI 建議與備註"
-                else -> "雲端 AI 提問"
+            // 安全提示 Banner：AI 已整理時顯示
+            if (visit.diagnosisSummary.isNotBlank()) {
+                Spacer(Modifier.height(8.dp))
+                val (bannerColor, bannerText) = if (visit.isUrgent) {
+                    MaterialTheme.colorScheme.errorContainer to
+                        "🚨 AI 偵測到緊急提示，請立即就醫或聯絡醫師"
+                } else {
+                    MaterialTheme.colorScheme.tertiaryContainer to
+                        "⚕️ AI 整理僅供參考，請以醫師診斷為準"
+                }
+                Surface(
+                    color = bannerColor,
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = bannerText,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
             }
-            TextButton(
-                onClick = { expanded = !expanded },
-                contentPadding = PaddingValues(0.dp),
-                modifier = Modifier.align(Alignment.End)
+
+            // AI 提問按鈕 + AI 整理觸發按鈕
+            Row(
+                modifier = Modifier.align(Alignment.End),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Text(
-                    if (expanded) "收合詳情" else aiButtonLabel,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = accentColor
-                )
-                Icon(
-                    imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                    tint = accentColor
-                )
+                if (canUseLocalAi && canEdit) {
+                    TextButton(
+                        onClick = onTriggerAi,
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.AutoAwesome,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = accentColor
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            "AI 整理",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = accentColor
+                        )
+                    }
+                }
+                TextButton(
+                    onClick = { expanded = !expanded },
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+                ) {
+                    Text(
+                        if (expanded) "收合詳情" else "展開",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = accentColor
+                    )
+                    Icon(
+                        imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = accentColor
+                    )
+                }
             }
 
             if (expanded) {
@@ -405,7 +459,6 @@ private fun MedicalVisitCard(
                 Spacer(Modifier.height(12.dp))
 
                 if (!canUseLocalAi) {
-                    // DATA_MANAGER 提示訊息
                     Surface(
                         shape = RoundedCornerShape(12.dp),
                         color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
@@ -432,21 +485,150 @@ private fun MedicalVisitCard(
                     Spacer(Modifier.height(8.dp))
                 }
 
-                if (visit.diagnosisSummary.isNotBlank()) {
-                    AiInfoCard(icon = "📋", title = "AI 診斷摘要", content = visit.diagnosisSummary, color = accentColor)
+                // AI 診斷摘要（可編輯）
+                if (visit.diagnosisSummary.isNotBlank() || canEdit) {
+                    EditableAiField(
+                        icon = "📋",
+                        title = "AI 診斷摘要",
+                        isEditing = editingDiagnosis,
+                        editText = editDiagnosisText,
+                        displayText = visit.diagnosisSummary.ifBlank { "尚無紀錄" },
+                        color = accentColor,
+                        canEdit = canEdit,
+                        onStartEdit = {
+                            editDiagnosisText = visit.diagnosisSummary
+                            editingDiagnosis = true
+                        },
+                        onConfirmEdit = {
+                            onUpdateAiFields(visit.id, editDiagnosisText, visit.prescriptions, visit.careInstructions, visit.isUrgent)
+                            editingDiagnosis = false
+                        },
+                        onCancelEdit = { editingDiagnosis = false },
+                        onTextChange = { editDiagnosisText = it },
+                        singleLine = true
+                    )
                     Spacer(Modifier.height(8.dp))
                 }
-                if (visit.prescriptions.isNotBlank()) {
-                    AiInfoCard(icon = "💊", title = "處方內容", content = visit.prescriptions, color = accentColor)
+
+                // 處方內容（可編輯）
+                if (visit.prescriptions.isNotBlank() || canEdit) {
+                    EditableAiField(
+                        icon = "💊",
+                        title = "處方內容",
+                        isEditing = editingPrescriptions,
+                        editText = editPrescriptionsText,
+                        displayText = visit.prescriptions.ifBlank { "尚無紀錄" },
+                        color = accentColor,
+                        canEdit = canEdit,
+                        onStartEdit = {
+                            editPrescriptionsText = visit.prescriptions
+                            editingPrescriptions = true
+                        },
+                        onConfirmEdit = {
+                            onUpdateAiFields(visit.id, visit.diagnosisSummary, editPrescriptionsText, visit.careInstructions, visit.isUrgent)
+                            editingPrescriptions = false
+                        },
+                        onCancelEdit = { editingPrescriptions = false },
+                        onTextChange = { editPrescriptionsText = it },
+                        singleLine = true
+                    )
                     Spacer(Modifier.height(8.dp))
                 }
-                if (visit.careInstructions.isNotBlank()) {
-                    AiInfoCard(icon = "🏠", title = "居家照護建議", content = visit.careInstructions, color = accentColor)
+
+                // 居家照護建議（可編輯）
+                if (visit.careInstructions.isNotBlank() || canEdit) {
+                    EditableAiField(
+                        icon = "🏠",
+                        title = "居家照護建議",
+                        isEditing = editingCare,
+                        editText = editCareText,
+                        displayText = visit.careInstructions.ifBlank { "尚無紀錄" },
+                        color = accentColor,
+                        canEdit = canEdit,
+                        onStartEdit = {
+                            editCareText = visit.careInstructions
+                            editingCare = true
+                        },
+                        onConfirmEdit = {
+                            onUpdateAiFields(visit.id, visit.diagnosisSummary, visit.prescriptions, editCareText, visit.isUrgent)
+                            editingCare = false
+                        },
+                        onCancelEdit = { editingCare = false },
+                        onTextChange = { editCareText = it },
+                        singleLine = false
+                    )
                     Spacer(Modifier.height(8.dp))
                 }
+
                 if (visit.notes.isNotBlank()) {
                     AiInfoCard(icon = "📝", title = "備註", content = visit.notes, color = Color.Gray)
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EditableAiField(
+    icon: String,
+    title: String,
+    isEditing: Boolean,
+    editText: String,
+    displayText: String,
+    color: Color,
+    canEdit: Boolean,
+    onStartEdit: () -> Unit,
+    onConfirmEdit: () -> Unit,
+    onCancelEdit: () -> Unit,
+    onTextChange: (String) -> Unit,
+    singleLine: Boolean
+) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = color.copy(alpha = 0.1f),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(text = icon, fontSize = 14.sp)
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                    color = color,
+                    modifier = Modifier.weight(1f)
+                )
+                if (canEdit) {
+                    if (isEditing) {
+                        IconButton(onClick = onConfirmEdit, modifier = Modifier.size(20.dp)) {
+                            Icon(Icons.Default.Check, contentDescription = "確認", tint = color, modifier = Modifier.size(16.dp))
+                        }
+                        IconButton(onClick = onCancelEdit, modifier = Modifier.size(20.dp)) {
+                            Icon(Icons.Default.Close, contentDescription = "取消", tint = color, modifier = Modifier.size(16.dp))
+                        }
+                    } else {
+                        IconButton(onClick = onStartEdit, modifier = Modifier.size(20.dp)) {
+                            Text("✏️", fontSize = 14.sp)
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(6.dp))
+            if (isEditing) {
+                OutlinedTextField(
+                    value = editText,
+                    onValueChange = onTextChange,
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = singleLine,
+                    textStyle = MaterialTheme.typography.bodySmall
+                )
+            } else {
+                Text(
+                    text = displayText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 18.sp
+                )
             }
         }
     }

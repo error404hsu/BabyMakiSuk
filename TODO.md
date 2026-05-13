@@ -32,12 +32,12 @@
 - [x] MedicalScreen（ChildFilterChip + LazyColumn + MedicalVisitCard 可展開）
 - [x] MedicalVisitCard AI 三欄展示（diagnosisSummary / prescriptions / careInstructions）
 - [x] NewMedicalVisitDialog（醫院、科別、診斷、備註表單）
-- [ ] coreai / ServiceAI 真實 SDK 串接
+- [x] coreai / ServiceAI 真實 SDK 串接
 - [x] MedicalAiRepository（summarizeMedicalVisit + analyzePrescription）
-- [ ] medical_note_summarizer prompt schema
-- [ ] AI JSON 解析與寫入 MedicalVisit
-- [ ] 「AI 整理僅供參考」安全提示
-- [ ] AI 結果手動編輯 UI
+- [x] medical_note_summarizer prompt schema
+- [x] AI JSON 解析與寫入 MedicalVisit
+- [x] 「AI 整理僅供參考」安全提示
+- [x] AI 結果手動編輯 UI
 - [ ] 📷 掃描病歷 → OCR → 自動填入 AI 欄位
 
 ### Sprint 1 — AiDispatcher 核心層（2026-05-12）✅
@@ -125,7 +125,7 @@
 
 - [ ] DailyLogScreen
 - [ ] NewDailyLogScreen
-- [ ] weekly_baby_log_summary 任務
+- [x] weekly_baby_log_summary 任務
 - [ ] WeeklySummaryScreen
 - [ ] 重新生成 / 編輯摘要
 
@@ -171,9 +171,9 @@
 - [x] `feature/weeklyreport`：`WeeklyReportSearchScreen`（FTS 搜尋 + keyword highlight）
 - [x] `feature/weeklyreport`：`WeeklyReportSearchViewModel`
 - [x] `core/data`：`WeeklyReportRepository`（AI 整合 generateWeeklyReport）
-- [ ] `feature/weeklyreport`：`WeeklyReportScreen` UI
-- [ ] `feature/weeklyreport`：`WeeklyReportViewModel`
-- [ ] `core/ai`：`weekly_baby_log_summary` prompt schema（含 searchKeywords 萃取）
+- [x] `feature/weeklyreport`：`WeeklyReportScreen` UI
+- [x] `feature/weeklyreport`：`WeeklyReportViewModel`
+- [x] `core/ai`：`weekly_baby_log_summary` prompt schema（含 searchKeywords 萃取）
 - [ ] `core/drive`：`DriveExportRepository`（Markdown 週報 + JSON 匯出）
 - [ ] `core/drive`：`DriveImageBackupManager`（舊照片遷移 > 6 個月）
 - [ ] Firestore `driveExported` / `driveFileId` 欄位寫回
@@ -218,8 +218,8 @@
 - [x] `SettingsScreen`：新增 `onNavigateToApiTest` callback + BugReport SettingsItem
 - [x] `BabyMakiSukNavHost`：新增 `settings/api_test` 子路由，子頁面隱藏 BottomBar
 - [x] `feature/settings/build.gradle.kts`：新增 `core:ai` 依賴
-- [ ] `AndroidManifest.xml` 新增 FileProvider `<provider>` 設定
-- [ ] `res/xml/file_paths.xml` 定義 cache-path
+- [x] `AndroidManifest.xml` 新增 FileProvider `<provider>` 設定
+- [x] `res/xml/file_paths.xml` 定義 cache-path
 - [ ] 多寶寶 Profile 管理（新增 / 切換 / 刪除）
 - [ ] 通知排程設定（餵奶提醒、疫苗到期推播）
 - [ ] 語言切換（繁中 / English）

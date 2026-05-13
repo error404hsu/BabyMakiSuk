@@ -11,11 +11,12 @@ data class MedicalVisit(
     val diagnosis: String = "",
     val notes: String = "",
     val attachments: List<String> = emptyList(),
-    // AI 逕｢蜃ｺ谺・ｽ・
+    // AI 分析欄位
     val diagnosisSummary: String = "",
     val prescriptions: String = "",
     val careInstructions: String = "",
-    // Phase E-0・哥irebase Storage 霍ｯ蠕題・ AI 陌慕炊譌玲ｨ・
+    val isUrgent: Boolean = false,
+    // Phase E-0：Firebase Storage 圖片路徑、AI 排程旗標
     val imageStoragePath: String? = null,
     val aiPending: Boolean = false
 )

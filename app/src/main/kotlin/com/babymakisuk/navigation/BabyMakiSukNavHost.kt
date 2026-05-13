@@ -29,6 +29,7 @@ import com.babymakisuk.featurelibrary.shelf.memo.MemoShelfScreen
 import com.babymakisuk.featurelibrary.shelf.weekly.WeeklyShelfScreen
 import com.babymakisuk.featuresettings.ApiTestScreen
 import com.babymakisuk.featuresettings.SettingsScreen
+import com.babymakisuk.featureweeklyreport.WeeklyReportScreen
 import com.babymakisuk.featureweeklyreport.WeeklyReportSearchScreen
 
 sealed class BottomNavItem(val route: String, val label: String, val icon: ImageVector) {
@@ -157,6 +158,23 @@ fun BabyMakiSukNavHost() {
                 WeeklyReportSearchScreen(
                     navController = navController,
                     childId = childId
+                )
+            }
+            // Sprint 4：週報瀏覽頁（子頁面，不顯示 BottomBar）
+            composable(
+                route = "weekly_report?childId={childId}",
+                arguments = listOf(
+                    navArgument("childId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = ""
+                    }
+                )
+            ) { backStackEntry ->
+                val childId = backStackEntry.arguments?.getString("childId") ?: ""
+                WeeklyReportScreen(
+                    childId = childId,
+                    onBack = { navController.popBackStack() }
                 )
             }
             composable(

@@ -20,7 +20,7 @@ import com.babymakisuk.coredata.entity.*
         AiInsightEntity::class,
         MemoEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -108,7 +108,7 @@ abstract class AppDatabase : RoomDatabase() {
                         search_keywords     TEXT NOT NULL,
                         drive_file_id       TEXT,
                         synced_at           INTEGER NOT NULL,
-                        `rowid`             INTEGER NOT NULL DEFAULT 0
+                        `rowid`             INTEGER NOT NULL
                     )
                 """.trimIndent())
 
@@ -157,6 +157,55 @@ abstract class AppDatabase : RoomDatabase() {
                         updatedAt INTEGER NOT NULL
                     )
                 """.trimIndent())
+            }
+        }
+
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // 1. 建立符合新 schema 的臨時表 (包含 is_urgent, 並將 camelCase 轉為 snake_case)
+                // 註：Room 預期 defaultValue='undefined'，故 CREATE TABLE 不寫 DEFAULT
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS medical_visit_new (
+                        id                  INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        childId             INTEGER NOT NULL,
+                        date                TEXT NOT NULL,
+                        hospital            TEXT NOT NULL,
+                        department          TEXT NOT NULL,
+                        diagnosis           TEXT NOT NULL,
+                        notes               TEXT NOT NULL,
+                        attachments         TEXT NOT NULL,
+                        diagnosis_summary   TEXT NOT NULL,
+                        prescriptions       TEXT NOT NULL,
+                        care_instructions   TEXT NOT NULL,
+                        is_urgent           INTEGER NOT NULL,
+                        imageStoragePath    TEXT,
+                        aiPending           INTEGER NOT NULL,
+                        FOREIGN KEY(childId) REFERENCES child_profile(id) ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                """.trimIndent())
+
+                // 2. 轉移資料 (注意：舊表欄位名是 diagnosisSummary, careInstructions)
+                db.execSQL("""
+                    INSERT INTO medical_visit_new (
+                        id, childId, date, hospital, department, diagnosis, notes, attachments,
+                        diagnosis_summary, prescriptions, care_instructions, is_urgent,
+                        imageStoragePath, aiPending
+                    )
+                    SELECT 
+                        id, childId, date, hospital, department, diagnosis, notes, attachments,
+                        diagnosisSummary, prescriptions, careInstructions, 0,
+                        imageStoragePath, aiPending
+                    FROM medical_visit
+                """.trimIndent())
+
+                // 3. 刪除舊表
+                db.execSQL("DROP TABLE medical_visit")
+
+                // 4. 重新命名新表
+                db.execSQL("ALTER TABLE medical_visit_new RENAME TO medical_visit")
+
+                // 5. 重新建立索引 (Room 會驗證索引名稱與欄位)
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_medical_visit_childId ON medical_visit(childId)")
             }
         }
     }

@@ -51,6 +51,7 @@ data class BackupDto(
     val diagnosisSummary: String = "",
     val prescriptions: String = "",
     val careInstructions: String = "",
+    val isUrgent: Boolean = false,
     val imageStoragePath: String? = null,
     val aiPending: Boolean = false
 )
@@ -166,6 +167,7 @@ class BackupManager @Inject constructor(
         diagnosisSummary = diagnosisSummary,
         prescriptions = prescriptions,
         careInstructions = careInstructions,
+        isUrgent = isUrgent,
         imageStoragePath = imageStoragePath,
         aiPending = aiPending
     )
@@ -202,6 +204,7 @@ class BackupManager @Inject constructor(
         diagnosisSummary = diagnosisSummary,
         prescriptions = prescriptions,
         careInstructions = careInstructions,
+        isUrgent = isUrgent,
         imageStoragePath = imageStoragePath,
         aiPending = aiPending
     )

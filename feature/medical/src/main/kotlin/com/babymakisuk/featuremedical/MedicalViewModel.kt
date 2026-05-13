@@ -2,6 +2,7 @@ package com.babymakisuk.featuremedical
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.babymakisuk.coredata.MedicalAiRepository
 import com.babymakisuk.coredata.SettingsRepository
 import com.babymakisuk.coredata.dao.MedicalDao
 import com.babymakisuk.coredata.entity.toDomain
@@ -21,7 +22,8 @@ import javax.inject.Inject
 class MedicalViewModel @Inject constructor(
     private val childRepo: ChildRepository,
     private val medicalDao: MedicalDao,
-    private val settingsRepo: SettingsRepository
+    private val settingsRepo: SettingsRepository,
+    private val medicalAiRepo: MedicalAiRepository
 ) : ViewModel() {
 
     private val _selectedChildId = MutableStateFlow<Long?>(null)
@@ -97,5 +99,44 @@ class MedicalViewModel @Inject constructor(
 
     fun deleteVisit(visit: MedicalVisit) {
         viewModelScope.launch { medicalDao.delete(visit.toEntity()) }
+    }
+
+    fun triggerAiSummary(visit: MedicalVisit) {
+        viewModelScope.launch {
+            val child = childRepo.getById(visit.childId) ?: return@launch
+            medicalAiRepo.summarizeMedicalVisit(
+                visitId   = visit.id,
+                rawNote   = visit.notes.ifBlank { visit.diagnosis },
+                ageMonths = child.ageMonths,
+                gender    = child.gender.name,
+                allergies = child.allergies
+            ).onSuccess { result ->
+                medicalDao.updateAiFields(
+                    id               = visit.id,
+                    diagnosisSummary = result.diagnosisSummary,
+                    prescriptions    = result.prescriptions.joinToString("・"),
+                    careInstructions = result.careInstructions.joinToString("・"),
+                    isUrgent         = result.safetyFlag == "urgent"
+                )
+            }
+        }
+    }
+
+    fun updateAiFields(
+        id: Long,
+        diagnosisSummary: String,
+        prescriptions: String,
+        careInstructions: String,
+        isUrgent: Boolean
+    ) {
+        viewModelScope.launch {
+            medicalDao.updateAiFields(
+                id = id,
+                diagnosisSummary = diagnosisSummary,
+                prescriptions = prescriptions,
+                careInstructions = careInstructions,
+                isUrgent = isUrgent
+            )
+        }
     }
 }

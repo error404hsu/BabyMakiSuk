@@ -3,25 +3,30 @@ package com.babymakisuk.coredata.repository
 import android.util.Log
 import com.babymakisuk.coredata.ai.AiContextInjector
 import com.babymakisuk.coreai.AiDispatcher
+import com.babymakisuk.coreai.AiPromptBuilder
 import com.babymakisuk.coreai.AiTask
+import com.babymakisuk.coredata.dao.DailyLogDao
 import com.babymakisuk.coredata.dao.GrowthDao
 import com.babymakisuk.coredata.dao.MedicalDao
 import com.babymakisuk.coredata.dao.WeeklyReportDao
 import com.babymakisuk.coredata.entity.toDomain
 import com.babymakisuk.coredata.entity.toEntity
+import com.babymakisuk.coredata.repository.ChildRepository
 import com.babymakisuk.coremodel.GrowthSnapshot
 import com.babymakisuk.coremodel.WeeklyReport
+import com.babymakisuk.coremodel.WeeklySummaryResult
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.json.Json
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * WeeklyReportRepository — Sprint 3 AI 整合版
+ * WeeklyReportRepository — Sprint 4 AI 整合版
  *
- * 使用 AiDispatcher + AiContextInjector 產生 AI 週報，
+ * 使用 AiDispatcher + AiPromptBuilder 產生 AI 週報，
  * 並將結果持久化至 Room。
  */
 @Singleton
@@ -29,6 +34,8 @@ class WeeklyReportRepository @Inject constructor(
     private val weeklyReportDao: WeeklyReportDao,
     private val medicalDao: MedicalDao,
     private val growthDao: GrowthDao,
+    private val dailyLogDao: DailyLogDao,
+    private val childRepository: ChildRepository,
     private val aiDispatcher: AiDispatcher,
     private val aiContextInjector: AiContextInjector
 ) {
@@ -37,6 +44,8 @@ class WeeklyReportRepository @Inject constructor(
         private const val TAG = "WeeklyReportRepository"
         private val dateFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd")
     }
+
+    private val json = Json { ignoreUnknownKeys = true }
 
     /** 觀察指定孩子、指定年份的所有週報 */
     fun observeByYear(childId: String, year: String): Flow<List<WeeklyReport>> =
@@ -48,13 +57,6 @@ class WeeklyReportRepository @Inject constructor(
 
     /**
      * 產生並儲存 AI 週報。
-     *
-     * 1. 查詢該週 MedicalVisit
-     * 2. 查詢最新 GrowthRecord
-     * 3. buildContext 注入背景資訊
-     * 4. 組合 prompt 送入 AiDispatcher
-     * 5. 解析回應，建立 WeeklyReport 並儲存
-     * 6. 失敗時建立含錯誤訊息的 fallback WeeklyReport
      */
     suspend fun generateWeeklyReport(childId: Long, weekStart: LocalDate): WeeklyReport {
         val weekEnd = weekStart.plusDays(6)
@@ -63,66 +65,92 @@ class WeeklyReportRepository @Inject constructor(
         val childIdStr = childId.toString()
         val reportId = "${childId}_${weekStart.year}-W${weekStart}"
 
-        // 查詢該週就醫紀錄
+        val child = childRepository.getById(childId)
+        val childName = child?.name ?: "寶寶"
+        val ageMonths = child?.ageMonths ?: 0
+        val weekLabel = "${weekStart.year} 年第 ${weekStart.get(java.time.temporal.IsoFields.WEEK_OF_WEEK_BASED_YEAR)} 週（${weekStartStr.substring(5)}–${weekEndStr.substring(5)}）"
+
+        val dailyLogs = dailyLogDao.getAllOnce()
+            .filter { it.childId == childId && !it.date.isBefore(weekStart) && !it.date.isAfter(weekEnd) }
+            .sortedBy { it.date }
+
+        val dailyLogsBlock = if (dailyLogs.isEmpty()) {
+            "本週尚無日誌紀錄"
+        } else {
+            dailyLogs.joinToString("\n") { log ->
+                val dateStr = log.date.format(dateFmt)
+                val moodEmoji = when (log.mood) {
+                    "HAPPY" -> "😊"
+                    "NORMAL" -> "😐"
+                    "FUSSY" -> "😤"
+                    "SICK" -> "🤒"
+                    else -> ""
+                }
+                "📅 $dateStr 睡眠：${log.sleepInfo} 飲食：${log.mealsInfo} 便便：${log.poopCount}次 心情：$moodEmoji ${log.freeText}"
+            }
+        }
+
         val medicalVisits = medicalDao.getAllOnce()
             .filter { it.childId == childId && !it.date.isBefore(weekStart) && !it.date.isAfter(weekEnd) }
 
-        // 查詢最新成長紀錄
+        val recentMedical = if (medicalVisits.isEmpty()) null else {
+            medicalVisits.joinToString("\n") { visit ->
+                "${visit.date.format(dateFmt)} ${visit.hospital} ${visit.department}：${visit.diagnosis}"
+            }
+        }
+
         val latestGrowth = growthDao.getAllOnce()
             .filter { it.childId == childId }
             .maxByOrNull { it.date }
 
-        // 建立 context block
-        val contextBlock = try {
-            aiContextInjector.buildContext(childId)
-        } catch (e: Exception) {
-            Log.w(TAG, "buildContext failed: ${e.message}")
-            ""
-        }
+        val (systemPrompt, userPrompt) = AiPromptBuilder.buildWeeklyLogSummaryPrompt(
+            childName = childName,
+            ageMonths = ageMonths,
+            weekLabel = weekLabel,
+            dailyLogsBlock = dailyLogsBlock,
+            recentMedical = recentMedical
+        )
 
-        // 組合 prompt
-        val prompt = buildString {
-            if (contextBlock.isNotBlank()) {
-                appendLine(contextBlock)
-                appendLine()
+        val (aiSummary, searchKeywords) = try {
+            val raw = aiDispatcher.executeWithSystemPrompt(
+                task = AiTask.WEEKLY_REPORT,
+                systemPrompt = systemPrompt,
+                userPrompt = userPrompt
+            )
+            val result = try {
+                json.decodeFromString<WeeklySummaryResult>(raw)
+            } catch (_: Exception) {
+                WeeklySummaryResult(
+                    weekSummary = raw.take(200),
+                    highlights = emptyList(),
+                    parentTips = emptyList(),
+                    searchKeywords = emptyList()
+                )
             }
-            appendLine("請根據以下本週資料，為幼兒生成一份繁體中文週報摘要（200 字以內）：")
-            appendLine()
-
-            // DailyLog 尚未實作，以佔位文字顯示
-            appendLine("【本週日誌】")
-            appendLine("本週尚無日誌紀錄")
-            appendLine()
-
-            appendLine("【本週就醫紀錄】")
-            if (medicalVisits.isEmpty()) {
-                appendLine("本週無就醫紀錄")
-            } else {
-                medicalVisits.forEach { visit ->
-                    appendLine("${visit.date.format(dateFmt)} ${visit.department}：${visit.diagnosis}")
+            val summary = buildString {
+                appendLine(result.weekSummary)
+                if (result.highlights.isNotEmpty()) {
+                    appendLine()
+                    appendLine("▌本週亮點")
+                    result.highlights.forEach { appendLine("- $it") }
+                }
+                if (result.parentTips.isNotEmpty()) {
+                    appendLine()
+                    appendLine("▌給家長的建議")
+                    result.parentTips.forEach { appendLine("- $it") }
                 }
             }
-            appendLine()
-
-            appendLine("【最新成長紀錄】")
-            if (latestGrowth != null) {
-                appendLine("${latestGrowth.date.format(dateFmt)} 體重：${"%,.1f".format(latestGrowth.weightKg)} kg 身高：${"%,.1f".format(latestGrowth.heightCm)} cm")
-            } else {
-                appendLine("尚無成長紀錄")
-            }
-        }
-
-        val aiSummary = try {
-            aiDispatcher.execute(AiTask.WEEKLY_REPORT, prompt)
+            Pair(summary, result.searchKeywords)
         } catch (e: Exception) {
             Log.e(TAG, "generateWeeklyReport AI failed: ${e.message}")
-            "（本週週報 AI 生成失敗，請稍後重試）"
+            Pair("（本週週報 AI 生成失敗，請稍後重試）", emptyList<String>())
         }
 
-        // 萃取 searchKeywords（取 AI 摘要前 5 個詞作為備援關鍵字）
-        val keywords = medicalVisits.flatMap {
-            listOf(it.department, it.diagnosis)
-        }.filter { it.isNotBlank() }.distinct().take(5)
+        val keywords = if (searchKeywords.isNotEmpty()) searchKeywords else {
+            medicalVisits.flatMap {
+                listOf(it.department, it.diagnosis)
+            }.filter { it.isNotBlank() }.distinct().take(5)
+        }
 
         val growthSnapshot = latestGrowth?.let {
             GrowthSnapshot(

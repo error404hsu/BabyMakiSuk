@@ -3,12 +3,12 @@ package com.babymakisuk.coredata
 import android.util.Log
 import com.babymakisuk.coredata.ai.AiContextInjector
 import com.babymakisuk.coreai.AiDispatcher
+import com.babymakisuk.coreai.AiPromptBuilder
 import com.babymakisuk.coreai.AiTask
 import com.babymakisuk.coredata.dao.MedicalDao
-import com.babymakisuk.coredata.entity.toDomain
-import com.babymakisuk.coredata.entity.toEntity
-import com.babymakisuk.coremodel.MedicalVisit
-import org.json.JSONObject
+import com.babymakisuk.coremodel.MedicalSummaryResult
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -37,72 +37,36 @@ class MedicalAiRepository @Inject constructor(
 """.trimIndent()
     }
 
+    private val json = Json { ignoreUnknownKeys = true }
+
     /**
-     * 使用 AI 整理就醫紀錄，回傳填入 diagnosisSummary / prescriptions / careInstructions 的 MedicalVisit。
-     * 失敗時 fallback 回原始 entity，不覆寫既有資料。
+     * 使用 AI 整理就醫紀錄備註，回傳結構化 MedicalSummaryResult。
+     * 失敗時 fallback：整段文字塞入 diagnosisSummary。
      */
-    suspend fun summarizeMedicalVisit(childId: Long, visitId: Long): MedicalVisit {
-        val allVisits = medicalDao.getAllOnce()
-        val visitEntity = allVisits.firstOrNull { it.id == visitId }
-            ?: return MedicalVisit(
-                id = visitId, childId = childId,
-                date = java.time.LocalDate.now(),
-                hospital = "", department = "", diagnosis = "",
-                notes = "", attachments = emptyList(),
-                diagnosisSummary = "", prescriptions = "", careInstructions = "",
-                imageStoragePath = null, aiPending = false
+    suspend fun summarizeMedicalVisit(
+        visitId: Long,
+        rawNote: String,
+        ageMonths: Int,
+        gender: String,
+        allergies: String?
+    ): Result<MedicalSummaryResult> = runCatching {
+        val (systemPrompt, userPrompt) = AiPromptBuilder.buildMedicalSummaryPrompt(
+            rawNote, ageMonths, gender, allergies
+        )
+        val raw = aiDispatcher.executeWithSystemPrompt(
+            task         = AiTask.MEDICAL_CONSULTATION,
+            systemPrompt = systemPrompt,
+            userPrompt   = userPrompt
+        )
+        try {
+            json.decodeFromString<MedicalSummaryResult>(raw)
+        } catch (_: SerializationException) {
+            MedicalSummaryResult(
+                diagnosisSummary  = raw.take(200),
+                prescriptions     = emptyList(),
+                careInstructions  = emptyList(),
+                safetyFlag        = "normal"
             )
-
-        return try {
-            val contextBlock = aiContextInjector.buildContext(childId)
-            val systemPrompt = buildString {
-                appendLine(contextBlock)
-                appendLine()
-                appendLine("你是一位資深兒科醫師 AI 助理，請根據上方個案背景資訊，整理以下就醫紀錄。")
-            }
-            val userPrompt = buildString {
-                appendLine("請整理以下就醫紀錄，回傳 JSON 格式：")
-                appendLine("{\"diagnosisSummary\": string, \"prescriptions\": [string], \"careInstructions\": string}")
-                appendLine()
-                appendLine("原始備註：${visitEntity.notes}")
-                appendLine("診斷：${visitEntity.diagnosis}")
-                appendLine("科別：${visitEntity.department}")
-                appendLine("醫院：${visitEntity.hospital}")
-            }
-
-            val response = aiDispatcher.executeWithSystemPrompt(
-                task = AiTask.MEDICAL_CONSULTATION,
-                systemPrompt = systemPrompt,
-                userPrompt = userPrompt
-            )
-
-            // 解析 JSON，容忍 markdown code block 包裝
-            val jsonStr = response
-                .replace(Regex("```json\\s*"), "")
-                .replace(Regex("```\\s*"), "")
-                .trim()
-            val json = JSONObject(jsonStr)
-            val summary = json.optString("diagnosisSummary", "")
-            val prescriptionsArr = json.optJSONArray("prescriptions")
-            val prescriptions = buildString {
-                if (prescriptionsArr != null) {
-                    for (i in 0 until prescriptionsArr.length()) {
-                        if (i > 0) append("; ")
-                        append(prescriptionsArr.getString(i))
-                    }
-                }
-            }
-            val careInstructions = json.optString("careInstructions", "")
-
-            visitEntity.toDomain().copy(
-                diagnosisSummary = summary.ifBlank { visitEntity.diagnosisSummary },
-                prescriptions = prescriptions.ifBlank { visitEntity.prescriptions },
-                careInstructions = careInstructions.ifBlank { visitEntity.careInstructions },
-                aiPending = false
-            )
-        } catch (e: Exception) {
-            Log.e(TAG, "summarizeMedicalVisit failed, fallback to original: ${e.message}")
-            visitEntity.toDomain()
         }
     }
 
