@@ -8,24 +8,82 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.babymakisuk.coremodel.ChildProfile
 import com.babymakisuk.coremodel.Gender
+import com.babymakisuk.coremodel.GrowthRecord
+import com.babymakisuk.ui.components.BabyTopBar
+import com.babymakisuk.ui.components.LocalDrawerState
+import com.babymakisuk.ui.theme.BabyMakiSukTheme
 import com.babymakisuk.featuregrowth.domain.GrowthRecordWithPercentile
+import kotlinx.coroutines.launch
+import java.time.LocalDate
 
 private val BoyBlue = Color(0xFF4A90D9)
 private val GirlPink = Color(0xFFE07BBD)
+
+@Composable
+fun ChildSelectorRow(
+    children: List<ChildProfile>,
+    selectedChildId: Long,
+    onSelectChild: (Long) -> Unit
+) {
+    LazyRow(
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items(children) { child ->
+            val isSelected = child.id == selectedChildId
+            val childColor = if (child.gender == Gender.MALE) BoyBlue else GirlPink
+
+            Surface(
+                onClick = { onSelectChild(child.id) },
+                shape = RoundedCornerShape(16.dp),
+                color = if (isSelected) childColor else childColor.copy(alpha = 0.1f),
+                border = BorderStroke(
+                    width = if (isSelected) 2.dp else 1.dp,
+                    color = if (isSelected) childColor else childColor.copy(alpha = 0.3f)
+                ),
+                modifier = Modifier.height(40.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = if (isSelected) Color.White.copy(alpha = 0.2f) else childColor.copy(alpha = 0.1f),
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(if (child.gender == Gender.MALE) "👦" else "👧", fontSize = 13.sp)
+                        }
+                    }
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = child.name,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isSelected) Color.White else childColor
+                    )
+                }
+            }
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,7 +93,7 @@ fun GrowthScreen(
 ) {
     if (viewModel == null) {
         Box(Modifier.fillMaxSize()) {
-            Text("Growth Screen Preview", modifier = Modifier.align(Alignment.Center))
+            Text("Growth Screen (No ViewModel)", modifier = Modifier.align(Alignment.Center))
         }
         return
     }
@@ -44,7 +102,41 @@ fun GrowthScreen(
     val showForm by viewModel.showForm.collectAsState()
     val editingRecord by viewModel.editingRecord.collectAsState()
     val canEditData by viewModel.canEditData.collectAsState()
+
+    GrowthScreenContent(
+        uiState = uiState,
+        showForm = showForm,
+        editingRecord = editingRecord,
+        canEditData = canEditData,
+        onNavigateToAi = onNavigateToAi,
+        onSelectChild = viewModel::selectChild,
+        onOpenForm = viewModel::openForm,
+        onCloseForm = viewModel::closeForm,
+        onEditRecord = viewModel::editRecord,
+        onDeleteRecord = { viewModel.deleteRecord(it.record) },
+        onSaveRecord = viewModel::saveRecord
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun GrowthScreenContent(
+    uiState: GrowthUiState,
+    showForm: Boolean,
+    editingRecord: GrowthRecordWithPercentile?,
+    canEditData: Boolean,
+    onNavigateToAi: (String?) -> Unit,
+    onSelectChild: (Long) -> Unit,
+    onOpenForm: () -> Unit,
+    onCloseForm: () -> Unit,
+    onEditRecord: (GrowthRecordWithPercentile) -> Unit,
+    onDeleteRecord: (GrowthRecordWithPercentile) -> Unit,
+    onSaveRecord: (Float, Float, Float?, LocalDate, String) -> Unit
+) {
     var showChart by remember { mutableStateOf(false) }
+
+    val drawerState = LocalDrawerState.current
+    val drawerScope = rememberCoroutineScope()
 
     val selectedChildColor = (uiState as? GrowthUiState.Success)?.let { state ->
         val gender = state.children.find { it.id == state.selectedChildId }?.gender
@@ -54,114 +146,24 @@ fun GrowthScreen(
     Scaffold(
         containerColor = selectedChildColor.copy(alpha = 0.05f),
         topBar = {
-            Surface(shadowElevation = 3.dp) {
-                Column(modifier = Modifier.background(MaterialTheme.colorScheme.surface)) {
-                    TopAppBar(
-                        title = {
-                            Text(
-                                "成長紀錄",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                        },
-                        actions = {
-                            IconButton(onClick = { showChart = !showChart }) {
-                                Icon(
-                                    imageVector = if (showChart) Icons.AutoMirrored.Filled.List else Icons.Default.ShowChart,
-                                    contentDescription = if (showChart) "列表" else "圖表"
-                                )
-                            }
-                            IconButton(onClick = { /* TODO: Search */ }) {
-                                Icon(Icons.Default.Search, contentDescription = "搜尋")
-                            }
-                            IconButton(onClick = { onNavigateToAi("GROWTH_ANALYST") }) {
-                                Icon(
-                                    imageVector = Icons.Default.AutoAwesome,
-                                    contentDescription = "問問AI",
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        },
-                        colors = TopAppBarDefaults.topAppBarColors(
-                            containerColor = Color.Transparent
-                        )
-                    )
-                    // 精緻版寶寶篩選列
+            BabyTopBar(
+                title = {
                     if (uiState is GrowthUiState.Success) {
-                        val state = uiState as GrowthUiState.Success
-                        LazyRow(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 12.dp),
-                            contentPadding = PaddingValues(horizontal = 16.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            items(state.children) { child ->
-                                val isSelected = child.id == state.selectedChildId
-                                val childColor = if (child.gender == Gender.MALE) BoyBlue else GirlPink
-                                
-                                Surface(
-                                    onClick = { viewModel.selectChild(child.id) },
-                                    shape = RoundedCornerShape(16.dp),
-                                    color = if (isSelected) childColor else childColor.copy(alpha = 0.1f),
-                                    border = BorderStroke(
-                                        width = if (isSelected) 2.dp else 1.dp,
-                                        color = if (isSelected) childColor else childColor.copy(alpha = 0.3f)
-                                    ),
-                                    modifier = Modifier.height(48.dp)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 12.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Surface(
-                                            shape = CircleShape,
-                                            color = Color.White.copy(alpha = 0.8f),
-                                            modifier = Modifier.size(28.dp)
-                                        ) {
-                                            Box(contentAlignment = Alignment.Center) {
-                                                Text(if (child.gender == Gender.MALE) "👦" else "👧", fontSize = 16.sp)
-                                            }
-                                        }
-                                        Spacer(Modifier.width(8.dp))
-                                        Text(
-                                            text = child.name,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                            color = if (isSelected) Color.White else childColor
-                                        )
-                                    }
-                                }
-                            }
-                        }
+                        val state = uiState
+                        ChildSelectorRow(
+                            children = state.children,
+                            selectedChildId = state.selectedChildId,
+                            onSelectChild = onSelectChild
+                        )
                     }
-                }
-            }
-        },
-        floatingActionButton = {
-            Column(horizontalAlignment = Alignment.End) {
-                FloatingActionButton(
-                    onClick = { onNavigateToAi("GROWTH_ANALYST") },
-                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
-                ) {
-                    Icon(Icons.Default.AutoAwesome, contentDescription = "AI 發育分析師")
-                }
-
-                if (canEditData) {
-                    Spacer(Modifier.height(16.dp))
-                    ExtendedFloatingActionButton(
-                        onClick = viewModel::openForm,
-                        containerColor = selectedChildColor,
-                        contentColor = Color.White,
-                        shape = CircleShape
-                    ) {
-                        Icon(Icons.Filled.Add, "新增")
-                        Spacer(Modifier.width(8.dp))
-                        Text("新增紀錄")
-                    }
-                }
-            }
+                },
+                showSearch = true,
+                showAi = true,
+                showAdd = canEditData,
+                onMenuClick = { drawerScope.launch { drawerState.open() } },
+                onAiClick = { onNavigateToAi("GROWTH_ANALYST") },
+                onAddClick = onOpenForm
+            )
         }
     ) { padding ->
         Box(
@@ -174,6 +176,7 @@ fun GrowthScreen(
                 is GrowthUiState.Error -> Text("錯誤：${state.message}", Modifier.align(Alignment.Center))
                 is GrowthUiState.Success -> {
                     if (state.records.isEmpty()) {
+                        // ... (keep empty state as is)
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Spacer(Modifier.height(40.dp))
@@ -190,22 +193,10 @@ fun GrowthScreen(
                                 )
                                 Spacer(Modifier.height(8.dp))
                                 Text(
-                                    "點擊下方按鈕新增第一筆身高體重測量",
+                                    "點擊上方 + 按鈕新增第一筆身高體重測量",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                                if (canEditData) {
-                                    Spacer(Modifier.height(24.dp))
-                                    Button(
-                                        onClick = viewModel::openForm,
-                                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary),
-                                        shape = RoundedCornerShape(12.dp)
-                                    ) {
-                                        Icon(Icons.Default.Add, contentDescription = null)
-                                        Spacer(Modifier.width(8.dp))
-                                        Text("新增成長紀錄")
-                                    }
-                                }
                             }
                         }
                     } else {
@@ -226,11 +217,31 @@ fun GrowthScreen(
                                 } else {
                                     GrowthListScreen(
                                         records = state.records,
-                                        onEdit = { viewModel.editRecord(it) },
-                                        onDelete = { viewModel.deleteRecord(it.record) }
+                                        onEdit = onEditRecord,
+                                        onDelete = onDeleteRecord
                                     )
                                 }
                             }
+                        }
+
+                        // 將切換按鈕移至內容區域的右上角，正位於 TopBar 新增按鈕的下方
+                        IconButton(
+                            onClick = { showChart = !showChart },
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(end = 12.dp, top = 4.dp)
+                                .size(40.dp)
+                                .background(
+                                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+                                    shape = CircleShape
+                                )
+                        ) {
+                            Icon(
+                                imageVector = if (showChart) Icons.AutoMirrored.Filled.List else Icons.AutoMirrored.Filled.ShowChart,
+                                contentDescription = if (showChart) "切換至列表" else "切換至圖表",
+                                tint = selectedChildColor,
+                                modifier = Modifier.size(24.dp)
+                            )
                         }
                     }
                 }
@@ -241,8 +252,8 @@ fun GrowthScreen(
     if (showForm && canEditData) {
         NewGrowthRecordDialog(
             initialRecord = editingRecord,
-            onDismiss = viewModel::closeForm,
-            onConfirm = { h, w, hc, date, note -> viewModel.saveRecord(h, w, hc, date, note) }
+            onDismiss = onCloseForm,
+            onConfirm = onSaveRecord
         )
     }
 }
@@ -264,7 +275,7 @@ private fun LatestGrowthHero(item: GrowthRecordWithPercentile, accentColor: Colo
             HeroStat(label = "身高", value = r.heightCm.toString(), unit = "cm", pct = item.heightPercentile, color = accentColor)
             HeroStat(label = "體重", value = r.weightKg.toString(), unit = "kg", pct = item.weightPercentile, color = accentColor)
             r.headCircumferenceCm?.let {
-                HeroStat(label = "頭圍", value = it.toString(), unit = "cm", pct = -1, color = accentColor)
+                HeroStat(label = "頭圍", value = it.toString(), unit = "cm", pct = item.headCircPercentile ?: -1, color = accentColor)
             }
         }
         Spacer(Modifier.height(12.dp))
@@ -319,6 +330,76 @@ private fun HeroStat(label: String, value: String, unit: String, pct: Int, color
                     color = pctColor
                 )
             }
+        } else {
+            // Placeholder to keep alignment with other stats that have percentiles
+            Spacer(modifier = Modifier.height(20.dp))
+        }
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun GrowthScreenPreview() {
+    val sampleBoy = ChildProfile(
+        id = 1L,
+        name = "小明",
+        gender = Gender.MALE,
+        birthday = LocalDate.now().minusMonths(6)
+    )
+    val sampleRecords = listOf(
+        GrowthRecordWithPercentile(
+            record = GrowthRecord(
+                id = 1,
+                childId = 1,
+                date = LocalDate.now().minusMonths(1),
+                heightCm = 68f,
+                weightKg = 7.5f,
+                headCircumferenceCm = 42f
+            ),
+            ageMonths = 5,
+            gender = Gender.MALE,
+            heightPercentile = 45,
+            weightPercentile = 40,
+            headCircPercentile = 50
+        ),
+        GrowthRecordWithPercentile(
+            record = GrowthRecord(
+                id = 2,
+                childId = 1,
+                date = LocalDate.now(),
+                heightCm = 70f,
+                weightKg = 8.2f,
+                headCircumferenceCm = 43f
+            ),
+            ageMonths = 6,
+            gender = Gender.MALE,
+            heightPercentile = 55,
+            weightPercentile = 50,
+            headCircPercentile = 60
+        )
+    )
+
+    val sampleUiState = GrowthUiState.Success(
+        children = listOf(sampleBoy),
+        selectedChildId = 1L,
+        records = sampleRecords
+    )
+
+    BabyMakiSukTheme {
+        CompositionLocalProvider(LocalDrawerState provides rememberDrawerState(DrawerValue.Closed)) {
+            GrowthScreenContent(
+                uiState = sampleUiState,
+                showForm = false,
+                editingRecord = null,
+                canEditData = true,
+                onNavigateToAi = {},
+                onSelectChild = {},
+                onOpenForm = {},
+                onCloseForm = {},
+                onEditRecord = {},
+                onDeleteRecord = {},
+                onSaveRecord = { _, _, _, _, _ -> }
+            )
         }
     }
 }

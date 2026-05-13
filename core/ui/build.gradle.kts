@@ -24,5 +24,6 @@ dependencies {
     api(platform(libs.androidx.compose.bom))
     api(libs.androidx.ui)
     api(libs.androidx.material3)
+    api(libs.androidx.material.icons.extended)
     api(libs.androidx.ui.tooling.preview)
 }

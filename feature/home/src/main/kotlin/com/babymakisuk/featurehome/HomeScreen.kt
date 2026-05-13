@@ -5,6 +5,7 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -21,7 +22,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ShowChart
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -32,7 +32,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.babymakisuk.coremodel.ChildProfile
 import com.babymakisuk.coremodel.Gender
 import com.babymakisuk.coremodel.GrowthRecord
+import com.babymakisuk.coremodel.ToiletRecord
+import com.babymakisuk.coremodel.VaccineReminder
+import com.babymakisuk.ui.components.BabyTopBar
+import com.babymakisuk.ui.components.LocalDrawerState
 import com.babymakisuk.ui.theme.BabyMakiSukTheme
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.Period
 import java.time.format.DateTimeFormatter
@@ -56,6 +61,7 @@ fun HomeScreen(
     HomeScreenContent(
         uiState = uiState,
         onUpdateChild = { viewModel?.updateChild(it) },
+        onLogToilet = { viewModel?.logToilet(it) ?: Unit },
         onNavigateToGrowth = onNavigateToGrowth,
         onNavigateToMedical = onNavigateToMedical,
         onNavigateToAi = onNavigateToAi
@@ -67,6 +73,7 @@ fun HomeScreen(
 fun HomeScreenContent(
     uiState: HomeUiState,
     onUpdateChild: (ChildProfile) -> Unit,
+    onLogToilet: (Long) -> Unit = {},
     onNavigateToGrowth: () -> Unit,
     onNavigateToMedical: () -> Unit,
     onNavigateToAi: (String?) -> Unit = {}
@@ -74,104 +81,46 @@ fun HomeScreenContent(
     var expandedGender by remember { mutableStateOf<Gender?>(null) }
     var isEditMode by remember { mutableStateOf(false) }
 
+    val drawerState = LocalDrawerState.current
+    val drawerScope = rememberCoroutineScope()
+
     BackHandler(enabled = expandedGender != null) {
         expandedGender = null
     }
 
     Scaffold(
         topBar = {
-            Surface(shadowElevation = 2.dp) {
-                Column(
-                    modifier = Modifier
-                        .background(MaterialTheme.colorScheme.surface)
-                        .statusBarsPadding()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        // App 圖示與名稱
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.ChildCare,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(28.dp)
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                "Baby Maki Suk",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                        }
-                        Spacer(Modifier.weight(1f))
-                        // Google 帳號圖示 (預留)
-                        Surface(
-                            modifier = Modifier.size(32.dp),
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-                        ) {
-                            Icon(
-                                Icons.Default.AccountCircle,
-                                contentDescription = "帳號",
-                                modifier = Modifier.padding(2.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+            BabyTopBar(
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.ChildCare,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(28.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "Baby Maki Suk",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.ExtraBold
+                        )
                     }
-                    Spacer(Modifier.height(8.dp))
-                    // AI 快速入口
-                    Surface(
-                        onClick = { onNavigateToAi("QUICK_CHAT") },
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(44.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 12.dp)
-                        ) {
-                            Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(20.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                "問問 AI：寶寶最近喝奶狀況？",
-                                color = Color.Gray,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                            Spacer(Modifier.weight(1f))
-                            Icon(
-                                Icons.Default.AutoAwesome,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
-                }
-            }
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { onNavigateToAi("QUICK_CHAT") },
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-            ) {
-                Icon(Icons.Default.AutoAwesome, contentDescription = "AI 助理")
-            }
+                },
+                showSearch = true,
+                showAi = true,
+                showAdd = false,
+                onMenuClick = { drawerScope.launch { drawerState.open() } },
+                onAiClick = { onNavigateToAi("QUICK_CHAT") }
+            )
         }
-        ) { innerPadding ->
+    ) { innerPadding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(top = innerPadding.calculateTopPadding())
         ) {
             if (uiState.boy == null && uiState.girl == null) {
-                // ── Empty State ────────────────────────────────
                 Column(
                     modifier = Modifier.fillMaxSize().padding(32.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -210,55 +159,61 @@ fun HomeScreenContent(
                 }
             } else {
                 Column(modifier = Modifier.fillMaxSize()) {
-                // Girl Card (Top)
-                val girlWeight by animateFloatAsState(
-                    targetValue = when (expandedGender) {
-                        Gender.FEMALE -> 1f
-                        Gender.MALE -> 0f
-                        else -> 0.5f
-                    }, label = "girlWeight"
-                )
+                    // Girl Card (Top)
+                    val girlWeight by animateFloatAsState(
+                        targetValue = when (expandedGender) {
+                            Gender.FEMALE -> 0.85f
+                            Gender.MALE -> 0.15f
+                            else -> 0.5f
+                        }, label = "girlWeight"
+                    )
 
-                if (girlWeight > 0.01f) {
-                    Box(modifier = Modifier.weight(girlWeight).fillMaxWidth()) {
-                        ChildHubCard(
-                            child = uiState.girl ?: ChildProfile(name = "妹妹", gender = Gender.FEMALE, birthday = LocalDate.now()),
-                            latestGrowth = uiState.girlLatestGrowth,
-                            isExpanded = expandedGender == Gender.FEMALE,
-                            accentColor = GirlPink,
-                            onExpand = { expandedGender = Gender.FEMALE },
-                            onCollapse = { expandedGender = null },
-                            onEditClick = { isEditMode = true },
-                            onNavigateToGrowth = onNavigateToGrowth,
-                            onNavigateToMedical = onNavigateToMedical
-                        )
+                    if (girlWeight > 0.01f) {
+                        Box(modifier = Modifier.weight(girlWeight).fillMaxWidth()) {
+                            ChildHubCard(
+                                child = uiState.girl ?: ChildProfile(name = "妹妹", gender = Gender.FEMALE, birthday = LocalDate.now()),
+                                latestGrowth = uiState.girlLatestGrowth,
+                                toiletRecords = uiState.girlToiletRecords,
+                                nextVaccine = uiState.girlNextVaccine,
+                                isExpanded = expandedGender == Gender.FEMALE,
+                                accentColor = GirlPink,
+                                onExpand = { expandedGender = Gender.FEMALE },
+                                onCollapse = { expandedGender = null },
+                                onEditClick = { isEditMode = true },
+                                onLogToilet = onLogToilet,
+                                onNavigateToGrowth = onNavigateToGrowth,
+                                onNavigateToMedical = onNavigateToMedical
+                            )
+                        }
                     }
-                }
 
-                // Boy Card (Bottom)
-                val boyWeight by animateFloatAsState(
-                    targetValue = when (expandedGender) {
-                        Gender.MALE -> 1f
-                        Gender.FEMALE -> 0f
-                        else -> 0.5f
-                    }, label = "boyWeight"
-                )
+                    // Boy Card (Bottom)
+                    val boyWeight by animateFloatAsState(
+                        targetValue = when (expandedGender) {
+                            Gender.MALE -> 0.85f
+                            Gender.FEMALE -> 0.15f
+                            else -> 0.5f
+                        }, label = "boyWeight"
+                    )
 
-                if (boyWeight > 0.01f) {
-                    Box(modifier = Modifier.weight(boyWeight).fillMaxWidth()) {
-                        ChildHubCard(
-                            child = uiState.boy ?: ChildProfile(name = "弟弟", gender = Gender.MALE, birthday = LocalDate.now()),
-                            latestGrowth = uiState.boyLatestGrowth,
-                            isExpanded = expandedGender == Gender.MALE,
-                            accentColor = BoyBlue,
-                            onExpand = { expandedGender = Gender.MALE },
-                            onCollapse = { expandedGender = null },
-                            onEditClick = { isEditMode = true },
-                            onNavigateToGrowth = onNavigateToGrowth,
-                            onNavigateToMedical = onNavigateToMedical
-                        )
-                }
-            }
+                    if (boyWeight > 0.01f) {
+                        Box(modifier = Modifier.weight(boyWeight).fillMaxWidth()) {
+                            ChildHubCard(
+                                child = uiState.boy ?: ChildProfile(name = "弟弟", gender = Gender.MALE, birthday = LocalDate.now()),
+                                latestGrowth = uiState.boyLatestGrowth,
+                                toiletRecords = uiState.boyToiletRecords,
+                                nextVaccine = uiState.boyNextVaccine,
+                                isExpanded = expandedGender == Gender.MALE,
+                                accentColor = BoyBlue,
+                                onExpand = { expandedGender = Gender.MALE },
+                                onCollapse = { expandedGender = null },
+                                onEditClick = { isEditMode = true },
+                                onLogToilet = onLogToilet,
+                                onNavigateToGrowth = onNavigateToGrowth,
+                                onNavigateToMedical = onNavigateToMedical
+                            )
+                        }
+                    }
                 }
             }
 
@@ -285,11 +240,14 @@ fun HomeScreenContent(
 fun ChildHubCard(
     child: ChildProfile,
     latestGrowth: GrowthRecord?,
+    toiletRecords: List<ToiletRecord> = emptyList(),
+    nextVaccine: VaccineReminder? = null,
     isExpanded: Boolean,
     accentColor: Color,
     onExpand: () -> Unit,
     onCollapse: () -> Unit,
     onEditClick: () -> Unit,
+    onLogToilet: (Long) -> Unit = {},
     onNavigateToGrowth: () -> Unit,
     onNavigateToMedical: () -> Unit
 ) {
@@ -303,86 +261,112 @@ fun ChildHubCard(
         elevation = CardDefaults.cardElevation(6.dp)
     ) {
         if (!isExpanded) {
-            // --- Summary View (Dashboard Mode) ---
-            Box(modifier = Modifier.fillMaxSize()) {
-                // Background Photo Watermark (Subtle)
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(bottom = 0.dp, end = 0.dp)
-                        .size(160.dp)
-                        .clip(RoundedCornerShape(topStart = 80.dp))
-                        .background(
-                            Brush.radialGradient(
-                                colors = listOf(accentColor.copy(alpha = 0.12f), Color.Transparent),
-                                center = Offset(160f, 160f)
-                            )
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = if (child.gender == Gender.FEMALE) Icons.Default.Girl else Icons.Default.Boy,
-                        contentDescription = null,
-                        modifier = Modifier.size(100.dp).offset(x = 20.dp, y = 20.dp),
-                        tint = accentColor.copy(alpha = 0.08f)
-                    )
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxSize().padding(24.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Left: Large Icon with subtle ring
-                    Box(contentAlignment = Alignment.Center) {
+            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                if (maxHeight < 160.dp) {
+                    // 緊湊版小橫條
+                    Row(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
                         Surface(
                             shape = CircleShape,
-                            color = accentColor.copy(alpha = 0.1f),
-                            modifier = Modifier.size(86.dp)
-                        ) {}
-                        Surface(
-                            shape = CircleShape,
-                            color = accentColor.copy(alpha = 0.2f),
-                            modifier = Modifier.size(72.dp)
+                            color = accentColor.copy(alpha = 0.15f),
+                            modifier = Modifier.size(32.dp)
                         ) {
                             Icon(
                                 imageVector = if (child.gender == Gender.FEMALE) Icons.Default.Girl else Icons.Default.Boy,
                                 contentDescription = null,
-                                modifier = Modifier.padding(14.dp),
+                                modifier = Modifier.padding(6.dp),
                                 tint = accentColor
                             )
                         }
-                    }
-
-                    Spacer(modifier = Modifier.width(20.dp))
-
-                    // Right: Stats
-                    Column(modifier = Modifier.weight(1f)) {
+                        Spacer(modifier = Modifier.width(10.dp))
                         Text(
                             text = child.name,
-                            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black),
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                             color = accentColor
                         )
-                        val age = Period.between(child.birthday, LocalDate.now())
-                        Text(
-                            text = "${age.years}歲 ${age.months}個月",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontWeight = FontWeight.Medium
-                        )
-                        
-                        Spacer(modifier = Modifier.height(16.dp))
-                        
-                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                            InfoBadge(icon = Icons.Default.Height, text = "${latestGrowth?.heightCm ?: "--"} cm", color = accentColor)
-                            InfoBadge(icon = Icons.Default.MonitorWeight, text = "${latestGrowth?.weightKg ?: "--"} kg", color = accentColor)
+                    }
+                } else {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(bottom = 0.dp, end = 0.dp)
+                                .size(160.dp)
+                                .clip(RoundedCornerShape(topStart = 80.dp))
+                                .background(
+                                    Brush.radialGradient(
+                                        colors = listOf(accentColor.copy(alpha = 0.12f), Color.Transparent),
+                                        center = Offset(160f, 160f)
+                                    )
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = if (child.gender == Gender.FEMALE) Icons.Default.Girl else Icons.Default.Boy,
+                                contentDescription = null,
+                                modifier = Modifier.size(100.dp).offset(x = 20.dp, y = 20.dp),
+                                tint = accentColor.copy(alpha = 0.08f)
+                            )
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxSize().padding(24.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = accentColor.copy(alpha = 0.1f),
+                                    modifier = Modifier.size(86.dp)
+                                ) {}
+                                Surface(
+                                    shape = CircleShape,
+                                    color = accentColor.copy(alpha = 0.2f),
+                                    modifier = Modifier.size(72.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = if (child.gender == Gender.FEMALE) Icons.Default.Girl else Icons.Default.Boy,
+                                        contentDescription = null,
+                                        modifier = Modifier.padding(14.dp),
+                                        tint = accentColor
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.width(20.dp))
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = child.name,
+                                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black),
+                                    color = accentColor
+                                )
+                                val age = Period.between(child.birthday, LocalDate.now())
+                                Text(
+                                    text = "${age.years}歲 ${age.months}個月",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = FontWeight.Medium
+                                )
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                    InfoBadge(icon = Icons.Default.Height, text = "${latestGrowth?.heightCm ?: "--"} cm", color = accentColor)
+                                    InfoBadge(icon = Icons.Default.MonitorWeight, text = "${latestGrowth?.weightKg ?: "--"} kg", color = accentColor)
+                                }
+                            }
                         }
                     }
                 }
             }
         } else {
-            // --- Hub View (Full Profile Hub) ---
             Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                // Top Visual (More sophisticated header)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -393,7 +377,6 @@ fun ChildHubCard(
                             )
                         )
                 ) {
-                    // Back and Edit Buttons
                     Row(
                         modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(8.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
@@ -437,9 +420,7 @@ fun ChildHubCard(
                     }
                 }
 
-                // Details Content (Interactive Dashboard)
                 Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    // Growth Section (Interactive)
                     HubSection(
                         title = "最新成長數值",
                         icon = Icons.AutoMirrored.Filled.ShowChart,
@@ -460,7 +441,6 @@ fun ChildHubCard(
                         )
                     }
 
-                    // Medical Section (Interactive)
                     HubSection(
                         title = "就醫・疫苗",
                         icon = Icons.Default.MedicalServices,
@@ -471,6 +451,81 @@ fun ChildHubCard(
                             Icon(Icons.Default.History, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("查看完整醫療病歷與預防接種紀錄", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        if (nextVaccine != null) {
+                            Spacer(Modifier.height(8.dp))
+                            val dateFormat = java.text.SimpleDateFormat("yyyy/MM/dd", java.util.Locale.getDefault())
+                            Surface(
+                                color = accentColor.copy(alpha = 0.1f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    text = "💉 下次：${nextVaccine.name}（${dateFormat.format(java.util.Date(nextVaccine.scheduledDate))}）",
+                                    modifier = Modifier.padding(8.dp),
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = accentColor
+                                )
+                            }
+                        }
+                    }
+
+                    HubSection(
+                        title = "大號紀錄",
+                        icon = Icons.Default.WaterDrop,
+                        accentColor = accentColor,
+                        onClick = {}
+                    ) {
+                        if (toiletRecords.isEmpty()) {
+                            Text(
+                                "尚無紀錄",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        } else {
+                            toiletRecords.forEach { record ->
+                                val elapsed = formatElapsed(record.timestamp)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text("💩", fontSize = 16.sp)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(elapsed, style = MaterialTheme.typography.bodyMedium)
+                                }
+                                Spacer(Modifier.height(4.dp))
+                            }
+                        }
+
+                        Spacer(Modifier.height(12.dp))
+                        Button(
+                            onClick = { onLogToilet(child.id) },
+                            colors = ButtonDefaults.buttonColors(containerColor = accentColor),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.AddCircle, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("記錄大號")
+                        }
+
+                        if (toiletRecords.size >= 2) {
+                            val avgInterval = calculateAverageInterval(toiletRecords)
+                            val sinceLastMinutes = (System.currentTimeMillis() - toiletRecords.first().timestamp) / 60000
+                            val alertRatio = sinceLastMinutes.toFloat() / avgInterval
+                            if (avgInterval > 0 && alertRatio >= 0.8f) {
+                                Spacer(Modifier.height(8.dp))
+                                val alertColor = if (alertRatio >= 1f) Color.Red else Color(0xFFFFA500)
+                                Surface(
+                                    color = alertColor.copy(alpha = 0.1f),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text(
+                                        text = if (alertRatio >= 1f) "⚠️ 超過平均間隔，可帶去廁所！"
+                                        else "🟡 接近平均間隔時間",
+                                        modifier = Modifier.padding(8.dp),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = alertColor
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -600,6 +655,23 @@ fun EditChildProfileDialog(
             }
         }
     }
+}
+
+fun formatElapsed(timestamp: Long): String {
+    val diff = System.currentTimeMillis() - timestamp
+    val minutes = diff / 60000
+    val hours = minutes / 60
+    return when {
+        hours >= 1 -> "${hours}小時${minutes % 60}分鐘前"
+        else -> "${minutes}分鐘前"
+    }
+}
+
+fun calculateAverageInterval(records: List<ToiletRecord>): Long {
+    if (records.size < 2) return 0L
+    val sorted = records.sortedByDescending { it.timestamp }
+    val gaps = sorted.zipWithNext { a, b -> a.timestamp - b.timestamp }
+    return gaps.average().toLong() / 60000
 }
 
 @Preview(showBackground = true)

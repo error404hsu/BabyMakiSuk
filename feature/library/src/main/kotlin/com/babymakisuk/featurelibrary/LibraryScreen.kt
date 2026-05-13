@@ -27,6 +27,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -34,9 +35,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.babymakisuk.ui.components.LocalDrawerState
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 private data class ShelfItem(
     val title: String,
@@ -56,6 +59,9 @@ fun LibraryScreen(
     val weeklyUpdated by viewModel.weeklyLastUpdated.collectAsState()
     val aiUpdated by viewModel.aiInsightLastUpdated.collectAsState()
     val memoUpdated by viewModel.memoLastUpdated.collectAsState()
+
+    val drawerState = LocalDrawerState.current
+    val scope = rememberCoroutineScope()
 
     val shelves = listOf(
         ShelfItem("週報書架", "AI 生成的每週綜合報告", "library/weekly", "📅"),
@@ -110,6 +116,7 @@ fun LibraryScreen(
                     subtitle = shelf.subtitle,
                     lastUpdated = lastUpdated,
                     onClick = {
+                        scope.launch { drawerState.close() }
                         navController.navigate("${shelf.route}?childId=$selectedChildId")
                     }
                 )

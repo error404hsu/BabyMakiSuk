@@ -18,9 +18,11 @@ import com.babymakisuk.coredata.entity.*
         WeeklyReportEntity::class,
         WeeklyReportFts::class,
         AiInsightEntity::class,
-        MemoEntity::class
+        MemoEntity::class,
+        ToiletRecordEntity::class,
+        VaccineReminderEntity::class
     ],
-    version = 5,
+    version = 7,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -33,6 +35,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun weeklyReportDao(): WeeklyReportDao
     abstract fun aiInsightDao(): AiInsightDao
     abstract fun memoDao(): MemoDao
+    abstract fun toiletDao(): ToiletDao
+    abstract fun vaccineReminderDao(): VaccineReminderDao
 
     companion object {
         /**
@@ -206,6 +210,37 @@ abstract class AppDatabase : RoomDatabase() {
 
                 // 5. 重新建立索引 (Room 會驗證索引名稱與欄位)
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_medical_visit_childId ON medical_visit(childId)")
+            }
+        }
+
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS toilet_records (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        childId INTEGER NOT NULL,
+                        timestamp INTEGER NOT NULL,
+                        FOREIGN KEY(childId) REFERENCES child_profile(id) ON DELETE CASCADE
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_toilet_records_childId ON toilet_records(childId)")
+            }
+        }
+
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS vaccine_reminders (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        childId INTEGER NOT NULL,
+                        name TEXT NOT NULL,
+                        scheduledDate INTEGER NOT NULL,
+                        isCompleted INTEGER NOT NULL DEFAULT 0,
+                        note TEXT NOT NULL DEFAULT '',
+                        FOREIGN KEY(childId) REFERENCES child_profile(id) ON DELETE CASCADE
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_vaccine_reminders_childId ON vaccine_reminders(childId)")
             }
         }
     }

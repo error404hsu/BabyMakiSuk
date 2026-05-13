@@ -29,6 +29,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.babymakisuk.coredata.DarkModeOption
 import com.babymakisuk.coremodel.UserRole
+import com.babymakisuk.ui.components.BabyTopBar
+import com.babymakisuk.ui.components.LocalDrawerState
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -50,6 +52,9 @@ fun SettingsScreen(
 
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
+
+    val drawerState = LocalDrawerState.current
+    val drawerScope = rememberCoroutineScope()
 
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -75,46 +80,19 @@ fun SettingsScreen(
 
     Scaffold(
         topBar = {
-            Surface(shadowElevation = 2.dp) {
-                TopAppBar(
-                    title = {
-                        Text(
-                            "設定",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                    },
-                    actions = {
-                        if (userRole != UserRole.NONE) {
-                            AssistChip(
-                                onClick = { showRoleSheet = true },
-                                label = {
-                                    Text(
-                                        userRole.label,
-                                        style = MaterialTheme.typography.labelMedium
-                                    )
-                                },
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = userRole.toIcon(),
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                },
-                                modifier = Modifier.padding(end = 8.dp),
-                                colors = AssistChipDefaults.assistChipColors(
-                                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                    labelColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                                    leadingIconContentColor = MaterialTheme.colorScheme.onSecondaryContainer
-                                )
-                            )
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent
+            BabyTopBar(
+                title = {
+                    Text(
+                        "設定",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.ExtraBold
                     )
-                )
-            }
+                },
+                showSearch = false,
+                showAi = false,
+                showAdd = false,
+                onMenuClick = { drawerScope.launch { drawerState.open() } }
+            )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = MaterialTheme.colorScheme.background
@@ -128,7 +106,6 @@ fun SettingsScreen(
         ) {
             item { Spacer(Modifier.height(8.dp)) }
 
-            // ── 裝置角色 ──
             item {
                 SettingsSection(title = "裝置角色") {
                     SettingsItem(
@@ -140,7 +117,6 @@ fun SettingsScreen(
                 }
             }
 
-            // ── 外觀 ──
             item {
                 SettingsSection(title = "外觀") {
                     SettingsItem(
@@ -152,7 +128,6 @@ fun SettingsScreen(
                 }
             }
 
-            // ── AI 雲端推論 ──
             item {
                 SettingsSection(title = "AI 雲端推論") {
                     ListItem(
@@ -205,7 +180,6 @@ fun SettingsScreen(
                 }
             }
 
-            // ── 資料管理 ──
             item {
                 SettingsSection(title = "資料管理") {
                     SettingsItem(
@@ -229,7 +203,6 @@ fun SettingsScreen(
                 }
             }
 
-            // ── 關於 ──
             item {
                 SettingsSection(title = "關於") {
                     SettingsItem(
@@ -245,7 +218,6 @@ fun SettingsScreen(
         }
     }
 
-    // ── 角色選擇 BottomSheet ──
     if (showRoleSheet) {
         ModalBottomSheet(onDismissRequest = { showRoleSheet = false }) {
             Column(
@@ -293,7 +265,6 @@ fun SettingsScreen(
         }
     }
 
-    // ── 深色模式 BottomSheet ──
     if (showDarkModeSheet) {
         ModalBottomSheet(onDismissRequest = { showDarkModeSheet = false }) {
             Column(
@@ -332,7 +303,6 @@ fun SettingsScreen(
         }
     }
 
-    // ── 匯入確認對話框 ──
     showImportConfirm?.let { uri ->
         AlertDialog(
             onDismissRequest = { showImportConfirm = null },
@@ -351,7 +321,6 @@ fun SettingsScreen(
         )
     }
 
-    // ── 載入遮罩 ──
     if (backupState is BackupUiState.Loading) {
         Box(
             modifier = Modifier
@@ -372,15 +341,12 @@ fun SettingsScreen(
     }
 }
 
-// ── 角色對應 Icon ──────────────────────────────────────────
 internal fun UserRole.toIcon(): ImageVector = when (this) {
     UserRole.DATA_MANAGER -> Icons.Default.ManageAccounts
     UserRole.AI_OPERATOR  -> Icons.Default.SmartToy
     UserRole.ADMIN        -> Icons.Default.AdminPanelSettings
     UserRole.NONE         -> Icons.Default.ManageAccounts
 }
-
-// ── 可複用子元件 ──────────────────────────────────────────
 
 @Composable
 private fun SettingsSection(

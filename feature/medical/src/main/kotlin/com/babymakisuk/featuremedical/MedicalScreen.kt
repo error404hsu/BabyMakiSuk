@@ -14,7 +14,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -23,6 +22,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.babymakisuk.coremodel.ChildProfile
 import com.babymakisuk.coremodel.Gender
 import com.babymakisuk.coremodel.MedicalVisit
+import com.babymakisuk.ui.components.BabyTopBar
+import com.babymakisuk.ui.components.LocalDrawerState
+import kotlinx.coroutines.launch
 
 private val BoyBlue = Color(0xFF4A90D9)
 private val GirlPink = Color(0xFFE07BBD)
@@ -39,119 +41,37 @@ fun MedicalScreen(
     val canEditData by viewModel.canEditData.collectAsState()
     val canUseLocalAi by viewModel.canUseLocalAi.collectAsState()
 
+    val drawerState = LocalDrawerState.current
+    val drawerScope = rememberCoroutineScope()
+
     val selectedChildColor = (uiState as? MedicalUiState.Success)?.let { state ->
         val gender = state.children.find { it.id == state.selectedChildId }?.gender
         if (gender == Gender.MALE) BoyBlue else GirlPink
     } ?: MaterialTheme.colorScheme.primary
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            Surface(
-                shadowElevation = 3.dp,
-                color = MaterialTheme.colorScheme.surface
-            ) {
-                Column {
-                    TopAppBar(
-                        title = {
-                            Text(
-                                "就醫紀錄",
-                                style = MaterialTheme.typography.titleLarge,
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                        },
-                        actions = {
-                            IconButton(onClick = { /* TODO: Search */ }) {
-                                Icon(Icons.Default.Search, contentDescription = "搜尋")
-                            }
-                            IconButton(onClick = { onNavigateToAi("PEDIATRIC_DOCTOR") }) {
-                                Icon(
-                                    imageVector = Icons.Default.AutoAwesome,
-                                    contentDescription = "問問AI",
-                                    tint = MaterialTheme.colorScheme.primary
-                                )
-                            }
-                        },
-                        colors = TopAppBarDefaults.topAppBarColors(
-                            containerColor = Color.Transparent
-                        )
-                    )
-                    // 精緻版寶寶篩選列
-                    if (uiState is MedicalUiState.Success) {
-                        val state = uiState as MedicalUiState.Success
-                        LazyRow(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 12.dp),
-                            contentPadding = PaddingValues(horizontal = 16.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            items(state.children) { child ->
-                                val isSelected = child.id == state.selectedChildId
-                                val childColor = if (child.gender == Gender.MALE) BoyBlue else GirlPink
-                                
-                                Surface(
-                                    onClick = { viewModel.selectChild(child.id) },
-                                    shape = RoundedCornerShape(16.dp),
-                                    color = if (isSelected) childColor else childColor.copy(alpha = 0.1f),
-                                    border = BorderStroke(
-                                        width = if (isSelected) 2.dp else 1.dp,
-                                        color = if (isSelected) childColor else childColor.copy(alpha = 0.3f)
-                                    ),
-                                    modifier = Modifier.height(48.dp)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 12.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Surface(
-                                            shape = CircleShape,
-                                            color = if (isSelected) Color.White.copy(alpha = 0.2f) else childColor.copy(alpha = 0.1f),
-                                            modifier = Modifier.size(28.dp)
-                                        ) {
-                                            Box(contentAlignment = Alignment.Center) {
-                                                Text(if (child.gender == Gender.MALE) "👦" else "👧", fontSize = 16.sp)
-                                            }
-                                        }
-                                        Spacer(Modifier.width(8.dp))
-                                        Text(
-                                            text = child.name,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                            color = if (isSelected) Color.White else childColor
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        floatingActionButton = {
-            Column(horizontalAlignment = Alignment.End) {
-                FloatingActionButton(
-                    onClick = { onNavigateToAi("PEDIATRIC_DOCTOR") },
-                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
-                ) {
-                    Icon(Icons.Default.AutoAwesome, contentDescription = "AI 兒科醫師")
-                }
+    val selectedChildId = (uiState as? MedicalUiState.Success)?.selectedChildId
+    val children = (uiState as? MedicalUiState.Success)?.children ?: emptyList()
 
-                if (canEditData) {
-                    Spacer(Modifier.height(16.dp))
-                    ExtendedFloatingActionButton(
-                        onClick = viewModel::openForm,
-                        containerColor = selectedChildColor,
-                        contentColor = Color.White,
-                        shape = CircleShape
-                    ) {
-                        Icon(Icons.Filled.Add, "新增")
-                        Spacer(Modifier.width(8.dp))
-                        Text("新增就診")
+    Scaffold(
+        containerColor = selectedChildColor.copy(alpha = 0.05f),
+        topBar = {
+            BabyTopBar(
+                title = {
+                    if (children.isNotEmpty()) {
+                        ChildSelectorRow(
+                            children = children,
+                            selectedChildId = selectedChildId ?: -1L,
+                            onSelectChild = { viewModel.selectChild(it) }
+                        )
                     }
-                }
-            }
+                },
+                showSearch = true,
+                showAi = true,
+                showAdd = true,
+                onMenuClick = { drawerScope.launch { drawerState.open() } },
+                onAiClick = { onNavigateToAi("PEDIATRIC_DOCTOR") },
+                onAddClick = viewModel::openForm
+            )
         }
     ) { innerPadding ->
         Box(
@@ -244,13 +164,64 @@ fun MedicalScreen(
     }
 
     if (showForm && canEditData) {
-        val selectedChildId = (uiState as? MedicalUiState.Success)?.selectedChildId ?: 1L
+        val selectedChildIdForm = (uiState as? MedicalUiState.Success)?.selectedChildId ?: 1L
         NewMedicalVisitDialog(
-            childId = selectedChildId,
+            childId = selectedChildIdForm,
             initialVisit = editingVisit,
             onDismiss = viewModel::closeForm,
             onConfirm = viewModel::saveVisit
         )
+    }
+}
+
+@Composable
+private fun ChildSelectorRow(
+    children: List<ChildProfile>,
+    selectedChildId: Long,
+    onSelectChild: (Long) -> Unit
+) {
+    LazyRow(
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items(children) { child ->
+            val isSelected = child.id == selectedChildId
+            val childColor = if (child.gender == Gender.MALE) BoyBlue else GirlPink
+
+            Surface(
+                onClick = { onSelectChild(child.id) },
+                shape = RoundedCornerShape(16.dp),
+                color = if (isSelected) childColor else childColor.copy(alpha = 0.1f),
+                border = BorderStroke(
+                    width = if (isSelected) 2.dp else 1.dp,
+                    color = if (isSelected) childColor else childColor.copy(alpha = 0.3f)
+                ),
+                modifier = Modifier.height(40.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = if (isSelected) Color.White.copy(alpha = 0.2f) else childColor.copy(alpha = 0.1f),
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(if (child.gender == Gender.MALE) "👦" else "👧", fontSize = 13.sp)
+                        }
+                    }
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = child.name,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isSelected) Color.White else childColor
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -388,7 +359,6 @@ private fun MedicalVisitCard(
                 )
             }
 
-            // 安全提示 Banner：AI 已整理時顯示
             if (visit.diagnosisSummary.isNotBlank()) {
                 Spacer(Modifier.height(8.dp))
                 val (bannerColor, bannerText) = if (visit.isUrgent) {
@@ -411,7 +381,6 @@ private fun MedicalVisitCard(
                 }
             }
 
-            // AI 提問按鈕 + AI 整理觸發按鈕
             Row(
                 modifier = Modifier.align(Alignment.End),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -485,7 +454,6 @@ private fun MedicalVisitCard(
                     Spacer(Modifier.height(8.dp))
                 }
 
-                // AI 診斷摘要（可編輯）
                 if (visit.diagnosisSummary.isNotBlank() || canEdit) {
                     EditableAiField(
                         icon = "📋",
@@ -510,7 +478,6 @@ private fun MedicalVisitCard(
                     Spacer(Modifier.height(8.dp))
                 }
 
-                // 處方內容（可編輯）
                 if (visit.prescriptions.isNotBlank() || canEdit) {
                     EditableAiField(
                         icon = "💊",
@@ -535,7 +502,6 @@ private fun MedicalVisitCard(
                     Spacer(Modifier.height(8.dp))
                 }
 
-                // 居家照護建議（可編輯）
                 if (visit.careInstructions.isNotBlank() || canEdit) {
                     EditableAiField(
                         icon = "🏠",
