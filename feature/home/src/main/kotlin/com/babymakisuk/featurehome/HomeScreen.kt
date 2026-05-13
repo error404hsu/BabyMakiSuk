@@ -1,6 +1,12 @@
 ﻿package com.babymakisuk.featurehome
 
+import android.content.Context
+import android.graphics.BitmapFactory
+import android.net.Uri
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.*
@@ -15,13 +21,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ShowChart
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -37,7 +46,9 @@ import com.babymakisuk.coremodel.VaccineReminder
 import com.babymakisuk.ui.components.BabyTopBar
 import com.babymakisuk.ui.components.LocalDrawerState
 import com.babymakisuk.ui.theme.BabyMakiSukTheme
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.Period
 import java.time.format.DateTimeFormatter
@@ -251,6 +262,7 @@ fun ChildHubCard(
     onNavigateToGrowth: () -> Unit,
     onNavigateToMedical: () -> Unit
 ) {
+    val childPhoto = rememberChildPhoto(child.photoUri)
     Card(
         modifier = Modifier
             .fillMaxSize()
@@ -276,6 +288,17 @@ fun ChildHubCard(
                             color = accentColor.copy(alpha = 0.15f),
                             modifier = Modifier.size(32.dp)
                         ) {
+                            if (childPhoto != null) {
+                                Image(
+                                    bitmap = childPhoto,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(CircleShape)
+                                        .alpha(0.25f),
+                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                )
+                            }
                             Icon(
                                 imageVector = if (child.gender == Gender.FEMALE) Icons.Default.Girl else Icons.Default.Boy,
                                 contentDescription = null,
@@ -292,6 +315,16 @@ fun ChildHubCard(
                     }
                 } else {
                     Box(modifier = Modifier.fillMaxSize()) {
+                        if (childPhoto != null) {
+                            Image(
+                                bitmap = childPhoto,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .alpha(0.1f),
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                            )
+                        }
                         Box(
                             modifier = Modifier
                                 .align(Alignment.BottomEnd)
@@ -319,14 +352,25 @@ fun ChildHubCard(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Box(contentAlignment = Alignment.Center) {
+                                if (childPhoto != null) {
+                                    Image(
+                                        bitmap = childPhoto,
+                                        contentDescription = null,
+                                        modifier = Modifier
+                                            .size(72.dp)
+                                            .clip(CircleShape)
+                                            .alpha(0.25f),
+                                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                    )
+                                }
                                 Surface(
                                     shape = CircleShape,
-                                    color = accentColor.copy(alpha = 0.1f),
+                                    color = accentColor.copy(alpha = if (childPhoto != null) 0.05f else 0.1f),
                                     modifier = Modifier.size(86.dp)
                                 ) {}
                                 Surface(
                                     shape = CircleShape,
-                                    color = accentColor.copy(alpha = 0.2f),
+                                    color = accentColor.copy(alpha = if (childPhoto != null) 0.1f else 0.2f),
                                     modifier = Modifier.size(72.dp)
                                 ) {
                                     Icon(
@@ -370,7 +414,7 @@ fun ChildHubCard(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(240.dp)
+                        .height(160.dp)
                         .background(
                             Brush.verticalGradient(
                                 colors = listOf(accentColor, accentColor.copy(alpha = 0.8f))
@@ -396,20 +440,20 @@ fun ChildHubCard(
                         Surface(
                             shape = CircleShape,
                             color = Color.White.copy(alpha = 0.25f),
-                            modifier = Modifier.size(90.dp),
+                            modifier = Modifier.size(60.dp),
                             border = BorderStroke(2.dp, Color.White.copy(alpha = 0.5f))
                         ) {
                             Icon(
                                 imageVector = if (child.gender == Gender.FEMALE) Icons.Default.Girl else Icons.Default.Boy,
                                 contentDescription = null,
-                                modifier = Modifier.padding(18.dp),
+                                modifier = Modifier.padding(12.dp),
                                 tint = Color.White
                             )
                         }
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = child.name,
-                            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                             color = Color.White
                         )
                         Text(
@@ -592,6 +636,24 @@ fun EditChildProfileDialog(
     onDismiss: () -> Unit,
     onSave: (ChildProfile) -> Unit
 ) {
+    var selectedUri by remember { mutableStateOf(child.photoUri) }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+        onResult = { uri ->
+            uri?.let {
+                scope.launch(Dispatchers.IO) {
+                    val path = copyPhotoToInternal(context, child.id, it)
+                    withContext(Dispatchers.Main) {
+                        if (path != null) selectedUri = path
+                    }
+                }
+            }
+        }
+    )
+    val selectedPhoto = rememberChildPhoto(selectedUri)
+
     AlertDialog(
         onDismissRequest = onDismiss,
     ) {
@@ -611,6 +673,58 @@ fun EditChildProfileDialog(
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
+
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = accentColor.copy(alpha = 0.1f),
+                        modifier = Modifier.size(80.dp)
+                    ) {}
+                    if (selectedPhoto != null) {
+                        Image(
+                            bitmap = selectedPhoto,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(80.dp)
+                                .clip(CircleShape),
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                        )
+                    } else {
+                        Icon(
+                            imageVector = if (child.gender == Gender.FEMALE) Icons.Default.Girl else Icons.Default.Boy,
+                            contentDescription = null,
+                            modifier = Modifier.size(80.dp).padding(16.dp),
+                            tint = accentColor
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    TextButton(onClick = {
+                        photoPickerLauncher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
+                    }) {
+                        Icon(Icons.Default.AddPhotoAlternate, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("選擇照片")
+                    }
+                    if (selectedUri != null) {
+                        TextButton(onClick = { selectedUri = null }) {
+                            Text("清除照片")
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
 
                 var name by remember { mutableStateOf(child.name) }
                 OutlinedTextField(
@@ -644,7 +758,7 @@ fun EditChildProfileDialog(
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
                         onClick = {
-                            onSave(child.copy(name = name, birthday = LocalDate.parse(birthday)))
+                            onSave(child.copy(name = name, birthday = LocalDate.parse(birthday), photoUri = selectedUri))
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = accentColor),
                         shape = RoundedCornerShape(12.dp)
@@ -716,4 +830,40 @@ fun HomeScreenPreview() {
             onNavigateToAi = {}
         )
     }
+}
+
+@Composable
+private fun rememberChildPhoto(photoUri: String?): androidx.compose.ui.graphics.ImageBitmap? {
+    val context = LocalContext.current
+    var bitmap by remember(photoUri) { mutableStateOf<android.graphics.Bitmap?>(null) }
+    LaunchedEffect(photoUri) {
+        bitmap = if (photoUri != null) {
+            withContext(Dispatchers.IO) {
+                try {
+                    val file = java.io.File(photoUri)
+                    if (file.exists()) {
+                        BitmapFactory.decodeFile(file.absolutePath)
+                    } else {
+                        context.contentResolver.openInputStream(Uri.parse(photoUri))?.use { stream ->
+                            BitmapFactory.decodeStream(stream)
+                        }
+                    }
+                } catch (_: Exception) { null }
+            }
+        } else null
+    }
+    return bitmap?.asImageBitmap()
+}
+
+private fun copyPhotoToInternal(context: Context, childId: Long, sourceUri: Uri): String? {
+    val dir = java.io.File(context.filesDir, "child_photos").apply { mkdirs() }
+    val file = java.io.File(dir, "$childId.jpg")
+    return try {
+        context.contentResolver.openInputStream(sourceUri)?.use { input ->
+            java.io.FileOutputStream(file).use { output ->
+                input.copyTo(output)
+            }
+        }
+        file.absolutePath
+    } catch (_: Exception) { null }
 }

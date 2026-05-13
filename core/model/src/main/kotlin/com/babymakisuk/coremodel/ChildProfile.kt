@@ -10,7 +10,8 @@ data class ChildProfile(
     val birthday: LocalDate,
     val bloodType: BloodType? = null,
     val allergies: String? = null,
-    val note: String = ""
+    val note: String = "",
+    val photoUri: String? = null
 ) {
     /**
      * 計算當前月齡。

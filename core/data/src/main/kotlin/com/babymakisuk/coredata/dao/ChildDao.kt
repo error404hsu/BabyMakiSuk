@@ -18,6 +18,9 @@ interface ChildDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: ChildProfileEntity): Long
 
+    @Update
+    suspend fun update(entity: ChildProfileEntity)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(entities: List<ChildProfileEntity>)
 

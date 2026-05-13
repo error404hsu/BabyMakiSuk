@@ -10,6 +10,7 @@ import com.babymakisuk.coremodel.ChildProfile
 import com.babymakisuk.coremodel.Gender
 import com.babymakisuk.coremodel.ToiletRecord
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -66,38 +67,50 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     private fun loadData() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            childRepository.observeAll().collect { children ->
-                val boy  = children.firstOrNull { it.gender == Gender.MALE }
-                val girl = children.firstOrNull { it.gender == Gender.FEMALE }
+            childRepository.observeAll()
+                .flatMapLatest { children ->
+                    val boy = children.firstOrNull { it.gender == Gender.MALE }
+                    val girl = children.firstOrNull { it.gender == Gender.FEMALE }
 
-                val boyRecords  = boy?.let  { growthRepository.observeByChild(it.id).first() } ?: emptyList()
-                val girlRecords = girl?.let { growthRepository.observeByChild(it.id).first() } ?: emptyList()
+                    val boyToiletFlow = boy?.let { toiletRepository.getToiletRecords(it.id) }
+                        ?: flowOf(emptyList())
+                    val girlToiletFlow = girl?.let { toiletRepository.getToiletRecords(it.id) }
+                        ?: flowOf(emptyList())
 
-                val boyToilet  = boy?.let  { toiletRepository.getToiletRecords(it.id).first() } ?: emptyList()
-                val girlToilet = girl?.let { toiletRepository.getToiletRecords(it.id).first() } ?: emptyList()
-
-                val boyNextVaccine = boy?.let { vaccineReminderRepository.getNextDue(it.id) }
-                val girlNextVaccine = girl?.let { vaccineReminderRepository.getNextDue(it.id) }
-
-                _uiState.update {
-                    it.copy(
-                        boy               = boy,
-                        girl              = girl,
-                        boyLatestGrowth   = boyRecords.maxByOrNull  { r -> r.date },
-                        girlLatestGrowth  = girlRecords.maxByOrNull { r -> r.date },
-                        boyGrowthRecords  = boyRecords.takeLast(6),
-                        girlGrowthRecords = girlRecords.takeLast(6),
-                        boyToiletRecords  = boyToilet,
-                        girlToiletRecords = girlToilet,
-                        boyNextVaccine    = boyNextVaccine,
-                        girlNextVaccine   = girlNextVaccine,
-                        isLoading         = false
-                    )
+                    combine(boyToiletFlow, girlToiletFlow) { boyToilet, girlToilet ->
+                        Triple(children, boyToilet, girlToilet)
+                    }
                 }
-            }
+                .collect { (children, boyToilet, girlToilet) ->
+                    val boy = children.firstOrNull { it.gender == Gender.MALE }
+                    val girl = children.firstOrNull { it.gender == Gender.FEMALE }
+
+                    val boyRecords = boy?.let { growthRepository.observeByChild(it.id).first() } ?: emptyList()
+                    val girlRecords = girl?.let { growthRepository.observeByChild(it.id).first() } ?: emptyList()
+
+                    val boyNextVaccine = boy?.let { vaccineReminderRepository.getNextDue(it.id) }
+                    val girlNextVaccine = girl?.let { vaccineReminderRepository.getNextDue(it.id) }
+
+                    _uiState.update {
+                        it.copy(
+                            boy = boy,
+                            girl = girl,
+                            boyLatestGrowth = boyRecords.maxByOrNull { r -> r.date },
+                            girlLatestGrowth = girlRecords.maxByOrNull { r -> r.date },
+                            boyGrowthRecords = boyRecords.takeLast(6),
+                            girlGrowthRecords = girlRecords.takeLast(6),
+                            boyToiletRecords = boyToilet,
+                            girlToiletRecords = girlToilet,
+                            boyNextVaccine = boyNextVaccine,
+                            girlNextVaccine = girlNextVaccine,
+                            isLoading = false
+                        )
+                    }
+                }
         }
     }
 }

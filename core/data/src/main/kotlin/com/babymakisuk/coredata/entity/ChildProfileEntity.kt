@@ -13,7 +13,8 @@ data class ChildProfileEntity(
     val birthday: LocalDate,
     val bloodType: String? = null,
     val allergies: String? = null,
-    val note: String = ""
+    val note: String = "",
+    val photoUri: String? = null
 )
 
 fun ChildProfileEntity.toDomain() = ChildProfile(
@@ -22,7 +23,8 @@ fun ChildProfileEntity.toDomain() = ChildProfile(
     birthday = birthday,
     bloodType = bloodType?.let { BloodType.valueOf(it) },
     allergies = allergies,
-    note = note
+    note = note,
+    photoUri = photoUri
 )
 
 fun ChildProfile.toEntity() = ChildProfileEntity(
@@ -31,5 +33,6 @@ fun ChildProfile.toEntity() = ChildProfileEntity(
     birthday = birthday,
     bloodType = bloodType?.name,
     allergies = allergies,
-    note = note
+    note = note,
+    photoUri = photoUri
 )

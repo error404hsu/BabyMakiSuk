@@ -22,7 +22,7 @@ import com.babymakisuk.coredata.entity.*
         ToiletRecordEntity::class,
         VaccineReminderEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -241,6 +241,12 @@ abstract class AppDatabase : RoomDatabase() {
                     )
                 """.trimIndent())
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_vaccine_reminders_childId ON vaccine_reminders(childId)")
+            }
+        }
+
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE child_profile ADD COLUMN photoUri TEXT")
             }
         }
     }
