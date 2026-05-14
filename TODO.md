@@ -1,253 +1,157 @@
 # BabyMakiSuk TODO
 
-更新日期：2026-05-13
+更新日期：2026-05-14
+
+> 📌 開發規範詳見 [`docs/AGENT_GUIDELINES.md`](./docs/AGENT_GUIDELINES.md)
 
 ---
 
-## 專案狀態
+## 專案整體進度
 
-- [x] Phase A - 多模組專案骨架
-- [x] Phase A - coremodel 資料模型
-- [x] Phase A - coredata Room / DAO / Repository 基礎層
-- [x] Phase A - Navigation + Bottom Navigation UI 骨架
-- [x] Phase B - GrowthListScreen
-- [x] Phase B - NewGrowthRecordDialog 表單與輸入驗證
-- [x] Phase B - percentile 計算介面（stub LMS）
-- [x] Phase B - 成長折線圖
-- [x] Phase B - WHO 參考曲線疊加（P3 / P15 / P50 / P85 / P97）
-- [x] Phase B - P15-P85 區間帶
-- [x] Phase B - 首頁 Child 卡片顯示最近一次成長摘要（LatestGrowthBanner）
-- [x] Phase B - GrowthScreen 圖表切換 Icon 修正（ShowChart）
-- [x] Phase B - head circumference percentile 與圖表
-- [ ] Phase B - 替換成 WHO 官方完整 0-60 月 LMS/CSV 資料（目前為 stub，可升級）
-
-> ✅ Phase A & B 核心功能全部完成。WHO 官方完整 CSV 替換列為 Backlog 優化項。
+| Phase | 名稱 | 狀態 |
+|-------|------|------|
+| A | 多模組骨架 + 資料模型 | ✅ 完成 |
+| B | 成長紀錄 + WHO 圖表 | ✅ 完成 |
+| C | 醫療紀錄 + AI 整合 | ✅ 完成 |
+| H | 書庫（週報 / AI 精華 / Memo） | ✅ 完成 |
+| UI | 設計系統優化 | ✅ 完成 |
+| D | 每日日誌 × Memo 整合 | 🔲 Sprint 4 |
+| 5 | HomeScreen 收折優化 | 🔲 Sprint 5 |
+| 6 | 通知排程 | 🔲 Sprint 6 |
+| E | Firebase 同步 | ⏸ 暫緩 |
+| F | Google Drive 備份 | ⏸ 暫緩 |
+| G | Settings 功能 | 🔲 部分完成，見下方 |
 
 ---
 
-## Phase C - 醫療紀錄與 ServiceAI 整合 v1
+## ✅ 已完成
 
-- [x] MedicalUiState（sealed interface）
-- [x] MedicalViewModel（ChildRepository + MedicalDao，flatMapLatest 孩子切換）
-- [x] MedicalScreen（ChildFilterChip + LazyColumn + MedicalVisitCard 可展開）
-- [x] MedicalVisitCard AI 三欄展示（diagnosisSummary / prescriptions / careInstructions）
-- [x] NewMedicalVisitDialog（醫院、科別、診斷、備註表單）
-- [x] coreai / ServiceAI 真實 SDK 串接
+### Phase A — 基礎骨架
+- [x] 多模組專案骨架
+- [x] core/model 資料模型
+- [x] core/data Room / DAO / Repository 基礎層
+- [x] Navigation + Bottom Navigation UI 骨架
+
+### Phase B — 成長紀錄
+- [x] GrowthListScreen
+- [x] NewGrowthRecordDialog 表單與輸入驗證
+- [x] Percentile 計算介面（stub LMS）
+- [x] 成長折線圖
+- [x] WHO 參考曲線疊加（P3 / P15 / P50 / P85 / P97）
+- [x] P15-P85 區間帶
+- [x] LatestGrowthBanner（首頁最近一次成長摘要）
+- [x] GrowthScreen 圖表切換 Icon 修正
+- [x] Head circumference percentile 與圖表
+
+### Phase C — 醫療紀錄 + AI
+- [x] MedicalUiState / MedicalViewModel / MedicalScreen
+- [x] MedicalVisitCard（AI 三欄展示）
+- [x] NewMedicalVisitDialog（已規劃替換為 MedicalEditScreen）
+- [x] core/ai ServiceAI 真實 SDK 串接
 - [x] MedicalAiRepository（summarizeMedicalVisit + analyzePrescription）
-- [x] medical_note_summarizer prompt schema
 - [x] AI JSON 解析與寫入 MedicalVisit
-- [x] 「AI 整理僅供參考」安全提示
 - [x] AI 結果手動編輯 UI
-- [ ] 📷 掃描病歷 → OCR → 自動填入 AI 欄位
+- [x] AiDispatcher 核心層（Sprint 1）
+- [x] AI Portal + 情境入口（Sprint 2）
+- [x] AiContextInjector 規則式 RAG Phase 1.5（Sprint 3）
+- [x] WeeklyReportRepository AI 整合
+- [x] WeeklyReportSearchScreen（FTS + keyword highlight）
 
-### Sprint 1 — AiDispatcher 核心層（2026-05-12）✅
+### Phase H — 書庫
+- [x] BottomNavItem 配置
+- [x] AiInsightEntity + MemoEntity
+- [x] AiInsightDao + MemoDao + WeeklyReportDao
+- [x] AppDatabase v3→v4 + MIGRATION_3_4
+- [x] LibraryScreen（3 書架卡片）
+- [x] WeeklyShelfScreen
+- [x] AiInsightShelfScreen（長按刪除）
+- [x] MemoShelfScreen（CRUD + ModalBottomSheet）
+- [x] NavHost library 子路由補齊
 
-- [x] `GeminiModel` 加入 `AiEngineType`，修正 Gemma 4 26B modelId 為 `gemma-4-26b-a4b-it`
-- [x] `AiTask` enum（6 個任務：MEDICAL_CONSULTATION / MEDICAL_OCR / VOICE_INPUT / WEEKLY_REPORT / QUICK_CHAT / CUSTOM_PRESET）
-- [x] `RateLimiter`（in-memory 滑動視窗 60s，per-task 獨立配額）
-- [x] `RateLimitException` / `AiDispatchException`
-- [x] `AiDispatcher`（Fallback Chain + Rate Limit 整合，支援 System Prompt）
+### Phase G — Settings（已完成部分）
+- [x] SettingsScreen 分區 UI
+- [x] SettingsViewModel MVI + BackupUiState
+- [x] DarkModeOption + DataStore 深色模式
+- [x] BackupManager JSON 備份 / 匯入
+- [x] ApiTestScreen（API 連線測試子頁面）
+- [x] FileProvider 設定
 
-### Sprint 2 — AI Portal 與情境入口（2026-05-13）✅
+### UI 設計系統
+- [x] 色票系統更新（Primary / Dark / Tertiary / Background / Text）
+- [x] Lora + Raleway Typography scale
+- [x] Empty States 補強（Home / Growth / Medical / Search）
+- [x] Growth Chart 色盲友善配色
+- [x] AI Chat Bubble 樣式優化
+- [x] HTML 原型產出（ui-ux-preview.html）
 
-- [x] `AiPreset` enum（5 個角色，含 task 欄位對應 AiTask）
-- [x] `AiPromptBuilder`（buildSystemPrompt，CUSTOM 早期返回）
-- [x] `AiPortalScreen`（對話視窗 UI + PresetSelector + ChatHistory）
-- [x] `AiPortalViewModel`（情境感知排序、RateLimitException 處理）
-- [x] Navigation：`ai_portal?presetHint={hint}` 路由
-- [x] `MedicalScreen` / `GrowthScreen` / `HomeScreen` 加入 AI FAB
-
-### Sprint 3 — MedicalAiRepository + 規則式 RAG Phase 1.5 + FTS 搜尋 UI（2026-05-12）✅
-
-- [x] `AiContextInjector`（規則式 RAG Phase 1.5，注入最近 3 筆就醫 + 1 筆成長紀錄）
-- [x] `AiPromptBuilder.buildSystemPromptWithContext()`（Sprint 3 新增 overload）
-- [x] `MedicalAiRepository`（summarizeMedicalVisit + analyzePrescription）
-- [x] `WeeklyReportRepository` AI 整合（generateWeeklyReport 使用 AiDispatcher + AiContextInjector）
-- [x] `WeeklyReportSearchScreen`（FTS 全文搜尋 + AnnotatedString keyword highlight）
-- [x] `WeeklyReportSearchViewModel`（HiltViewModel + debounce 300ms + FTS StateFlow）
-- [x] `BabyMakiSukNavHost`：新增 `weekly_report_search?childId={childId}` 路由
-
----
-
-## HomeScreen
-
-- [x] HomeUiState / HomeViewModel（已 merge to main）
-- [x] 雙 ChildSummaryCard 並排（男藍 #4A90D9 / 女粉 #E07BBD）
-- [x] TwinDiffBadge 雙胞胎身高體重差距顯示
-- [x] DailyLogOverviewCard 今日日誌快覽（吃飯、睡眠、心情 emoji）
-- [x] HomeTopBar 日期問候
-- [x] HomeScreen 接入 feat/home-ui branch → merge to main
-- [ ] AI 晨報 Card（AiMorningBriefingCard，接 ServiceAI summarizeBabyDailyLog）
-- [ ] 疫苗提醒 Card（VaccineReminderCard）
-- [ ] 下次回診 Card（NextVisitCard）
+### Phase E-0 — Firebase 留位（不含實作）
+- [x] MedicalVisit 新增 imageStoragePath / aiPending 欄位
+- [x] WeeklyReport domain model
+- [x] WeeklyReportEntity / WeeklyReportFts / WeeklyReportDao
+- [x] AppDatabase bump v2
+- [x] core/firebase 空模組留位
+- [x] core/drive 空模組留位
 
 ---
 
----
+## 🔲 待開發
 
-## UI/UX 設計系統優化（2026-05-13）✅
+### Sprint 4 — Memo 整合每日日誌
+> 詳細規格見 `docs/AGENT_GUIDELINES.md` → Sprint 4 章節
 
-> 基於 ui-ury-pro-max 資料庫建議，實施完整的設計系統更新。
+- [ ] 確認 MemoEntity 是否含 `childId`、`date`、`reminderAt` 欄位
+- [ ] 若缺欄位：MIGRATION_4_5 + AppDatabase bump v5
+- [ ] MemoShelfScreen 改為日期分組顯示
+- [ ] MemoDao 補充 `getByChildAndDate()` 查詢
+- [ ] HomeScreen DailyLogOverviewCard 改讀當日 Memo
+- [ ] 新增 Memo 入口從 HomeScreen 今日日誌區「＋」觸發
+- [ ] Memo 編輯全頁 Screen（`library/memo/edit` 路由）
 
-- [x] **色票系統更新**
-  - Primary `#4FC3F7` → `#0369A1`（深穩藍，提升信賴感）
-  - Dark Primary → `#38BDF8`（深色模式高可讀性）
-  - 新增 Tertiary `#22C55E`（CTA 綠色，用於新增/發送等正向動作）
-  - Background `#FAFAFA` → `#F0F9FF`（淺藍白底）
-  - Text `#1A1A1A` → `#0C4A6E`（深藍灰，提升可讀性）
-- [x] **字型導入**（Lora + Raleway Typography scale）
-  - Headings: `FontFamily.Serif` ≈ Lora
-  - Body: `FontFamily.Default` ≈ Raleway
-  - 完整的 Material 3 14 級字型定義
-  - 附註：將 .ttf 放入 `res/font/` 後替換 `FontFamily` 即可啟用實際字型
-- [x] **Empty States 補強**
-  - HomeScreen：雙寶無資料時顯示圖示 + 引導 + 新增按鈕
-  - GrowthScreen：無成長紀錄時顯示引導 + 新增按鈕（限可編輯角色）
-  - MedicalScreen：無就診紀錄時顯示引導 + 新增按鈕（限可編輯角色）
-  - WeeklyReportSearchScreen：搜尋前/無結果分別顯示引導提示
-- [x] **Growth Chart 用色優化（色盲友善）**
-  - 改用藍色系參考線（不同亮度）+ 橘色實測線，紅綠色盲可辨
-  - 圖例加入 dash pattern 輔助辨識
-  - 實測線 `#FF7043` → `#DD6B20`
-- [x] **AI Chat Bubble 樣式優化**
-  - 使用者泡泡：`primary` 深藍底 + 白色字
-  - AI 泡泡：`surfaceVariant` 淺底 + shadow
-  - 角色標頭含 emoji icon + 名稱 + 時間
-  - 角色選取 Chip 加入 emoji icon
-  - 送出按鈕改用 `tertiary` CTA 綠色
-  - AI 紫色 (`#673AB7`) 全部移除，改為 theme primary
-  - Thinking indicator 陰影 + 圓角優化
-- [x] **HTML 原型產出**（`ui-ux-preview.html`）
-  - 7 個 Screen 完整 mockup，套用推薦設計系統
-  - 每個 Screen 附 CURRENT vs SUGGEST 註解
+### Sprint 5 — HomeScreen 收折優化
+> 詳細規格見 `docs/AGENT_GUIDELINES.md` → Sprint 5 章節
 
-## Phase D - 每日日誌與 AI 每週總結
+- [ ] ChildSummaryCard 收折 / 展開（AnimatedVisibility）
+- [ ] 展開區：上次就醫摘要 + 下次排程 + 本日 Memo
+- [ ] AiMorningBriefingCard（收折版，串接 AiDispatcher）
 
-- [ ] DailyLogScreen
-- [ ] NewDailyLogScreen
-- [x] weekly_baby_log_summary 任務
-- [ ] WeeklySummaryScreen
-- [ ] 重新生成 / 編輯摘要
+### Sprint 6 — 通知排程
+> 詳細規格見 `docs/AGENT_GUIDELINES.md` → Sprint 6 章節
+
+- [ ] WorkManager + NotificationCompat
+- [ ] Memo 編輯畫面「設定提醒」DateTimePicker
+- [ ] SettingsScreen 通知總開關（DataStore）
+- [ ] POST_NOTIFICATIONS 權限申請（Android 13+）
+
+### 就醫畫面重構
+> 詳細規格見 `docs/AGENT_GUIDELINES.md` → 就醫畫面規範
+
+- [ ] MedicalVisitCard 整張卡片 clickable，移除展開按鈕
+- [ ] MedicalEditScreen 全頁編輯（含 visitDate DatePickerDialog）
+- [ ] 廢棄 NewMedicalVisitDialog
+
+### 成長紀錄重構
+> 詳細規格見 `docs/AGENT_GUIDELINES.md` → 成長紀錄規範
+
+- [ ] GrowthEditScreen 全頁編輯（含 recordedAt DatePickerDialog）
+- [ ] 廢棄 NewGrowthRecordDialog
+
+### BottomNavigation
+- [ ] 「疫苗」標籤改為「疫苗 就醫」
 
 ---
 
-## Phase E - Firebase 同步（雙機協作）
+## ⏸ 暫緩 / Backlog
 
-> 詳細規格見 docs/SYNC_ARCHITECTURE.md
-
-### E-0 立即執行（Model 留位，不影響現有功能）—— ✅ 全部完成
-
-- [x] `core/model`：`MedicalVisit` 新增欄位 `imageStoragePath: String?`、`aiPending: Boolean`
-- [x] `core/model`：新增 `WeeklyReport.kt` domain model
-- [x] `core/data`：新增 `WeeklyReportEntity.kt`、`WeeklyReportFts.kt`
-- [x] `core/data`：新增 `WeeklyReportDao.kt`（FTS 搜尋介面）
-- [x] `core/data`：`AppDatabase` 新增週報表，bump 版本號（v2）
-- [x] 新增空模組 `core/firebase`（build.gradle.kts 留位）
-- [x] 新增空模組 `core/drive`（build.gradle.kts 留位）
-- [x] `settings.gradle.kts` 注冊新模組
-
-### E-1 Firebase 基礎
-
-- [ ] Firebase Auth + Google 登入
-- [ ] Custom Claims 設定（`data_manager` / `ai_operator` 角色）
-- [ ] Firestore Security Rules 部署
-- [ ] Firestore 離線持久化啟用（`isPersistenceEnabled = true`）
-- [ ] `feature/settings` Google 登入 UI
-
-### E-2 資料同步
-
-- [ ] `core/firebase`：`FirestoreChildRepository`
-- [ ] `core/firebase`：`FirestoreMedicalRepository`（含 `aiPending` 旗標監聽）
-- [ ] `core/firebase`：`ImageUploadRepository`（圖片壓縮 + Storage 上傳）
-- [ ] `core/firebase`：`FirestoreMedicalImageCacheManager`（本機圖片快取）
-- [ ] 雙機同步測試（低階機寫入 → 高階機 AI 觸發 → 結果同步回低階機）
-
----
-
-## Phase F - 週報 + Google Drive 永久備份
-
-> 詳細規格見 docs/SYNC_ARCHITECTURE.md
-
-- [x] `feature/weeklyreport`：`WeeklyReportSearchScreen`（FTS 搜尋 + keyword highlight）
-- [x] `feature/weeklyreport`：`WeeklyReportSearchViewModel`
-- [x] `core/data`：`WeeklyReportRepository`（AI 整合 generateWeeklyReport）
-- [x] `feature/weeklyreport`：`WeeklyReportScreen` UI
-- [x] `feature/weeklyreport`：`WeeklyReportViewModel`
-- [x] `core/ai`：`weekly_baby_log_summary` prompt schema（含 searchKeywords 萃取）
-- [ ] `core/drive`：`DriveExportRepository`（Markdown 週報 + JSON 匯出）
-- [ ] `core/drive`：`DriveImageBackupManager`（舊照片遷移 > 6 個月）
-- [ ] Firestore `driveExported` / `driveFileId` 欄位寫回
-- [ ] WorkManager 週期任務（週日 22:00 自動觸發，可選）
-
----
-
-## Phase G - Settings 頁功能擴充
-
-> Settings 頁基礎 UI 已於 2026-05-11 完成。
-
-### G-0 已完成 ✅
-
-- [x] `SettingsScreen`：分區 UI（外觀 / 資料管理 / 關於）
-- [x] `SettingsViewModel`：MVI + `BackupUiState` sealed interface
-- [x] `SettingsRepository`：DataStore 深色模式 + 委派 BackupManager
-- [x] `DarkModeOption` enum：SYSTEM / LIGHT / DARK
-- [x] `SettingsPreferences`：DataStore Key 統一定義
-- [x] `BabyMakiSukTheme` 支援 `darkTheme: Boolean`
-- [x] `MainActivity` 讀取 `SettingsViewModel.darkMode`，動態传入主題
-
-### G-1 已完成 ✅
-
-- [x] `BackupManager`：Room 全資料 → JSON 備份 DTO
-- [x] `BackupManager.exportToShareIntent()`：JSON 寫入 cache，透過 FileProvider + ShareSheet 分享
-- [x] `BackupManager.importFromUri()`：讀取 JSON → merge 或覆蓋寫入 Room（`runInTransaction`）
-- [x] 全部 DAO 新增 `getAllOnce()` / `upsertAll()` / `deleteAll()`
-- [x] `SettingsScreen` 匯入前確認 Dialog、載入中過場、成功 / 錯誤 Alert
-
-### G-2 已完成 ✅
-
-- [x] **`ApiTestScreen` — API 連線測試子頁面** ✅ 2026-05-12
-  - Key 狀態顯示（`AiConfig.hasValidKey` → 已注入 / 未注入）
-  - 發送固定 prompt 並計時（`System.currentTimeMillis()`）
-  - `sealed interface ApiTestUiState`（Idle / Loading / Success / Error）
-  - Loading `CircularProgressIndicator` 動畫
-  - 成功：等寬字體原始回應 + primaryContainer 卡片
-  - 失敗：紅色錯誤訊息 + errorContainer 卡片
-  - 回應耗時（ms）顯示於 `AssistChip`
-  - 路由：`settings/api_test`，TopAppBar 返回按鈕
-- [x] `ApiTestViewModel`：注入 `ServiceAiClient`（介面）+ `AiConfig`
-- [x] `SettingsScreen`：新增 `onNavigateToApiTest` callback + BugReport SettingsItem
-- [x] `BabyMakiSukNavHost`：新增 `settings/api_test` 子路由，子頁面隱藏 BottomBar
-- [x] `feature/settings/build.gradle.kts`：新增 `core:ai` 依賴
-- [x] `AndroidManifest.xml` 新增 FileProvider `<provider>` 設定
-- [x] `res/xml/file_paths.xml` 定義 cache-path
-- [ ] 多寶寶 Profile 管理（新增 / 切換 / 刪除）
-- [ ] 通知排程設定（餵奶提醒、疫苗到期推播）
-- [ ] 語言切換（繁中 / English）
-
----
-
-## Phase H - Feature Library（書庫功能）
-
-- [x] Task 1 — BabyMakiSukNavHost BottomNavItem 配置
-- [x] Task 2 — AiInsightEntity + MemoEntity
-- [x] Task 3 — AiInsightDao + MemoDao + WeeklyReportDao.getRecentReports
-- [x] Task 4 — AppDatabase v3→v4 + MIGRATION_3_4 + DatabaseModule
-- [x] Task 5 — LibraryScreen（3 書架卡片）+ LibraryViewModel
-- [x] Task 6 — WeeklyShelfScreen（週報列表搜尋入口）
-- [x] Task 7 — AiInsightShelfScreen（AI 精華列表 + 長按刪除）
-- [x] Task 8 — MemoShelfScreen（Memo CRUD + ModalBottomSheet + 長按刪除）
-- [x] Task 9 — NavHost 補齊 library 子路由（library/weekly, library/aiinsight, library/memo）
-
----
-
-## Backlog
-
-- [ ] 替換成 WHO 官方完整 0-60 月 LMS/CSV 資料（目前 stub 精度足夠，正式上架前升級）
-- [ ] 多家長共用 Child（OWNER / CAREGIVER）
-- [ ] PDF 報表輸出
-- [ ] Widget 顯示今日待辦
-- [ ] LINE / 短訊分享就診摘要
-- [ ] 多語系（繁中 / 英文）
-- [ ] 里程碑氣泡（成長百分位跨區震動提示）
-- [ ] Storage 舊照片自動清理（> 6 個月 → 遷移至 Drive）
-- [ ] `feature/vaccine` 疫苗模組實作（目錄已建立，待功能開發）
+| 項目 | 備註 |
+|------|------|
+| Firebase Auth / Firestore（Phase E-1 以後） | 暫緩，留位模組已建立 |
+| Google Drive 備份（Phase F 剩餘） | 暫緩 |
+| feature/vaccine 完整功能 | 目錄留位，孩子 3 歲暫不需要 |
+| WHO 官方 0-60 月 LMS CSV 替換 | stub 精度足夠，上架前再升級 |
+| 📷 病歷 OCR → 自動填入 | 暫緩 |
+| PDF 報表輸出 | 暫緩 |
+| Widget 今日待辦 | 暫緩 |
+| LINE / 短訊分享就診摘要 | 暫緩 |
+| 多語系（繁中 / English） | 已刪除 |
+| 多寶寶 Profile 切換 UI | 已刪除 |
+| 里程碑氣泡震動提示 | 暫緩 |
