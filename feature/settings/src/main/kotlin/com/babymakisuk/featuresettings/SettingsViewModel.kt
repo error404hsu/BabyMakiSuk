@@ -63,6 +63,18 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { repository.setAiCloudEnabled(enabled) }
     }
 
+    // ── 通知開關 ──────────────────────────────────────────
+
+    val notificationsEnabled: StateFlow<Boolean> = repository.notificationsEnabled.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = true
+    )
+
+    fun setNotificationsEnabled(enabled: Boolean) {
+        viewModelScope.launch { repository.setNotificationsEnabled(enabled) }
+    }
+
     // ── 匯出 / 匯入 ──────────────────────────────────────────
     private val _backupState = MutableStateFlow<BackupUiState>(BackupUiState.Idle)
     val backupState: StateFlow<BackupUiState> = _backupState.asStateFlow()

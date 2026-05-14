@@ -7,18 +7,75 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.*
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.*
-import androidx.compose.foundation.layout.*
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ShowChart
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.compose.material.icons.filled.Boy
+import androidx.compose.material.icons.filled.ChildCare
+import androidx.compose.material.icons.filled.Girl
+import androidx.compose.material.icons.filled.Height
+import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.MedicalServices
+import androidx.compose.material.icons.filled.MonitorWeight
+import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.VerticalDivider
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -28,11 +85,11 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ShowChart
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -41,6 +98,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.babymakisuk.coremodel.ChildProfile
 import com.babymakisuk.coremodel.Gender
 import com.babymakisuk.coremodel.GrowthRecord
+import com.babymakisuk.coremodel.MedicalVisit
+import com.babymakisuk.coremodel.Memo
 import com.babymakisuk.coremodel.ToiletRecord
 import com.babymakisuk.coremodel.VaccineReminder
 import com.babymakisuk.ui.components.BabyTopBar
@@ -61,7 +120,8 @@ fun HomeScreen(
     viewModel: HomeViewModel? = if (LocalInspectionMode.current) null else hiltViewModel(),
     onNavigateToGrowth: () -> Unit = {},
     onNavigateToMedical: () -> Unit = {},
-    onNavigateToAi: (String?) -> Unit = {}
+    onNavigateToAi: (String?) -> Unit = {},
+    onNavigateToMemoEdit: (Long) -> Unit = {}
 ) {
     val uiState by if (viewModel == null) {
         remember { mutableStateOf(HomeUiState()) }
@@ -75,7 +135,8 @@ fun HomeScreen(
         onLogToilet = { viewModel?.logToilet(it) ?: Unit },
         onNavigateToGrowth = onNavigateToGrowth,
         onNavigateToMedical = onNavigateToMedical,
-        onNavigateToAi = onNavigateToAi
+        onNavigateToAi = onNavigateToAi,
+        onNavigateToMemoEdit = onNavigateToMemoEdit
     )
 }
 
@@ -87,7 +148,8 @@ fun HomeScreenContent(
     onLogToilet: (Long) -> Unit = {},
     onNavigateToGrowth: () -> Unit,
     onNavigateToMedical: () -> Unit,
-    onNavigateToAi: (String?) -> Unit = {}
+    onNavigateToAi: (String?) -> Unit = {},
+    onNavigateToMemoEdit: (Long) -> Unit = {}
 ) {
     var expandedGender by remember { mutableStateOf<Gender?>(null) }
     var isEditMode by remember { mutableStateOf(false) }
@@ -157,7 +219,7 @@ fun HomeScreenContent(
                     )
                     Spacer(Modifier.height(24.dp))
                     Button(
-                        onClick = { /* TODO: 新增孩子流程 */ },
+                        onClick = { },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.tertiary
                         ),
@@ -170,7 +232,6 @@ fun HomeScreenContent(
                 }
             } else {
                 Column(modifier = Modifier.fillMaxSize()) {
-                    // Girl Card (Top)
                     val girlWeight by animateFloatAsState(
                         targetValue = when (expandedGender) {
                             Gender.FEMALE -> 0.85f
@@ -181,11 +242,13 @@ fun HomeScreenContent(
 
                     if (girlWeight > 0.01f) {
                         Box(modifier = Modifier.weight(girlWeight).fillMaxWidth()) {
-                            ChildHubCard(
+                            ChildSummaryCard(
                                 child = uiState.girl ?: ChildProfile(name = "妹妹", gender = Gender.FEMALE, birthday = LocalDate.now()),
                                 latestGrowth = uiState.girlLatestGrowth,
+                                latestMedical = uiState.girlLatestMedical,
                                 toiletRecords = uiState.girlToiletRecords,
                                 nextVaccine = uiState.girlNextVaccine,
+                                todayMemos = uiState.todayMemos[uiState.girl?.id] ?: emptyList(),
                                 isExpanded = expandedGender == Gender.FEMALE,
                                 accentColor = GirlPink,
                                 onExpand = { expandedGender = Gender.FEMALE },
@@ -193,12 +256,12 @@ fun HomeScreenContent(
                                 onEditClick = { isEditMode = true },
                                 onLogToilet = onLogToilet,
                                 onNavigateToGrowth = onNavigateToGrowth,
-                                onNavigateToMedical = onNavigateToMedical
+                                onNavigateToMedical = onNavigateToMedical,
+                                onNavigateToMemoEdit = onNavigateToMemoEdit
                             )
                         }
                     }
 
-                    // Boy Card (Bottom)
                     val boyWeight by animateFloatAsState(
                         targetValue = when (expandedGender) {
                             Gender.MALE -> 0.85f
@@ -209,11 +272,13 @@ fun HomeScreenContent(
 
                     if (boyWeight > 0.01f) {
                         Box(modifier = Modifier.weight(boyWeight).fillMaxWidth()) {
-                            ChildHubCard(
+                            ChildSummaryCard(
                                 child = uiState.boy ?: ChildProfile(name = "弟弟", gender = Gender.MALE, birthday = LocalDate.now()),
                                 latestGrowth = uiState.boyLatestGrowth,
+                                latestMedical = uiState.boyLatestMedical,
                                 toiletRecords = uiState.boyToiletRecords,
                                 nextVaccine = uiState.boyNextVaccine,
+                                todayMemos = uiState.todayMemos[uiState.boy?.id] ?: emptyList(),
                                 isExpanded = expandedGender == Gender.MALE,
                                 accentColor = BoyBlue,
                                 onExpand = { expandedGender = Gender.MALE },
@@ -221,14 +286,14 @@ fun HomeScreenContent(
                                 onEditClick = { isEditMode = true },
                                 onLogToilet = onLogToilet,
                                 onNavigateToGrowth = onNavigateToGrowth,
-                                onNavigateToMedical = onNavigateToMedical
+                                onNavigateToMedical = onNavigateToMedical,
+                                onNavigateToMemoEdit = onNavigateToMemoEdit
                             )
                         }
                     }
                 }
             }
 
-            // Edit Dialog
             if (isEditMode && expandedGender != null) {
                 val childToEdit = if (expandedGender == Gender.FEMALE) uiState.girl else uiState.boy
                 childToEdit?.let {
@@ -248,11 +313,13 @@ fun HomeScreenContent(
 }
 
 @Composable
-fun ChildHubCard(
+fun ChildSummaryCard(
     child: ChildProfile,
     latestGrowth: GrowthRecord?,
+    latestMedical: MedicalVisit? = null,
     toiletRecords: List<ToiletRecord> = emptyList(),
     nextVaccine: VaccineReminder? = null,
+    todayMemos: List<Memo> = emptyList(),
     isExpanded: Boolean,
     accentColor: Color,
     onExpand: () -> Unit,
@@ -260,9 +327,11 @@ fun ChildHubCard(
     onEditClick: () -> Unit,
     onLogToilet: (Long) -> Unit = {},
     onNavigateToGrowth: () -> Unit,
-    onNavigateToMedical: () -> Unit
+    onNavigateToMedical: () -> Unit,
+    onNavigateToMemoEdit: (Long) -> Unit = {}
 ) {
     val childPhoto = rememberChildPhoto(child.photoUri)
+
     Card(
         modifier = Modifier
             .fillMaxSize()
@@ -272,304 +341,407 @@ fun ChildHubCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(6.dp)
     ) {
-        if (!isExpanded) {
-            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-                if (maxHeight < 160.dp) {
-                    // 緊湊版小橫條
-                    Row(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 16.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            if (maxHeight < 160.dp) {
+                CompactBar(child, childPhoto, accentColor)
+            } else if (!isExpanded) {
+                CollapsedContent(child, childPhoto, latestGrowth, accentColor)
+            } else {
+                ExpandedContent(
+                    child = child,
+                    childPhoto = childPhoto,
+                    latestGrowth = latestGrowth,
+                    latestMedical = latestMedical,
+                    nextVaccine = nextVaccine,
+                    todayMemos = todayMemos,
+                    toiletRecords = toiletRecords,
+                    accentColor = accentColor,
+                    onCollapse = onCollapse,
+                    onEditClick = onEditClick,
+                    onLogToilet = onLogToilet,
+                    onNavigateToGrowth = onNavigateToGrowth,
+                    onNavigateToMedical = onNavigateToMedical,
+                    onNavigateToMemoEdit = onNavigateToMemoEdit
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CompactBar(child: ChildProfile, childPhoto: androidx.compose.ui.graphics.ImageBitmap?, accentColor: Color) {
+    Row(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
+    ) {
+        Surface(
+            shape = CircleShape,
+            color = accentColor.copy(alpha = 0.15f),
+            modifier = Modifier.size(32.dp)
+        ) {
+            if (childPhoto != null) {
+                Image(bitmap = childPhoto, contentDescription = null,
+                    modifier = Modifier.size(32.dp).clip(CircleShape).alpha(0.25f),
+                    contentScale = ContentScale.Crop)
+            }
+            Icon(
+                imageVector = if (child.gender == Gender.FEMALE) Icons.Default.Girl else Icons.Default.Boy,
+                contentDescription = null,
+                modifier = Modifier.padding(6.dp),
+                tint = accentColor
+            )
+        }
+        Spacer(modifier = Modifier.width(10.dp))
+        Text(
+            text = child.name,
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+            color = accentColor
+        )
+    }
+}
+
+@Composable
+private fun CollapsedContent(
+    child: ChildProfile,
+    childPhoto: androidx.compose.ui.graphics.ImageBitmap?,
+    latestGrowth: GrowthRecord?,
+    accentColor: Color
+) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (childPhoto != null) {
+            Image(bitmap = childPhoto, contentDescription = null,
+                modifier = Modifier.fillMaxSize().alpha(0.1f),
+                contentScale = ContentScale.Crop)
+        }
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(bottom = 0.dp, end = 0.dp)
+                .size(160.dp)
+                .clip(RoundedCornerShape(topStart = 80.dp))
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(accentColor.copy(alpha = 0.12f), Color.Transparent),
+                        center = Offset(160f, 160f)
+                    )
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = if (child.gender == Gender.FEMALE) Icons.Default.Girl else Icons.Default.Boy,
+                contentDescription = null,
+                modifier = Modifier.size(100.dp).offset(x = 20.dp, y = 20.dp),
+                tint = accentColor.copy(alpha = 0.08f)
+            )
+        }
+
+        Row(
+            modifier = Modifier.fillMaxSize().padding(24.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                if (childPhoto != null) {
+                    Image(bitmap = childPhoto, contentDescription = null,
+                        modifier = Modifier.size(72.dp).clip(CircleShape).alpha(0.25f),
+                        contentScale = ContentScale.Crop)
+                }
+                Surface(
+                    shape = CircleShape,
+                    color = accentColor.copy(alpha = if (childPhoto != null) 0.05f else 0.1f),
+                    modifier = Modifier.size(86.dp)
+                ) {}
+                Surface(
+                    shape = CircleShape,
+                    color = accentColor.copy(alpha = if (childPhoto != null) 0.1f else 0.2f),
+                    modifier = Modifier.size(72.dp)
+                ) {
+                    Icon(
+                        imageVector = if (child.gender == Gender.FEMALE) Icons.Default.Girl else Icons.Default.Boy,
+                        contentDescription = null,
+                        modifier = Modifier.padding(14.dp),
+                        tint = accentColor
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(20.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = child.name,
+                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black),
+                    color = accentColor
+                )
+                val age = Period.between(child.birthday, LocalDate.now())
+                Text(
+                    text = "${age.years}歲 ${age.months}個月",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Medium
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    InfoBadge(icon = Icons.Default.Height,
+                        text = "${latestGrowth?.heightCm ?: "--"} cm",
+                        color = accentColor)
+                    InfoBadge(icon = Icons.Default.MonitorWeight,
+                        text = "${latestGrowth?.weightKg ?: "--"} kg",
+                        color = accentColor)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExpandedContent(
+    child: ChildProfile,
+    childPhoto: androidx.compose.ui.graphics.ImageBitmap?,
+    latestGrowth: GrowthRecord?,
+    latestMedical: MedicalVisit?,
+    nextVaccine: VaccineReminder?,
+    todayMemos: List<Memo>,
+    toiletRecords: List<ToiletRecord>,
+    accentColor: Color,
+    onCollapse: () -> Unit,
+    onEditClick: () -> Unit,
+    onLogToilet: (Long) -> Unit,
+    onNavigateToGrowth: () -> Unit,
+    onNavigateToMedical: () -> Unit,
+    onNavigateToMemoEdit: (Long) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(160.dp)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(accentColor, accentColor.copy(alpha = 0.8f))
+                    )
+                )
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                IconButton(onClick = onCollapse) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "收合", tint = Color.White)
+                }
+                IconButton(onClick = onEditClick) {
+                    Icon(Icons.Outlined.Edit, "編輯", tint = Color.White)
+                }
+            }
+
+            Column(
+                modifier = Modifier.align(Alignment.Center),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = Color.White.copy(alpha = 0.25f),
+                    modifier = Modifier.size(60.dp),
+                    border = BorderStroke(2.dp, Color.White.copy(alpha = 0.5f))
+                ) {
+                    Icon(
+                        imageVector = if (child.gender == Gender.FEMALE) Icons.Default.Girl else Icons.Default.Boy,
+                        contentDescription = null,
+                        modifier = Modifier.padding(12.dp),
+                        tint = Color.White
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = child.name,
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                    color = Color.White
+                )
+                val age = Period.between(child.birthday, LocalDate.now())
+                Text(
+                    text = "${age.years}歲 ${age.months}個月",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White.copy(alpha = 0.9f)
+                )
+            }
+        }
+
+        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            HubSection(
+                title = "最新成長數值",
+                icon = Icons.AutoMirrored.Filled.ShowChart,
+                accentColor = accentColor,
+                onClick = onNavigateToGrowth
+            ) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    StatBox(label = "身高", value = "${latestGrowth?.heightCm ?: "--"}", unit = "cm", color = accentColor)
+                    VerticalDivider(modifier = Modifier.height(40.dp).align(Alignment.CenterVertically), thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
+                    StatBox(label = "體重", value = "${latestGrowth?.weightKg ?: "--"}", unit = "kg", color = accentColor)
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "點擊查看成長趨勢與百分位圖表",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = accentColor.copy(alpha = 0.7f),
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
+            }
+
+            HubSection(
+                title = "上次就醫紀錄",
+                icon = Icons.Default.MedicalServices,
+                accentColor = accentColor,
+                onClick = onNavigateToMedical
+            ) {
+                if (latestMedical != null) {
+                    Text(
+                        text = "${latestMedical.hospital} · ${latestMedical.diagnosisSummary.ifBlank { latestMedical.diagnosis }}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = latestMedical.date.toString(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.History, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("尚無就醫紀錄", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                if (nextVaccine != null) {
+                    Spacer(Modifier.height(8.dp))
+                    val dateFormat = java.text.SimpleDateFormat("yyyy/MM/dd", java.util.Locale.getDefault())
+                    Surface(
+                        color = accentColor.copy(alpha = 0.1f),
+                        shape = RoundedCornerShape(8.dp)
                     ) {
-                        Surface(
-                            shape = CircleShape,
-                            color = accentColor.copy(alpha = 0.15f),
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            if (childPhoto != null) {
-                                Image(
-                                    bitmap = childPhoto,
-                                    contentDescription = null,
-                                    modifier = Modifier
-                                        .size(32.dp)
-                                        .clip(CircleShape)
-                                        .alpha(0.25f),
-                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                                )
-                            }
-                            Icon(
-                                imageVector = if (child.gender == Gender.FEMALE) Icons.Default.Girl else Icons.Default.Boy,
-                                contentDescription = null,
-                                modifier = Modifier.padding(6.dp),
-                                tint = accentColor
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(10.dp))
                         Text(
-                            text = child.name,
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            text = "下次：${nextVaccine.name}（${dateFormat.format(java.util.Date(nextVaccine.scheduledDate))}）",
+                            modifier = Modifier.padding(8.dp),
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.SemiBold,
                             color = accentColor
                         )
                     }
                 } else {
-                    Box(modifier = Modifier.fillMaxSize()) {
-                        if (childPhoto != null) {
-                            Image(
-                                bitmap = childPhoto,
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .alpha(0.1f),
-                                contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                            )
-                        }
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .padding(bottom = 0.dp, end = 0.dp)
-                                .size(160.dp)
-                                .clip(RoundedCornerShape(topStart = 80.dp))
-                                .background(
-                                    Brush.radialGradient(
-                                        colors = listOf(accentColor.copy(alpha = 0.12f), Color.Transparent),
-                                        center = Offset(160f, 160f)
-                                    )
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = if (child.gender == Gender.FEMALE) Icons.Default.Girl else Icons.Default.Boy,
-                                contentDescription = null,
-                                modifier = Modifier.size(100.dp).offset(x = 20.dp, y = 20.dp),
-                                tint = accentColor.copy(alpha = 0.08f)
-                            )
-                        }
-
-                        Row(
-                            modifier = Modifier.fillMaxSize().padding(24.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                if (childPhoto != null) {
-                                    Image(
-                                        bitmap = childPhoto,
-                                        contentDescription = null,
-                                        modifier = Modifier
-                                            .size(72.dp)
-                                            .clip(CircleShape)
-                                            .alpha(0.25f),
-                                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                                    )
-                                }
-                                Surface(
-                                    shape = CircleShape,
-                                    color = accentColor.copy(alpha = if (childPhoto != null) 0.05f else 0.1f),
-                                    modifier = Modifier.size(86.dp)
-                                ) {}
-                                Surface(
-                                    shape = CircleShape,
-                                    color = accentColor.copy(alpha = if (childPhoto != null) 0.1f else 0.2f),
-                                    modifier = Modifier.size(72.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = if (child.gender == Gender.FEMALE) Icons.Default.Girl else Icons.Default.Boy,
-                                        contentDescription = null,
-                                        modifier = Modifier.padding(14.dp),
-                                        tint = accentColor
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.width(20.dp))
-
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = child.name,
-                                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black),
-                                    color = accentColor
-                                )
-                                val age = Period.between(child.birthday, LocalDate.now())
-                                Text(
-                                    text = "${age.years}歲 ${age.months}個月",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontWeight = FontWeight.Medium
-                                )
-
-                                Spacer(modifier = Modifier.height(16.dp))
-
-                                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                                    InfoBadge(icon = Icons.Default.Height, text = "${latestGrowth?.heightCm ?: "--"} cm", color = accentColor)
-                                    InfoBadge(icon = Icons.Default.MonitorWeight, text = "${latestGrowth?.weightKg ?: "--"} kg", color = accentColor)
-                                }
-                            }
-                        }
-                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = "尚無排程",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
-        } else {
-            Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(160.dp)
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(accentColor, accentColor.copy(alpha = 0.8f))
-                            )
-                        )
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        IconButton(onClick = onCollapse) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = Color.White)
-                        }
-                        IconButton(onClick = onEditClick) {
-                            Icon(Icons.Outlined.Edit, contentDescription = null, tint = Color.White)
-                        }
-                    }
-                    
-                    Column(
-                        modifier = Modifier.align(Alignment.Center),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
+
+            HubSection(
+                title = "本日 Memo",
+                icon = Icons.Outlined.Edit,
+                accentColor = accentColor,
+                onClick = { onNavigateToMemoEdit(child.id) }
+            ) {
+                if (todayMemos.isEmpty()) {
+                    Text(
+                        "尚無本日紀錄",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    todayMemos.take(3).forEach { memo ->
                         Surface(
-                            shape = CircleShape,
-                            color = Color.White.copy(alpha = 0.25f),
-                            modifier = Modifier.size(60.dp),
-                            border = BorderStroke(2.dp, Color.White.copy(alpha = 0.5f))
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            color = accentColor.copy(alpha = 0.05f),
+                            shape = RoundedCornerShape(8.dp)
                         ) {
-                            Icon(
-                                imageVector = if (child.gender == Gender.FEMALE) Icons.Default.Girl else Icons.Default.Boy,
-                                contentDescription = null,
-                                modifier = Modifier.padding(12.dp),
-                                tint = Color.White
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = child.name,
-                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                            color = Color.White
-                        )
-                        Text(
-                            text = child.birthday.format(DateTimeFormatter.ofPattern("yyyy/MM/dd")),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = 0.9f)
-                        )
-                    }
-                }
-
-                Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    HubSection(
-                        title = "最新成長數值",
-                        icon = Icons.AutoMirrored.Filled.ShowChart,
-                        accentColor = accentColor,
-                        onClick = onNavigateToGrowth
-                    ) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                            StatBox(label = "身高", value = "${latestGrowth?.heightCm ?: "--"}", unit = "cm", color = accentColor)
-                            VerticalDivider(modifier = Modifier.height(40.dp).align(Alignment.CenterVertically), thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
-                            StatBox(label = "體重", value = "${latestGrowth?.weightKg ?: "--"}", unit = "kg", color = accentColor)
-                        }
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = "點擊查看成長趨勢與百分位圖表",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = accentColor.copy(alpha = 0.7f),
-                            modifier = Modifier.align(Alignment.CenterHorizontally)
-                        )
-                    }
-
-                    HubSection(
-                        title = "就醫・疫苗",
-                        icon = Icons.Default.MedicalServices,
-                        accentColor = accentColor,
-                        onClick = onNavigateToMedical
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.History, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("查看完整醫療病歷與預防接種紀錄", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        if (nextVaccine != null) {
-                            Spacer(Modifier.height(8.dp))
-                            val dateFormat = java.text.SimpleDateFormat("yyyy/MM/dd", java.util.Locale.getDefault())
-                            Surface(
-                                color = accentColor.copy(alpha = 0.1f),
-                                shape = RoundedCornerShape(8.dp)
-                            ) {
+                            Column(modifier = Modifier.padding(8.dp)) {
                                 Text(
-                                    text = "💉 下次：${nextVaccine.name}（${dateFormat.format(java.util.Date(nextVaccine.scheduledDate))}）",
-                                    modifier = Modifier.padding(8.dp),
+                                    text = memo.title,
                                     style = MaterialTheme.typography.labelLarge,
-                                    fontWeight = FontWeight.SemiBold,
+                                    fontWeight = FontWeight.Bold,
                                     color = accentColor
+                                )
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    text = if (memo.content.length > 80) memo.content.take(80) + "..."
+                                    else memo.content,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         }
                     }
+                }
+                Spacer(Modifier.height(8.dp))
+                TextButton(
+                    onClick = { onNavigateToMemoEdit(child.id) },
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("前往編輯", color = accentColor)
+                }
+            }
 
-                    HubSection(
-                        title = "大號紀錄",
-                        icon = Icons.Default.WaterDrop,
-                        accentColor = accentColor,
-                        onClick = {}
-                    ) {
-                        if (toiletRecords.isEmpty()) {
-                            Text(
-                                "尚無紀錄",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        } else {
-                            toiletRecords.forEach { record ->
-                                val elapsed = formatElapsed(record.timestamp)
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text("💩", fontSize = 16.sp)
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(elapsed, style = MaterialTheme.typography.bodyMedium)
-                                }
-                                Spacer(Modifier.height(4.dp))
-                            }
-                        }
-
-                        Spacer(Modifier.height(12.dp))
-                        Button(
-                            onClick = { onLogToilet(child.id) },
-                            colors = ButtonDefaults.buttonColors(containerColor = accentColor),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(Icons.Default.AddCircle, contentDescription = null)
+            HubSection(
+                title = "大號紀錄",
+                icon = Icons.Default.WaterDrop,
+                accentColor = accentColor,
+                onClick = {}
+            ) {
+                if (toiletRecords.isEmpty()) {
+                    Text("尚無紀錄", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    toiletRecords.forEach { record ->
+                        val elapsed = formatElapsed(record.timestamp)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("💩", fontSize = 16.sp)
                             Spacer(Modifier.width(8.dp))
-                            Text("記錄大號")
+                            Text(elapsed, style = MaterialTheme.typography.bodyMedium)
                         }
+                        Spacer(Modifier.height(4.dp))
+                    }
+                }
 
-                        if (toiletRecords.size >= 2) {
-                            val avgInterval = calculateAverageInterval(toiletRecords)
-                            val sinceLastMinutes = (System.currentTimeMillis() - toiletRecords.first().timestamp) / 60000
-                            val alertRatio = sinceLastMinutes.toFloat() / avgInterval
-                            if (avgInterval > 0 && alertRatio >= 0.8f) {
-                                Spacer(Modifier.height(8.dp))
-                                val alertColor = if (alertRatio >= 1f) Color.Red else Color(0xFFFFA500)
-                                Surface(
-                                    color = alertColor.copy(alpha = 0.1f),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Text(
-                                        text = if (alertRatio >= 1f) "⚠️ 超過平均間隔，可帶去廁所！"
-                                        else "🟡 接近平均間隔時間",
-                                        modifier = Modifier.padding(8.dp),
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = alertColor
-                                    )
-                                }
-                            }
+                Spacer(Modifier.height(12.dp))
+                Button(
+                    onClick = { onLogToilet(child.id) },
+                    colors = ButtonDefaults.buttonColors(containerColor = accentColor),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.AddCircle, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("記錄大號")
+                }
+
+                if (toiletRecords.size >= 2) {
+                    val avgInterval = calculateAverageInterval(toiletRecords)
+                    val sinceLastMinutes = (System.currentTimeMillis() - toiletRecords.first().timestamp) / 60000
+                    val alertRatio = sinceLastMinutes.toFloat() / avgInterval
+                    if (avgInterval > 0 && alertRatio >= 0.8f) {
+                        Spacer(Modifier.height(8.dp))
+                        val alertColor = if (alertRatio >= 1f) Color.Red else Color(0xFFFFA500)
+                        Surface(
+                            color = alertColor.copy(alpha = 0.1f),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = if (alertRatio >= 1f) "⚠️ 超過平均間隔，可帶去廁所！"
+                                else "🟡 接近平均間隔時間",
+                                modifier = Modifier.padding(8.dp),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = alertColor
+                            )
                         }
                     }
                 }
@@ -654,7 +826,7 @@ fun EditChildProfileDialog(
     )
     val selectedPhoto = rememberChildPhoto(selectedUri)
 
-    AlertDialog(
+    androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
     ) {
         Surface(
@@ -690,7 +862,7 @@ fun EditChildProfileDialog(
                             modifier = Modifier
                                 .size(80.dp)
                                 .clip(CircleShape),
-                            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                            contentScale = ContentScale.Crop
                         )
                     } else {
                         Icon(

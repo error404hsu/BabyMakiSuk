@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.ManageAccounts
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.*
@@ -45,6 +46,7 @@ fun SettingsScreen(
     val userRole by viewModel.userRole.collectAsState()
     val backupState by viewModel.backupState.collectAsState()
     val aiCloudEnabled by viewModel.aiCloudEnabled.collectAsState()
+    val notificationsEnabled by viewModel.notificationsEnabled.collectAsState()
 
     var showDarkModeSheet by remember { mutableStateOf(false) }
     var showRoleSheet by remember { mutableStateOf(false) }
@@ -199,6 +201,45 @@ fun SettingsScreen(
                         subtitle = "從 JSON 備份檔還原資料",
                         enabled = backupState !is BackupUiState.Loading,
                         onClick = { importLauncher.launch(arrayOf("application/json")) }
+                    )
+                }
+            }
+
+            item {
+                SettingsSection(title = "通知") {
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        leadingContent = {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(
+                                        color = MaterialTheme.colorScheme.secondaryContainer,
+                                        shape = RoundedCornerShape(10.dp)
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Notifications,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            }
+                        },
+                        headlineContent = { Text("啟用通知") },
+                        supportingContent = {
+                            Text(
+                                if (notificationsEnabled) "Memo 提醒通知已啟用" else "已關閉所有通知",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        },
+                        trailingContent = {
+                            Switch(
+                                checked = notificationsEnabled,
+                                onCheckedChange = { viewModel.setNotificationsEnabled(it) }
+                            )
+                        },
+                        modifier = Modifier.padding(vertical = 4.dp)
                     )
                 }
             }

@@ -65,6 +65,19 @@ class SettingsRepository @Inject constructor(
         }
     }
 
+    // ── 通知開關 ──────────────────────────────────────────
+
+    /** 通知總開關，預設啟用 */
+    val notificationsEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[SettingsPreferences.NOTIFICATIONS_ENABLED] ?: true
+    }
+
+    suspend fun setNotificationsEnabled(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[SettingsPreferences.NOTIFICATIONS_ENABLED] = enabled
+        }
+    }
+
     // ── 匯出 / 匯入 ──────────────────────────────────────────
 
     suspend fun buildExportIntent(): Intent = backupManager.exportToShareIntent()

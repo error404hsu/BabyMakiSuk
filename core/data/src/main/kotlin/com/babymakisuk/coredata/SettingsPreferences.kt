@@ -16,4 +16,7 @@ object SettingsPreferences {
 
     /** 雲端 AI 開關（預設啟用）；Key 由編譯時注入，App 內不可變更 */
     val AI_CLOUD_ENABLED = booleanPreferencesKey("ai_cloud_enabled")
+
+    /** 通知總開關（預設啟用） */
+    val NOTIFICATIONS_ENABLED = booleanPreferencesKey("notifications_enabled")
 }

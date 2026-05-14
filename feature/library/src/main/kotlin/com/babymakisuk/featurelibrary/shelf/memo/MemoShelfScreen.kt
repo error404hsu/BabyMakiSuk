@@ -22,13 +22,10 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -41,18 +38,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import com.babymakisuk.coredata.entity.MemoEntity
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-
-private fun jsonTagsToCsv(tags: String): String {
-    return tags.removeSurrounding("[", "]")
-        .split(",")
-        .map { it.trim().removeSurrounding("\"") }
-        .filter { it.isNotBlank() }
-        .joinToString(", ")
-}
+import com.babymakisuk.coremodel.Memo
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -62,10 +50,11 @@ fun MemoShelfScreen(
     viewModel: MemoShelfViewModel = hiltViewModel()
 ) {
     val memos by viewModel.memos.collectAsState()
-    var showBottomSheet by remember { mutableStateOf(false) }
-    var editingMemo by remember { mutableStateOf<MemoEntity?>(null) }
     var showDeleteDialog by remember { mutableStateOf(false) }
-    var memoToDelete by remember { mutableStateOf<MemoEntity?>(null) }
+    var memoToDelete by remember { mutableStateOf<Memo?>(null) }
+
+    val childIdLong = childId.toLongOrNull() ?: 0L
+    val grouped = remember(memos) { memos.groupBy { it.date }.toSortedMap(reverseOrder()) }
 
     Scaffold(
         topBar = {
@@ -81,8 +70,7 @@ fun MemoShelfScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
-                    editingMemo = null
-                    showBottomSheet = true
+                    navController.navigate("library/memo/edit?memoId=-1&childId=$childIdLong")
                 }
             ) {
                 Icon(Icons.Default.Add, "新增")
@@ -101,86 +89,70 @@ fun MemoShelfScreen(
                 modifier = Modifier
                     .padding(innerPadding)
                     .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                items(memos, key = { it.id }) { memo ->
-                    val dateFormat = SimpleDateFormat("yyyy/MM/dd HH:mm", Locale.getDefault())
-                    ElevatedCard(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .combinedClickable(
-                                onClick = {
-                                    editingMemo = memo
-                                    showBottomSheet = true
-                                },
-                                onLongClick = {
-                                    memoToDelete = memo
-                                    showDeleteDialog = true
-                                }
-                            )
-                    ) {
-                        Column(
+                grouped.forEach { (date, dayMemos) ->
+                    item(key = "date_header_$date") {
+                        val localDate = LocalDate.ofEpochDay(date)
+                        Text(
+                            text = localDate.format(DateTimeFormatter.ofPattern("yyyy/MM/dd (E)")),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    }
+                    items(dayMemos, key = { it.id }) { memo ->
+                        ElevatedCard(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(16.dp)
+                                .combinedClickable(
+                                    onClick = {
+                                        navController.navigate("library/memo/edit?memoId=${memo.id}&childId=${memo.childId}")
+                                    },
+                                    onLongClick = {
+                                        memoToDelete = memo
+                                        showDeleteDialog = true
+                                    }
+                                )
                         ) {
-                            Row {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = memo.title,
-                                        style = MaterialTheme.typography.titleSmall,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Text(
-                                        text = if (memo.content.length > 60)
-                                            memo.content.take(60) + "..."
-                                        else memo.content,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 2,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp)
+                            ) {
+                                Row {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = memo.title,
+                                            style = MaterialTheme.typography.titleSmall,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                            text = if (memo.content.length > 60)
+                                                memo.content.take(60) + "..."
+                                            else memo.content,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
                                 }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+                                        .format(java.util.Date(memo.createdAt)),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.outline
+                                )
                             }
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = dateFormat.format(Date(memo.updatedAt)),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.outline
-                            )
                         }
                     }
+                    item { Spacer(Modifier.height(4.dp)) }
                 }
             }
         }
-    }
-
-    if (showBottomSheet) {
-        val currentMemo = editingMemo
-        MemoEditSheet(
-            initialTitle = currentMemo?.title ?: "",
-            initialContent = currentMemo?.content ?: "",
-            initialTags = if (currentMemo != null) jsonTagsToCsv(currentMemo.tags) else "",
-            onDismiss = {
-                showBottomSheet = false
-                editingMemo = null
-            },
-            onSave = { title, content, tags ->
-                if (currentMemo != null) {
-                    viewModel.update(
-                        id = currentMemo.id,
-                        title = title,
-                        content = content,
-                        tags = tags,
-                        createdAt = currentMemo.createdAt
-                    )
-                } else {
-                    viewModel.insert(title = title, content = content, tags = tags)
-                }
-                showBottomSheet = false
-                editingMemo = null
-            }
-        )
     }
 
     if (showDeleteDialog && memoToDelete != null) {
@@ -209,70 +181,5 @@ fun MemoShelfScreen(
                 }
             }
         )
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun MemoEditSheet(
-    initialTitle: String,
-    initialContent: String,
-    initialTags: String,
-    onDismiss: () -> Unit,
-    onSave: (title: String, content: String, tags: String) -> Unit
-) {
-    var title by remember { mutableStateOf(initialTitle) }
-    var content by remember { mutableStateOf(initialContent) }
-    var tags by remember { mutableStateOf(initialTags) }
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .padding(bottom = 32.dp)
-        ) {
-            Text(
-                text = if (initialTitle.isEmpty()) "新增 Memo" else "編輯 Memo",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            OutlinedTextField(
-                value = title,
-                onValueChange = { title = it },
-                label = { Text("標題") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(
-                value = content,
-                onValueChange = { content = it },
-                label = { Text("內容（Markdown 純文字）") },
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 3,
-                maxLines = 8
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(
-                value = tags,
-                onValueChange = { tags = it },
-                label = { Text("標籤（逗號分隔）") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            TextButton(
-                onClick = { onSave(title, content, tags) },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("儲存")
-            }
-        }
     }
 }

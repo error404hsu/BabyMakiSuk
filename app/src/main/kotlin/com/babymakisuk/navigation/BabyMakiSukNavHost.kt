@@ -31,6 +31,7 @@ import com.babymakisuk.featuremedical.MedicalScreen
 import com.babymakisuk.featurevaccine.VaccineScreen
 import com.babymakisuk.featurelibrary.LibraryScreen
 import com.babymakisuk.featurelibrary.shelf.aiinsight.AiInsightShelfScreen
+import com.babymakisuk.featurelibrary.shelf.memo.MemoEditScreen
 import com.babymakisuk.featurelibrary.shelf.memo.MemoShelfScreen
 import com.babymakisuk.featurelibrary.shelf.weekly.WeeklyShelfScreen
 import com.babymakisuk.featuresettings.ApiTestScreen
@@ -40,7 +41,7 @@ import com.babymakisuk.featureweeklyreport.WeeklyReportSearchScreen
 import kotlinx.coroutines.launch
 
 sealed class BottomNavItem(val route: String, val label: String, val icon: ImageVector) {
-    data object Vaccine : BottomNavItem("vaccine", "定期", Icons.Filled.HealthAndSafety)
+    data object Vaccine : BottomNavItem("vaccine", "疫苗 就醫", Icons.Filled.HealthAndSafety)
     data object Medical : BottomNavItem("medical", "就醫", Icons.Filled.Favorite)
     data object Home : BottomNavItem("home", "首頁", Icons.Filled.Home)
     data object Growth : BottomNavItem("growth", "成長", Icons.AutoMirrored.Filled.ShowChart)
@@ -137,6 +138,9 @@ fun BabyMakiSukNavHost() {
                             },
                             onNavigateToAi = { hint ->
                                 navController.navigate("ai_portal?presetHint=$hint")
+                            },
+                            onNavigateToMemoEdit = { childId ->
+                                navController.navigate("library/memo/edit?memoId=-1&childId=$childId")
                             }
                         )
                     }
@@ -264,6 +268,27 @@ fun BabyMakiSukNavHost() {
                         val childId = backStackEntry.arguments?.getString("childId") ?: ""
                         MemoShelfScreen(
                             navController = navController,
+                            childId = childId
+                        )
+                    }
+                    composable(
+                        route = "library/memo/edit?memoId={memoId}&childId={childId}",
+                        arguments = listOf(
+                            navArgument("memoId") {
+                                type = NavType.LongType
+                                defaultValue = -1L
+                            },
+                            navArgument("childId") {
+                                type = NavType.LongType
+                                defaultValue = -1L
+                            }
+                        )
+                    ) { backStackEntry ->
+                        val memoId = backStackEntry.arguments?.getLong("memoId") ?: -1L
+                        val childId = backStackEntry.arguments?.getLong("childId") ?: -1L
+                        MemoEditScreen(
+                            navController = navController,
+                            memoId = memoId,
                             childId = childId
                         )
                     }

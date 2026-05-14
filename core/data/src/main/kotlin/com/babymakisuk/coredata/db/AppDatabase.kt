@@ -22,7 +22,7 @@ import com.babymakisuk.coredata.entity.*
         ToiletRecordEntity::class,
         VaccineReminderEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -247,6 +247,33 @@ abstract class AppDatabase : RoomDatabase() {
         val MIGRATION_7_8 = object : Migration(7, 8) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE child_profile ADD COLUMN photoUri TEXT")
+            }
+        }
+
+        /**
+         * Migration 8 -> 9
+         * 重建 memos 表：id 改為 Long autoGenerate、childId 改為 Long、
+         * 新增 date 欄位（epoch day）、新增 reminderAt 欄位、
+         * 移除 tags 和 updatedAt 欄位
+         */
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS memos_new (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        childId INTEGER NOT NULL,
+                        title TEXT NOT NULL,
+                        content TEXT NOT NULL,
+                        date INTEGER NOT NULL,
+                        reminderAt INTEGER,
+                        createdAt INTEGER NOT NULL,
+                        FOREIGN KEY(childId) REFERENCES child_profile(id) ON DELETE CASCADE
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_memos_childId ON memos_new(childId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_memos_date ON memos_new(date)")
+                db.execSQL("DROP TABLE IF EXISTS memos")
+                db.execSQL("ALTER TABLE memos_new RENAME TO memos")
             }
         }
     }

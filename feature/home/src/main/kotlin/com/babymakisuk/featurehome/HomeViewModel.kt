@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.babymakisuk.coredata.repository.ChildRepository
 import com.babymakisuk.coredata.repository.GrowthRepository
+import com.babymakisuk.coredata.repository.MemoRepository
 import com.babymakisuk.coredata.repository.ToiletRepository
 import com.babymakisuk.coredata.repository.VaccineReminderRepository
 import com.babymakisuk.coremodel.ChildProfile
@@ -21,7 +22,8 @@ class HomeViewModel @Inject constructor(
     private val childRepository: ChildRepository,
     private val growthRepository: GrowthRepository,
     private val toiletRepository: ToiletRepository,
-    private val vaccineReminderRepository: VaccineReminderRepository
+    private val vaccineReminderRepository: VaccineReminderRepository,
+    private val memoRepository: MemoRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -81,11 +83,16 @@ class HomeViewModel @Inject constructor(
                     val girlToiletFlow = girl?.let { toiletRepository.getToiletRecords(it.id) }
                         ?: flowOf(emptyList())
 
-                    combine(boyToiletFlow, girlToiletFlow) { boyToilet, girlToilet ->
-                        Triple(children, boyToilet, girlToilet)
+                    val todayDate = LocalDate.now().toEpochDay()
+                    val todayMemosFlow = memoRepository.getByDate(todayDate)
+                        .let { flowOf(it) }
+
+                    combine(boyToiletFlow, girlToiletFlow, todayMemosFlow) { boyToilet, girlToilet, todayMemos ->
+                        Triple(children, Pair(boyToilet, girlToilet), todayMemos)
                     }
                 }
-                .collect { (children, boyToilet, girlToilet) ->
+                .collect { (children, toiletPair, todayMemos) ->
+                    val (boyToilet, girlToilet) = toiletPair
                     val boy = children.firstOrNull { it.gender == Gender.MALE }
                     val girl = children.firstOrNull { it.gender == Gender.FEMALE }
 
@@ -94,6 +101,8 @@ class HomeViewModel @Inject constructor(
 
                     val boyNextVaccine = boy?.let { vaccineReminderRepository.getNextDue(it.id) }
                     val girlNextVaccine = girl?.let { vaccineReminderRepository.getNextDue(it.id) }
+
+                    val todayMemosByChild = todayMemos.groupBy { it.childId }
 
                     _uiState.update {
                         it.copy(
@@ -107,6 +116,7 @@ class HomeViewModel @Inject constructor(
                             girlToiletRecords = girlToilet,
                             boyNextVaccine = boyNextVaccine,
                             girlNextVaccine = girlNextVaccine,
+                            todayMemos = todayMemosByChild,
                             isLoading = false
                         )
                     }

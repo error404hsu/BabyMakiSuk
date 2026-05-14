@@ -3,9 +3,9 @@ package com.babymakisuk.featurelibrary
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.babymakisuk.coredata.dao.AiInsightDao
-import com.babymakisuk.coredata.dao.MemoDao
 import com.babymakisuk.coredata.dao.WeeklyReportDao
 import com.babymakisuk.coredata.repository.ChildRepository
+import com.babymakisuk.coredata.repository.MemoRepository
 import com.babymakisuk.coremodel.Gender
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -25,7 +25,7 @@ class LibraryViewModel @Inject constructor(
     private val childRepo: ChildRepository,
     private val weeklyReportDao: WeeklyReportDao,
     private val aiInsightDao: AiInsightDao,
-    private val memoDao: MemoDao
+    private val memoRepository: MemoRepository
 ) : ViewModel() {
 
     private val _selectedChildId = MutableStateFlow<Long?>(null)
@@ -57,12 +57,13 @@ class LibraryViewModel @Inject constructor(
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    val memoLastUpdated: StateFlow<Long?> = selectedChildIdStr.flatMapLatest { childId ->
-        if (childId.isBlank()) flowOf(null)
-        else memoDao.getByChildId(childId).map { list ->
-            list.firstOrNull()?.updatedAt
+    val memoLastUpdated: StateFlow<Long?> = selectedChildId.flatMapLatest { childId ->
+            if (childId <= 0L) flowOf(null)
+            else memoRepository.observeByChildId(childId).map { list ->
+                list.firstOrNull()?.createdAt
+            }
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     fun selectChild(childId: Long) {
         _selectedChildId.value = childId
