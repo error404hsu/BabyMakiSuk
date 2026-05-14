@@ -1,155 +1,146 @@
 package com.babymakisuk.featurelibrary.shelf.memo
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ElevatedCard
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.EventNote
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.babymakisuk.coremodel.ChildProfile
+import com.babymakisuk.coremodel.Gender
 import com.babymakisuk.coremodel.Memo
+import com.babymakisuk.ui.components.BabyTopBar
+import com.babymakisuk.ui.components.LocalDrawerState
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+
+private val BoyBlue = Color(0xFF4A90D9)
+private val GirlPink = Color(0xFFE07BBD)
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun MemoShelfScreen(
     navController: NavController,
     childId: String = "",
-    viewModel: MemoShelfViewModel = hiltViewModel()
+    viewModel: MemoShelfViewModel = hiltViewModel(),
+    onNavigateToAi: (String?) -> Unit = {}
 ) {
     val memos by viewModel.memos.collectAsState()
+    val childrenProfiles by viewModel.children.collectAsState()
     var showDeleteDialog by remember { mutableStateOf(false) }
     var memoToDelete by remember { mutableStateOf<Memo?>(null) }
 
-    val childIdLong = childId.toLongOrNull() ?: 0L
-    val grouped = remember(memos) { memos.groupBy { it.date }.toSortedMap(reverseOrder()) }
+    val drawerState = LocalDrawerState.current
+    val drawerScope = rememberCoroutineScope()
+
+    val entryChildIdLong = childId.toLongOrNull() ?: 0L
+
+    // 資料處理：按日期分組，並在日期內按內容合併（支援多孩子共用同一則記事的顯示）
+    val grouped = remember(memos) {
+        memos.groupBy { it.date }
+            .toSortedMap(reverseOrder())
+            .mapValues { (_, dayMemos) ->
+                // 按 標題+內容+日期+提醒時間 分組，視為同一件事
+                dayMemos.groupBy { "${it.title}|${it.content}|${it.date}|${it.reminderAt}" }
+                    .values.toList()
+            }
+    }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
         topBar = {
-            TopAppBar(
-                title = { Text("手動 Memo", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回")
-                    }
+            BabyTopBar(
+                title = {
+                    Text(
+                        "手動 Memo",
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                    )
+                },
+                showSearch = true,
+                showAi = true,
+                showAdd = true,
+                onMenuClick = { drawerScope.launch { drawerState.open() } },
+                onAiClick = { onNavigateToAi("CUSTOM") },
+                onAddClick = {
+                    navController.navigate("library/memo/edit?memoId=-1&childId=$entryChildIdLong")
                 }
             )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = {
-                    navController.navigate("library/memo/edit?memoId=-1&childId=$childIdLong")
-                }
-            ) {
-                Icon(Icons.Default.Add, "新增")
-            }
         }
     ) { innerPadding ->
-        if (memos.isEmpty()) {
-            Text(
-                text = "尚無 Memo 紀錄",
-                modifier = Modifier.padding(innerPadding).padding(16.dp),
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .padding(innerPadding)
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                grouped.forEach { (date, dayMemos) ->
-                    item(key = "date_header_$date") {
-                        val localDate = LocalDate.ofEpochDay(date)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = innerPadding.calculateTopPadding())
+        ) {
+            if (memos.isEmpty()) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            Icons.Default.EventNote,
+                            contentDescription = null,
+                            modifier = Modifier.size(72.dp),
+                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+                        )
+                        Spacer(Modifier.height(16.dp))
                         Text(
-                            text = localDate.format(DateTimeFormatter.ofPattern("yyyy/MM/dd (E)")),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(bottom = 8.dp)
+                            "尚無 Memo 紀錄",
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                         )
                     }
-                    items(dayMemos, key = { it.id }) { memo ->
-                        ElevatedCard(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .combinedClickable(
-                                    onClick = {
-                                        navController.navigate("library/memo/edit?memoId=${memo.id}&childId=${memo.childId}")
-                                    },
-                                    onLongClick = {
-                                        memoToDelete = memo
-                                        showDeleteDialog = true
-                                    }
-                                )
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp)
-                            ) {
-                                Row {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = memo.title,
-                                            style = MaterialTheme.typography.titleSmall,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        Text(
-                                            text = if (memo.content.length > 60)
-                                                memo.content.take(60) + "..."
-                                            else memo.content,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            maxLines = 2,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                    }
+                }
+            } else {
+                LazyColumn(
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    grouped.forEach { (date, dayGroups) ->
+                        item(key = "date_header_$date") {
+                            val localDate = LocalDate.ofEpochDay(date)
+                            Text(
+                                text = localDate.format(DateTimeFormatter.ofPattern("yyyy / MM / dd (E)")),
+                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            )
+                        }
+                        items(dayGroups, key = { it.first().id }) { group ->
+                            val firstMemo = group.first()
+                            val involvedChildIds = group.map { it.childId }
+                            
+                            MemoCard(
+                                memo = firstMemo,
+                                childIds = involvedChildIds,
+                                allChildren = childrenProfiles,
+                                onClick = {
+                                    navController.navigate("library/memo/edit?memoId=${firstMemo.id}&childId=${firstMemo.childId}")
+                                },
+                                onLongClick = {
+                                    memoToDelete = firstMemo
+                                    showDeleteDialog = true
                                 }
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
-                                        .format(java.util.Date(memo.createdAt)),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.outline
-                                )
-                            }
+                            )
                         }
                     }
-                    item { Spacer(Modifier.height(4.dp)) }
+                    item { Spacer(Modifier.height(80.dp)) }
                 }
             }
         }
@@ -162,13 +153,16 @@ fun MemoShelfScreen(
                 memoToDelete = null
             },
             title = { Text("刪除確認") },
-            text = { Text("確定要刪除「${memoToDelete!!.title}」嗎？") },
+            text = { Text("確定要刪除這則記事嗎？") },
             confirmButton = {
-                TextButton(onClick = {
-                    viewModel.deleteById(memoToDelete!!.id)
-                    showDeleteDialog = false
-                    memoToDelete = null
-                }) {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteById(memoToDelete!!.id)
+                        showDeleteDialog = false
+                        memoToDelete = null
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) {
                     Text("刪除")
                 }
             },
@@ -181,5 +175,126 @@ fun MemoShelfScreen(
                 }
             }
         )
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun MemoCard(
+    memo: Memo,
+    childIds: List<Long>,
+    allChildren: List<ChildProfile>,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit
+) {
+    val timeFormat = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+
+    ElevatedCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            ),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // 識別色條：支援多個孩子顏色並排
+            Column(
+                modifier = Modifier
+                    .width(4.dp)
+                    .height(40.dp)
+                    .clip(CircleShape)
+            ) {
+                childIds.forEach { id ->
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .background(if (id == 1L) BoyBlue else GirlPink)
+                    )
+                }
+            }
+
+            Spacer(Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = memo.title,
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        text = timeFormat.format(java.util.Date(memo.createdAt)),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                }
+
+                // 身份標籤
+                Row(
+                    modifier = Modifier.padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    allChildren.filter { it.id in childIds }.forEach { child ->
+                        val color = if (child.gender == Gender.MALE) BoyBlue else GirlPink
+                        Surface(
+                            color = color.copy(alpha = 0.1f),
+                            shape = RoundedCornerShape(4.dp)
+                        ) {
+                            Text(
+                                text = "${if (child.gender == Gender.MALE) "👦" else "👧"} ${child.name}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = color,
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                }
+
+                if (memo.content.isNotBlank()) {
+                    Text(
+                        text = memo.content,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                
+                if (memo.reminderAt != null) {
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Notifications,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = "提醒：${java.text.SimpleDateFormat("MM/dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date(memo.reminderAt!!))}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+        }
     }
 }

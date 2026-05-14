@@ -29,6 +29,9 @@ interface MemoDao {
     @Query("DELETE FROM memos WHERE id = :id")
     suspend fun deleteById(id: Long)
 
+    @Query("SELECT * FROM memos ORDER BY date DESC, createdAt DESC")
+    fun observeAll(): Flow<List<MemoEntity>>
+
     @Query("SELECT * FROM memos WHERE childId = :childId ORDER BY date DESC, createdAt DESC")
     fun observeByChildId(childId: Long): Flow<List<MemoEntity>>
 

@@ -5,9 +5,13 @@ import androidx.lifecycle.viewModelScope
 import com.babymakisuk.coredata.repository.ChildRepository
 import com.babymakisuk.coredata.repository.MemoRepository
 import com.babymakisuk.coremodel.ChildProfile
+import com.babymakisuk.coremodel.Memo
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
@@ -17,11 +21,11 @@ import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
 data class MemoEditUiState(
-    val childId: Long = -1L,
+    val selectedChildIds: List<Long> = emptyList(),
     val title: String = "",
     val content: String = "",
     val date: Long = LocalDate.now().toEpochDay(),
-    val dateStr: String = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE),
+    val dateStr: String = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy / MM / dd")),
     val reminderAt: Long? = null,
     val reminderStr: String = ""
 )
@@ -38,36 +42,57 @@ class MemoEditViewModel @Inject constructor(
     private val _children = MutableStateFlow<List<ChildProfile>>(emptyList())
     val children: StateFlow<List<ChildProfile>> = _children.asStateFlow()
 
+    private val _savedEvent = MutableSharedFlow<Unit>()
+    val savedEvent: SharedFlow<Unit> = _savedEvent.asSharedFlow()
+
     private var existingMemoId: Long = -1L
 
     fun initialize(memoId: Long, childId: Long) {
         existingMemoId = memoId
         viewModelScope.launch {
-            _children.value = childRepository.observeAll().first()
+            val allChildren = childRepository.observeAll().first()
+            _children.value = allChildren
 
             if (memoId > 0L) {
+                // Edit mode
                 val memos = memoRepository.observeByChildId(childId).first()
                 val memo = memos.find { it.id == memoId }
                 memo?.let {
                     _uiState.value = MemoEditUiState(
-                        childId = it.childId,
+                        selectedChildIds = listOf(it.childId),
                         title = it.title,
                         content = it.content,
                         date = it.date,
-                        dateStr = LocalDate.ofEpochDay(it.date).format(DateTimeFormatter.ISO_LOCAL_DATE),
+                        dateStr = LocalDate.ofEpochDay(it.date).format(DateTimeFormatter.ofPattern("yyyy / MM / dd")),
                         reminderAt = it.reminderAt,
                         reminderStr = it.reminderAt?.let { formatReminder(it) } ?: ""
                     )
                 }
-            } else if (childId > 0L) {
-                _uiState.update { it.copy(childId = childId) }
-            } else if (_children.value.isNotEmpty()) {
-                _uiState.update { it.copy(childId = _children.value.first().id) }
+            } else {
+                // New mode
+                val initialIds = if (childId > 0L) listOf(childId) else allChildren.map { it.id }
+                _uiState.update { it.copy(selectedChildIds = initialIds) }
             }
         }
     }
 
-    fun setChildId(id: Long) { _uiState.update { it.copy(childId = id) } }
+    fun toggleChildSelection(id: Long) {
+        _uiState.update { state ->
+            val newIds = if (id in state.selectedChildIds) {
+                // 不允許全部取消選擇，至少保留一個
+                if (state.selectedChildIds.size <= 1) state.selectedChildIds
+                else state.selectedChildIds - id
+            } else {
+                state.selectedChildIds + id
+            }
+            state.copy(selectedChildIds = newIds)
+        }
+    }
+
+    fun setSingleChildSelection(id: Long) {
+        _uiState.update { it.copy(selectedChildIds = listOf(id)) }
+    }
+
     fun updateTitle(title: String) { _uiState.update { it.copy(title = title) } }
     fun updateContent(content: String) { _uiState.update { it.copy(content = content) } }
 
@@ -75,7 +100,7 @@ class MemoEditViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 date = date.toEpochDay(),
-                dateStr = date.format(DateTimeFormatter.ISO_LOCAL_DATE)
+                dateStr = date.format(DateTimeFormatter.ofPattern("yyyy / MM / dd"))
             )
         }
     }
@@ -95,13 +120,15 @@ class MemoEditViewModel @Inject constructor(
 
     fun save() {
         val state = _uiState.value
-        if (state.title.isBlank() || state.childId <= 0L) return
+        if (state.title.isBlank() || state.selectedChildIds.isEmpty()) return
+        
         viewModelScope.launch {
             if (existingMemoId > 0L) {
+                // Update existing (only one)
                 memoRepository.update(
-                    com.babymakisuk.coremodel.Memo(
+                    Memo(
                         id = existingMemoId,
-                        childId = state.childId,
+                        childId = state.selectedChildIds.first(),
                         title = state.title,
                         content = state.content,
                         date = state.date,
@@ -110,24 +137,26 @@ class MemoEditViewModel @Inject constructor(
                     )
                 )
             } else {
-                memoRepository.save(
-                    com.babymakisuk.coremodel.Memo(
-                        childId = state.childId,
-                        title = state.title,
-                        content = state.content,
-                        date = state.date,
-                        reminderAt = state.reminderAt,
-                        createdAt = System.currentTimeMillis()
+                // Create new for each selected child
+                state.selectedChildIds.forEach { cid ->
+                    memoRepository.save(
+                        Memo(
+                            childId = cid,
+                            title = state.title,
+                            content = state.content,
+                            date = state.date,
+                            reminderAt = state.reminderAt,
+                            createdAt = System.currentTimeMillis()
+                        )
                     )
-                )
+                }
             }
+            _savedEvent.emit(Unit)
         }
     }
 
-    companion object {
-        fun formatReminder(millis: Long): String {
-            val sdf = java.text.SimpleDateFormat("yyyy/MM/dd HH:mm", java.util.Locale.getDefault())
-            return sdf.format(java.util.Date(millis))
-        }
+    private fun formatReminder(millis: Long): String {
+        val sdf = java.text.SimpleDateFormat("yyyy/MM/dd HH:mm", java.util.Locale.getDefault())
+        return sdf.format(java.util.Date(millis))
     }
 }

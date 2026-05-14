@@ -3,7 +3,12 @@ package com.babymakisuk.navigation
 import androidx.compose.ui.tooling.preview.Preview
 import com.babymakisuk.ui.theme.BabyMakiSukTheme
 import com.babymakisuk.ui.components.LocalDrawerState
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material.icons.filled.*
@@ -13,6 +18,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
@@ -76,11 +82,32 @@ fun BabyMakiSukNavHost() {
             drawerState = drawerState,
             drawerContent = {
                 ModalDrawerSheet {
-                    Text(
-                        text = "書庫",
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.padding(24.dp, 16.dp)
-                    )
+                    // Drawer Header
+                    Column(
+                        modifier = Modifier.padding(24.dp, 32.dp, 24.dp, 16.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Filled.AccountCircle,
+                                contentDescription = "User Profile",
+                                modifier = Modifier.size(48.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column {
+                                Text(
+                                    text = "親愛的家長",
+                                    style = MaterialTheme.typography.titleLarge
+                                )
+                                Text(
+                                    text = "歡迎回到 BabyMakiSuk",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+
                     LibraryScreen(
                         navController = navController,
                         onNavigateToAi = { hint ->

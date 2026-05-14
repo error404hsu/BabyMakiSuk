@@ -22,6 +22,9 @@ class MemoRepository @Inject constructor(
     @param:ApplicationContext private val context: Context
 ) {
 
+    fun observeAll(): Flow<List<Memo>> =
+        dao.observeAll().map { list -> list.map { it.toDomain() } }
+
     fun observeByChildId(childId: Long): Flow<List<Memo>> =
         dao.observeByChildId(childId).map { list -> list.map { it.toDomain() } }
 
