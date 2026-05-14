@@ -14,6 +14,15 @@ interface WeeklyReportDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(report: WeeklyReportEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(reports: List<WeeklyReportEntity>)
+
+    @Query("SELECT * FROM weekly_reports")
+    suspend fun getAllOnce(): List<WeeklyReportEntity>
+
+    @Query("DELETE FROM weekly_reports")
+    suspend fun deleteAll()
+
     /**
      * 蜿門ｾ玲欠螳・child 譟仙ｹｴ蠎ｦ逧・園譛蛾ｱ蝣ｱ・御ｾ・week_start 髯榊・謗貞・縲・
      * year 譬ｼ蠑擾ｼ・2026"

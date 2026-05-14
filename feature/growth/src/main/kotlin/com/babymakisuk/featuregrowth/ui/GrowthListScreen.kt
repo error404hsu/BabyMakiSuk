@@ -14,6 +14,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.babymakisuk.featuregrowth.domain.GrowthRecordWithPercentile
+import java.time.format.DateTimeFormatter
 
 @Composable
 fun GrowthListScreen(
@@ -45,13 +46,15 @@ private fun GrowthRecordCard(
     onDelete: () -> Unit
 ) {
     val r = item.record
+    val dateFormatter = DateTimeFormatter.ofPattern("yyyy / MM / dd")
+
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(r.date.toString(), style = MaterialTheme.typography.labelMedium)
+                Text(r.date.format(dateFormatter), style = MaterialTheme.typography.labelMedium)
                 Spacer(Modifier.height(4.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Metric(label = "身高", value = "${r.heightCm} cm", pct = item.heightPercentile)

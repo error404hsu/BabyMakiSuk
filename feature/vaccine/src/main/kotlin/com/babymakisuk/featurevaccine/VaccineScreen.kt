@@ -4,9 +4,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -32,6 +33,7 @@ import java.text.SimpleDateFormat
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Date
 import java.util.Locale
 
@@ -46,27 +48,20 @@ fun VaccineScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val showForm by viewModel.showForm.collectAsState()
-    val editingReminder by viewModel.editingReminder.collectAsState()
+    val editingGroup by viewModel.editingGroup.collectAsState()
 
     val drawerState = LocalDrawerState.current
     val drawerScope = rememberCoroutineScope()
 
-    val selectedChildColor = uiState.children.find { it.id == uiState.selectedChildId }?.let {
-        if (it.gender == Gender.MALE) BoyBlue else GirlPink
-    } ?: MaterialTheme.colorScheme.primary
-
     Scaffold(
-        containerColor = selectedChildColor.copy(alpha = 0.05f),
+        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
         topBar = {
             BabyTopBar(
                 title = {
-                    if (uiState.children.isNotEmpty()) {
-                        VaccineChildSelectorRow(
-                            children = uiState.children,
-                            selectedChildId = uiState.selectedChildId,
-                            onSelectChild = { viewModel.selectChild(it) }
-                        )
-                    }
+                    Text(
+                        "健護提醒",
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                    )
                 },
                 showSearch = true,
                 showAi = true,
@@ -82,7 +77,7 @@ fun VaccineScreen(
                 .fillMaxSize()
                 .padding(top = innerPadding.calculateTopPadding())
         ) {
-            if (uiState.reminders.isEmpty() && !uiState.isLoading) {
+            if (uiState.groupedReminders.isEmpty() && !uiState.isLoading) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(
@@ -93,12 +88,12 @@ fun VaccineScreen(
                         )
                         Spacer(Modifier.height(16.dp))
                         Text(
-                            "尚無疫苗提醒",
+                            "尚無健護提醒",
                             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                         )
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            "點擊上方 + 按鈕新增疫苗提醒",
+                            "點擊上方 + 按鈕新增提醒",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -107,18 +102,18 @@ fun VaccineScreen(
             } else {
                 LazyColumn(
                     contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(uiState.reminders, key = { it.id }) { reminder ->
+                    items(uiState.groupedReminders, key = { it.id }) { group ->
                         VaccineReminderCard(
-                            reminder = reminder,
-                            accentColor = selectedChildColor,
-                            onEdit = { viewModel.editReminder(reminder) },
-                            onToggleCompleted = { viewModel.toggleCompleted(reminder) },
-                            onDelete = { viewModel.deleteReminder(reminder) }
+                            group = group,
+                            children = uiState.children,
+                            onEdit = { viewModel.editGroup(group) },
+                            onToggleCompleted = { viewModel.toggleGroupCompleted(group) },
+                            onDelete = { viewModel.deleteGroup(group) }
                         )
                     }
-                    item { Spacer(Modifier.height(16.dp)) }
+                    item { Spacer(Modifier.height(80.dp)) }
                 }
             }
         }
@@ -126,214 +121,272 @@ fun VaccineScreen(
 
     if (showForm) {
         VaccineReminderDialog(
-            childId = uiState.selectedChildId,
-            initialReminder = editingReminder,
+            availableChildren = uiState.children,
+            initialGroup = editingGroup,
             onDismiss = viewModel::closeForm,
-            onConfirm = viewModel::saveReminder
+            onConfirm = { name, date, note, isCompleted, childIds ->
+                viewModel.saveGroupedReminder(name, date, note, isCompleted, childIds, editingGroup)
+            }
         )
     }
 }
 
 @Composable
-private fun VaccineChildSelectorRow(
-    children: List<ChildProfile>,
-    selectedChildId: Long,
-    onSelectChild: (Long) -> Unit
-) {
-    LazyRow(
-        modifier = Modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(horizontal = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        items(children) { child ->
-            val isSelected = child.id == selectedChildId
-            val childColor = if (child.gender == Gender.MALE) BoyBlue else GirlPink
-
-            Surface(
-                onClick = { onSelectChild(child.id) },
-                shape = RoundedCornerShape(16.dp),
-                color = if (isSelected) childColor else childColor.copy(alpha = 0.1f),
-                border = BorderStroke(
-                    width = if (isSelected) 2.dp else 1.dp,
-                    color = if (isSelected) childColor else childColor.copy(alpha = 0.3f)
-                ),
-                modifier = Modifier.height(40.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Surface(
-                        shape = CircleShape,
-                        color = if (isSelected) Color.White.copy(alpha = 0.2f) else childColor.copy(alpha = 0.1f),
-                        modifier = Modifier.size(24.dp)
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text(if (child.gender == Gender.MALE) "👦" else "👧", fontSize = 13.sp)
-                        }
-                    }
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = child.name,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                        color = if (isSelected) Color.White else childColor
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun VaccineReminderCard(
-    reminder: VaccineReminder,
-    accentColor: Color,
+    group: GroupedVaccineReminder,
+    children: List<ChildProfile>,
     onEdit: () -> Unit,
     onToggleCompleted: () -> Unit,
     onDelete: () -> Unit
 ) {
     val now = System.currentTimeMillis()
-    val daysUntil = ((reminder.scheduledDate - now) / 86400000).toInt()
-    val dateFormat = SimpleDateFormat("yyyy/MM/dd", Locale.getDefault())
+    val daysUntil = ((group.scheduledDate - now) / 86400000).toInt()
+    val dateFormat = SimpleDateFormat("yyyy / MM / dd", Locale.getDefault())
 
     val statusColor = when {
-        reminder.isCompleted -> Color(0xFF4CAF50)
+        group.isAllCompleted -> Color(0xFF4CAF50)
         daysUntil < 0 -> Color.Red
         daysUntil <= 7 -> Color(0xFFFFA500)
-        else -> Color.Gray
-    }
-
-    val statusEmoji = when {
-        reminder.isCompleted -> "✅"
-        daysUntil < 0 -> "⚠️"
-        daysUntil <= 7 -> "⏰"
-        else -> ""
+        else -> MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
     }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (reminder.isCompleted)
+            containerColor = if (group.isAllCompleted)
                 MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
             else MaterialTheme.colorScheme.surface
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(12.dp)
-                    .clip(CircleShape)
-                    .background(statusColor)
-            )
-            Spacer(Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = reminder.name,
-                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                        color = if (reminder.isCompleted) MaterialTheme.colorScheme.onSurfaceVariant
-                        else MaterialTheme.colorScheme.onSurface
-                    )
-                    if (statusEmoji.isNotEmpty()) {
-                        Spacer(Modifier.width(6.dp))
-                        Text(statusEmoji, fontSize = 14.sp)
+            // Child Indicators
+            Column(
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                children.filter { it.id in group.childReminders.keys }.forEach { child ->
+                    val color = if (child.gender == Gender.MALE) BoyBlue else GirlPink
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(color.copy(alpha = 0.2f))
+                            .border(1.dp, color, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(if (child.gender == Gender.MALE) "👦" else "👧", fontSize = 14.sp)
                     }
                 }
-                Spacer(Modifier.height(2.dp))
+            }
+
+            Spacer(Modifier.width(16.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = if (reminder.isCompleted) "已完成" else dateFormat.format(Date(reminder.scheduledDate)),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (reminder.isCompleted) Color(0xFF4CAF50) else MaterialTheme.colorScheme.onSurfaceVariant
+                    text = group.name,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = if (group.isAllCompleted) MaterialTheme.colorScheme.onSurfaceVariant
+                    else MaterialTheme.colorScheme.onSurface
                 )
-                if (reminder.note.isNotBlank()) {
-                    Spacer(Modifier.height(2.dp))
+                
+                Spacer(Modifier.height(4.dp))
+                
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.Event,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = statusColor
+                    )
+                    Spacer(Modifier.width(4.dp))
                     Text(
-                        text = reminder.note,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = dateFormat.format(Date(group.scheduledDate)),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = statusColor,
+                        fontWeight = FontWeight.Medium
+                    )
+                    if (daysUntil in 0..7 && !group.isAllCompleted) {
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "剩 $daysUntil 天",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color(0xFFFFA500),
+                            modifier = Modifier
+                                .background(Color(0xFFFFF3E0), RoundedCornerShape(4.dp))
+                                .padding(horizontal = 4.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+
+                if (group.note.isNotBlank()) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = group.note,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2
                     )
                 }
             }
 
-            IconButton(onClick = onToggleCompleted, modifier = Modifier.size(32.dp)) {
-                Icon(
-                    imageVector = if (reminder.isCompleted) Icons.Default.CheckCircle else Icons.Default.CheckBoxOutlineBlank,
-                    contentDescription = if (reminder.isCompleted) "取消完成" else "標記完成",
-                    tint = if (reminder.isCompleted) Color(0xFF4CAF50) else MaterialTheme.colorScheme.outline,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-            IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
-                Icon(
-                    Icons.Default.Edit,
-                    contentDescription = "編輯",
-                    tint = MaterialTheme.colorScheme.outline,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-            IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "刪除",
-                    tint = MaterialTheme.colorScheme.outline,
-                    modifier = Modifier.size(18.dp)
-                )
+            Column(horizontalAlignment = Alignment.End) {
+                IconButton(onClick = onToggleCompleted, modifier = Modifier.size(36.dp)) {
+                    Icon(
+                        imageVector = if (group.isAllCompleted) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                        contentDescription = "切換狀態",
+                        tint = if (group.isAllCompleted) Color(0xFF4CAF50) else MaterialTheme.colorScheme.outline,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                Row {
+                    IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = "編輯",
+                            tint = MaterialTheme.colorScheme.outline.copy(alpha = 0.7f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "刪除",
+                            tint = MaterialTheme.colorScheme.outline.copy(alpha = 0.7f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
             }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun VaccineReminderDialog(
-    childId: Long,
-    initialReminder: VaccineReminder?,
+    availableChildren: List<ChildProfile>,
+    initialGroup: GroupedVaccineReminder?,
     onDismiss: () -> Unit,
-    onConfirm: (VaccineReminder) -> Unit
+    onConfirm: (String, Long, String, Boolean, List<Long>) -> Unit
 ) {
-    var name by remember { mutableStateOf(initialReminder?.name ?: "") }
-    var dateText by remember {
+    var name by remember { mutableStateOf(initialGroup?.name ?: "") }
+    var selectedDate by remember {
         mutableStateOf(
-            if (initialReminder != null) {
-                val date = LocalDate.ofInstant(Instant.ofEpochMilli(initialReminder.scheduledDate), ZoneId.systemDefault())
-                date.toString()
-            } else ""
+            if (initialGroup != null) {
+                Instant.ofEpochMilli(initialGroup.scheduledDate)
+                    .atZone(ZoneId.systemDefault()).toLocalDate()
+            } else LocalDate.now()
         )
     }
-    var note by remember { mutableStateOf(initialReminder?.note ?: "") }
-    var isCompleted by remember { mutableStateOf(initialReminder?.isCompleted ?: false) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    val datePickerState = rememberDatePickerState(
+        initialSelectedDateMillis = selectedDate
+            .atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+    )
+
+    var note by remember { mutableStateOf(initialGroup?.note ?: "") }
+    var isCompleted by remember { mutableStateOf(initialGroup?.isAllCompleted ?: false) }
+    var selectedChildIds by remember { 
+        mutableStateOf(initialGroup?.childReminders?.keys?.toList() ?: availableChildren.map { it.id }) 
+    }
+
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        selectedDate = Instant.ofEpochMilli(millis)
+                            .atZone(ZoneId.systemDefault()).toLocalDate()
+                    }
+                    showDatePicker = false
+                }) { Text("確認") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("取消") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
-                if (initialReminder == null) "新增疫苗提醒" else "編輯疫苗提醒",
+                if (initialGroup == null) "新增 疫苗/就醫 提醒" else "編輯 疫苗/就醫 提醒",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("疫苗名稱") },
+                    label = { Text("提醒名稱 (如：B肝第二劑)") },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
                 )
-                OutlinedTextField(
-                    value = dateText,
-                    onValueChange = { dateText = it },
-                    label = { Text("預計日期 (yyyy-MM-dd)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
-                )
+                
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedTextField(
+                        value = selectedDate.format(DateTimeFormatter.ofPattern("yyyy / MM / dd")),
+                        onValueChange = {},
+                        label = { Text("預計日期") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        readOnly = true,
+                        trailingIcon = {
+                            Icon(Icons.Default.CalendarToday, null)
+                        }
+                    )
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { showDatePicker = true }
+                    )
+                }
+
+                Column {
+                    Text("提醒對象", style = MaterialTheme.typography.labelLarge)
+                    Spacer(Modifier.height(8.dp))
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        availableChildren.forEach { child ->
+                            val isSelected = child.id in selectedChildIds
+                            val color = if (child.gender == Gender.MALE) BoyBlue else GirlPink
+                            
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = {
+                                    selectedChildIds = if (isSelected) {
+                                        selectedChildIds - child.id
+                                    } else {
+                                        selectedChildIds + child.id
+                                    }
+                                },
+                                label = { Text(child.name) },
+                                leadingIcon = {
+                                    Text(if (child.gender == Gender.MALE) "👦" else "👧")
+                                },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = color.copy(alpha = 0.2f),
+                                    selectedLabelColor = color
+                                )
+                            )
+                        }
+                    }
+                }
+
                 OutlinedTextField(
                     value = note,
                     onValueChange = { note = it },
@@ -341,33 +394,26 @@ private fun VaccineReminderDialog(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
                 )
-                Row(verticalAlignment = Alignment.CenterVertically) {
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.clickable { isCompleted = !isCompleted }
+                ) {
                     Checkbox(checked = isCompleted, onCheckedChange = { isCompleted = it })
-                    Text("已完成")
+                    Text("已完成", style = MaterialTheme.typography.bodyMedium)
                 }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    val date = try {
-                        LocalDate.parse(dateText).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
-                    } catch (_: Exception) {
-                        System.currentTimeMillis()
-                    }
-                    onConfirm(
-                        VaccineReminder(
-                            id = initialReminder?.id ?: 0,
-                            childId = childId,
-                            name = name,
-                            scheduledDate = date,
-                            isCompleted = isCompleted,
-                            note = note
-                        )
-                    )
+                    if (name.isBlank() || selectedChildIds.isEmpty()) return@Button
+                    
+                    val date = selectedDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                    onConfirm(name, date, note, isCompleted, selectedChildIds)
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(12.dp),
+                enabled = name.isNotBlank() && selectedChildIds.isNotEmpty()
             ) {
                 Text("儲存")
             }

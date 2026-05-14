@@ -19,7 +19,12 @@ import javax.inject.Inject
 /** 匯出 / 匯入的 UI 狀態 */
 sealed interface BackupUiState {
     object Idle : BackupUiState
-    object Loading : BackupUiState
+    /**
+     * 載入中狀態
+     * @param progress 目前進度 (0.0 ~ 1.0)，若為 null 則顯示不確定進度
+     * @param message 正在進行的具體步驟描述
+     */
+    data class Loading(val progress: Float? = null, val message: String? = null) : BackupUiState
     data class ExportReady(val intent: Intent) : BackupUiState
     object ImportSuccess : BackupUiState
     data class Error(val message: String) : BackupUiState
@@ -75,22 +80,46 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { repository.setNotificationsEnabled(enabled) }
     }
 
+    // ── 資料備份設定 ─────────────────────────────────────
+
+    val autoBackupEnabled: StateFlow<Boolean> = repository.autoBackupEnabled.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = false
+    )
+
+    fun setAutoBackupEnabled(enabled: Boolean) {
+        viewModelScope.launch { repository.setAutoBackupEnabled(enabled) }
+    }
+
+    val lastBackupTime: StateFlow<String?> = repository.lastBackupTime.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = null
+    )
+
     // ── 匯出 / 匯入 ──────────────────────────────────────────
     private val _backupState = MutableStateFlow<BackupUiState>(BackupUiState.Idle)
     val backupState: StateFlow<BackupUiState> = _backupState.asStateFlow()
 
     fun triggerExport() {
         viewModelScope.launch {
-            _backupState.value = BackupUiState.Loading
+            _backupState.value = BackupUiState.Loading(message = "正在準備備份資料...")
             runCatching { repository.buildExportIntent() }
-                .onSuccess { _backupState.value = BackupUiState.ExportReady(it) }
+                .onSuccess {
+                    _backupState.value = BackupUiState.ExportReady(it)
+                    repository.updateLastBackupTime(
+                        java.time.LocalDateTime.now()
+                            .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+                    )
+                }
                 .onFailure { _backupState.value = BackupUiState.Error(it.message ?: "匯出失敗") }
         }
     }
 
     fun triggerImport(uri: Uri, merge: Boolean = true) {
         viewModelScope.launch {
-            _backupState.value = BackupUiState.Loading
+            _backupState.value = BackupUiState.Loading(message = "正在分析備份檔...")
             runCatching { repository.importFromUri(uri, merge) }
                 .onSuccess { _backupState.value = BackupUiState.ImportSuccess }
                 .onFailure { _backupState.value = BackupUiState.Error(it.message ?: "匯入失敗") }

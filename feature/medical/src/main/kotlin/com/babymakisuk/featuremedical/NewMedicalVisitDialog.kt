@@ -6,6 +6,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -131,18 +132,23 @@ fun NewMedicalVisitDialog(
             )
 
             // ① 就診日期
-            OutlinedTextField(
-                value = selectedDate.format(DateTimeFormatter.ofPattern("yyyy / MM / dd")),
-                onValueChange = {},
-                label = { Text("就診日期") },
-                readOnly = true,
-                trailingIcon = {
-                    IconButton(onClick = { showDatePicker = true }) {
+            Box(modifier = Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    value = selectedDate.format(DateTimeFormatter.ofPattern("yyyy / MM / dd")),
+                    onValueChange = {},
+                    label = { Text("就診日期") },
+                    readOnly = true,
+                    trailingIcon = {
                         Icon(Icons.Default.CalendarToday, contentDescription = "選擇日期")
-                    }
-                },
-                modifier = Modifier.fillMaxWidth()
-            )
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .clickable { showDatePicker = true }
+                )
+            }
 
             // ② 醫院（必填）
             OutlinedTextField(

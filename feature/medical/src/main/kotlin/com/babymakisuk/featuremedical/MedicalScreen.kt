@@ -25,6 +25,7 @@ import com.babymakisuk.coremodel.MedicalVisit
 import com.babymakisuk.ui.components.BabyTopBar
 import com.babymakisuk.ui.components.LocalDrawerState
 import kotlinx.coroutines.launch
+import java.time.format.DateTimeFormatter
 
 private val BoyBlue = Color(0xFF4A90D9)
 private val GirlPink = Color(0xFFE07BBD)
@@ -266,7 +267,7 @@ private fun LatestMedicalHero(visit: MedicalVisit, accentColor: Color) {
             }
         }
         Text(
-            text = visit.date.toString(),
+            text = visit.date.format(DateTimeFormatter.ofPattern("yyyy / MM / dd")),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
             modifier = Modifier.padding(top = 4.dp)
@@ -286,13 +287,6 @@ private fun MedicalVisitCard(
     onUpdateAiFields: (Long, String, String, String, Boolean) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
-    var editingDiagnosis by remember(visit.id, visit.diagnosisSummary) { mutableStateOf(false) }
-    var editingPrescriptions by remember(visit.id, visit.prescriptions) { mutableStateOf(false) }
-    var editingCare by remember(visit.id, visit.careInstructions) { mutableStateOf(false) }
-
-    var editDiagnosisText by remember(visit.id, visit.diagnosisSummary) { mutableStateOf(visit.diagnosisSummary) }
-    var editPrescriptionsText by remember(visit.id, visit.prescriptions) { mutableStateOf(visit.prescriptions) }
-    var editCareText by remember(visit.id, visit.careInstructions) { mutableStateOf(visit.careInstructions) }
 
     // 整張卡片可點擊切換展開
     Card(
@@ -331,7 +325,7 @@ private fun MedicalVisitCard(
                     )
                     Text(
                         text = buildString {
-                            append(visit.date.toString())
+                            append(visit.date.format(DateTimeFormatter.ofPattern("yyyy / MM / dd")))
                             if (visit.department.isNotBlank()) append("  ·  ${visit.department}")
                         },
                         style = MaterialTheme.typography.bodySmall,
@@ -452,74 +446,32 @@ private fun MedicalVisitCard(
                     Spacer(Modifier.height(8.dp))
                 }
 
-                if (visit.diagnosisSummary.isNotBlank() || canEdit) {
-                    EditableAiField(
+                if (visit.diagnosisSummary.isNotBlank()) {
+                    AiInfoCard(
                         icon = "📋",
                         title = "AI 診斷摘要",
-                        isEditing = editingDiagnosis,
-                        editText = editDiagnosisText,
-                        displayText = visit.diagnosisSummary.ifBlank { "尚無紀錄" },
-                        color = accentColor,
-                        canEdit = canEdit,
-                        onStartEdit = {
-                            editDiagnosisText = visit.diagnosisSummary
-                            editingDiagnosis = true
-                        },
-                        onConfirmEdit = {
-                            onUpdateAiFields(visit.id, editDiagnosisText, visit.prescriptions, visit.careInstructions, visit.isUrgent)
-                            editingDiagnosis = false
-                        },
-                        onCancelEdit = { editingDiagnosis = false },
-                        onTextChange = { editDiagnosisText = it },
-                        singleLine = true
+                        content = visit.diagnosisSummary,
+                        color = accentColor
                     )
                     Spacer(Modifier.height(8.dp))
                 }
 
-                if (visit.prescriptions.isNotBlank() || canEdit) {
-                    EditableAiField(
+                if (visit.prescriptions.isNotBlank()) {
+                    AiInfoCard(
                         icon = "💊",
                         title = "處方內容",
-                        isEditing = editingPrescriptions,
-                        editText = editPrescriptionsText,
-                        displayText = visit.prescriptions.ifBlank { "尚無紀錄" },
-                        color = accentColor,
-                        canEdit = canEdit,
-                        onStartEdit = {
-                            editPrescriptionsText = visit.prescriptions
-                            editingPrescriptions = true
-                        },
-                        onConfirmEdit = {
-                            onUpdateAiFields(visit.id, visit.diagnosisSummary, editPrescriptionsText, visit.careInstructions, visit.isUrgent)
-                            editingPrescriptions = false
-                        },
-                        onCancelEdit = { editingPrescriptions = false },
-                        onTextChange = { editPrescriptionsText = it },
-                        singleLine = true
+                        content = visit.prescriptions,
+                        color = accentColor
                     )
                     Spacer(Modifier.height(8.dp))
                 }
 
-                if (visit.careInstructions.isNotBlank() || canEdit) {
-                    EditableAiField(
+                if (visit.careInstructions.isNotBlank()) {
+                    AiInfoCard(
                         icon = "🏠",
                         title = "居家照護建議",
-                        isEditing = editingCare,
-                        editText = editCareText,
-                        displayText = visit.careInstructions.ifBlank { "尚無紀錄" },
-                        color = accentColor,
-                        canEdit = canEdit,
-                        onStartEdit = {
-                            editCareText = visit.careInstructions
-                            editingCare = true
-                        },
-                        onConfirmEdit = {
-                            onUpdateAiFields(visit.id, visit.diagnosisSummary, visit.prescriptions, editCareText, visit.isUrgent)
-                            editingCare = false
-                        },
-                        onCancelEdit = { editingCare = false },
-                        onTextChange = { editCareText = it },
-                        singleLine = false
+                        content = visit.careInstructions,
+                        color = accentColor
                     )
                     Spacer(Modifier.height(8.dp))
                 }
@@ -527,72 +479,6 @@ private fun MedicalVisitCard(
                 if (visit.notes.isNotBlank()) {
                     AiInfoCard(icon = "📝", title = "備註", content = visit.notes, color = Color.Gray)
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun EditableAiField(
-    icon: String,
-    title: String,
-    isEditing: Boolean,
-    editText: String,
-    displayText: String,
-    color: Color,
-    canEdit: Boolean,
-    onStartEdit: () -> Unit,
-    onConfirmEdit: () -> Unit,
-    onCancelEdit: () -> Unit,
-    onTextChange: (String) -> Unit,
-    singleLine: Boolean
-) {
-    Surface(
-        shape = RoundedCornerShape(12.dp),
-        color = color.copy(alpha = 0.1f),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = icon, fontSize = 14.sp)
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                    color = color,
-                    modifier = Modifier.weight(1f)
-                )
-                if (canEdit) {
-                    if (isEditing) {
-                        IconButton(onClick = onConfirmEdit, modifier = Modifier.size(20.dp)) {
-                            Icon(Icons.Default.Check, contentDescription = "確認", tint = color, modifier = Modifier.size(16.dp))
-                        }
-                        IconButton(onClick = onCancelEdit, modifier = Modifier.size(20.dp)) {
-                            Icon(Icons.Default.Close, contentDescription = "取消", tint = color, modifier = Modifier.size(16.dp))
-                        }
-                    } else {
-                        IconButton(onClick = onStartEdit, modifier = Modifier.size(20.dp)) {
-                            Text("✏️", fontSize = 14.sp)
-                        }
-                    }
-                }
-            }
-            Spacer(Modifier.height(6.dp))
-            if (isEditing) {
-                OutlinedTextField(
-                    value = editText,
-                    onValueChange = onTextChange,
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = singleLine,
-                    textStyle = MaterialTheme.typography.bodySmall
-                )
-            } else {
-                Text(
-                    text = displayText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    lineHeight = 18.sp
-                )
             }
         }
     }

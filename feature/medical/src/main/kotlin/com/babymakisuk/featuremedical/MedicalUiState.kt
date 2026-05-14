@@ -19,10 +19,6 @@ sealed interface MedicalUiState {
  * [Analyzing] ─ 分析進行中（顯示 loading）
  * [Success]  ─ 分析完成，帶信心分數；UI 自動填入三欄位
  * [Error]    ─ 分析失敗，顯示錯誤訊息
- *
- * ⚠️ TODO: MedicalAiRepository.analyzePrescriptionImage() 尚未實作。
- *   目前 ViewModel 呼叫時會直接進入 Error 狀態。
- *   實作完成後需移除此 TODO。
  */
 sealed interface AiAnalysisState {
     data object Idle : AiAnalysisState

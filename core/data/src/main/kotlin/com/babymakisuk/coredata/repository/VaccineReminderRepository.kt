@@ -15,6 +15,9 @@ import javax.inject.Singleton
 @Singleton
 class VaccineReminderRepository @Inject constructor(private val dao: VaccineReminderDao) {
 
+    fun observeAll(): Flow<List<VaccineReminder>> =
+        dao.observeAll().map { list -> list.map { it.toDomain() } }
+
     fun observeByChild(childId: Long): Flow<List<VaccineReminder>> =
         dao.observeByChild(childId).map { list -> list.map { it.toDomain() } }
 

@@ -1,5 +1,6 @@
 package com.babymakisuk.coreai
 
+import android.graphics.Bitmap
 import android.util.Log
 import com.google.ai.client.generativeai.GenerativeModel
 import com.google.ai.client.generativeai.type.content
@@ -95,6 +96,25 @@ class AiDispatcher @Inject constructor(
         return tryChain(task, userPrompt, systemPrompt = systemPrompt)
     }
 
+    /**
+     * 執行帶有圖片的 AI 任務（多模態）。
+     *
+     * @param task         任務類型
+     * @param systemPrompt 注入至 GenerativeModel 的 system instruction
+     * @param userPrompt   使用者輸入的文字 prompt（如症狀描述）
+     * @param image        Bitmap 圖片資料
+     * @return             第一個成功模型回傳的文字結果
+     */
+    suspend fun executeWithImage(
+        task: AiTask,
+        systemPrompt: String,
+        userPrompt: String,
+        image: Bitmap
+    ): String {
+        checkRateLimit(task)
+        return tryChain(task, userPrompt, systemPrompt = systemPrompt, image = image)
+    }
+
     // -------------------------------------------------------------------------
     // Private helpers
     // -------------------------------------------------------------------------
@@ -114,7 +134,8 @@ class AiDispatcher @Inject constructor(
     private suspend fun tryChain(
         task: AiTask,
         prompt: String,
-        systemPrompt: String?
+        systemPrompt: String?,
+        image: Bitmap? = null
     ): String {
         val chain = FALLBACK_CHAINS[task]
             ?: throw AiDispatchException(task, "No fallback chain defined for task $task")
@@ -124,7 +145,14 @@ class AiDispatcher @Inject constructor(
         for (model in chain) {
             try {
                 val generativeModel = buildModel(model, systemPrompt)
-                val response = generativeModel.generateContent(prompt)
+                val response = if (image != null) {
+                    generativeModel.generateContent(content {
+                        image(image)
+                        text(prompt)
+                    })
+                } else {
+                    generativeModel.generateContent(prompt)
+                }
                 val text = response.text
                     ?: throw IllegalStateException("Empty response from ${model.modelId}")
                 Log.d(TAG, "[$task] Success with model=${model.modelId}")

@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AdminPanelSettings
+import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.DarkMode
@@ -17,6 +18,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.ManageAccounts
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.SmartToy
+import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -47,6 +49,8 @@ fun SettingsScreen(
     val backupState by viewModel.backupState.collectAsState()
     val aiCloudEnabled by viewModel.aiCloudEnabled.collectAsState()
     val notificationsEnabled by viewModel.notificationsEnabled.collectAsState()
+    val autoBackupEnabled by viewModel.autoBackupEnabled.collectAsState()
+    val lastBackupTime by viewModel.lastBackupTime.collectAsState()
 
     var showDarkModeSheet by remember { mutableStateOf(false) }
     var showRoleSheet by remember { mutableStateOf(false) }
@@ -183,11 +187,49 @@ fun SettingsScreen(
             }
 
             item {
-                SettingsSection(title = "資料管理") {
+                SettingsSection(title = "資料管理與備份") {
+                    // 1. 雲端同步 (預留未來 Google Drive / Firebase)
+                    SettingsItem(
+                        icon = Icons.Default.Sync,
+                        title = "雲端同步",
+                        subtitle = "連結雲端空間進行自動同步 (開發中)",
+                        enabled = false,
+                        onClick = {}
+                    )
+                    HorizontalDivider(
+                        Modifier.padding(horizontal = 16.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant
+                    )
+
+                    // 2. 自動備份
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        leadingContent = {
+                            IconBox(
+                                icon = Icons.Default.Backup,
+                                color = MaterialTheme.colorScheme.secondaryContainer
+                            )
+                        },
+                        headlineContent = { Text("自動建立本地備份") },
+                        supportingContent = { Text("每週自動產出備份檔至裝置儲存空間") },
+                        trailingContent = {
+                            Switch(
+                                checked = autoBackupEnabled,
+                                onCheckedChange = { viewModel.setAutoBackupEnabled(it) }
+                            )
+                        },
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+                    HorizontalDivider(
+                        Modifier.padding(horizontal = 16.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant
+                    )
+
+                    // 3. 手動匯出
                     SettingsItem(
                         icon = Icons.Default.Upload,
-                        title = "匯出備份",
-                        subtitle = "將所有資料儲存為 JSON 檔案",
+                        title = "立即匯出備份 (.json)",
+                        subtitle = lastBackupTime?.let { "上次匯出：$it" } ?: "尚未建立備份",
                         enabled = backupState !is BackupUiState.Loading,
                         onClick = { viewModel.triggerExport() }
                     )
@@ -195,10 +237,12 @@ fun SettingsScreen(
                         Modifier.padding(horizontal = 16.dp),
                         color = MaterialTheme.colorScheme.surfaceVariant
                     )
+
+                    // 4. 手動匯入
                     SettingsItem(
                         icon = Icons.Default.Download,
-                        title = "匯入備份",
-                        subtitle = "從 JSON 備份檔還原資料",
+                        title = "匯入備份檔",
+                        subtitle = "從檔案選擇器選取備份進行還原",
                         enabled = backupState !is BackupUiState.Loading,
                         onClick = { importLauncher.launch(arrayOf("application/json")) }
                     )
@@ -363,22 +407,79 @@ fun SettingsScreen(
     }
 
     if (backupState is BackupUiState.Loading) {
+        val state = backupState as BackupUiState.Loading
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.3f))
+                .background(Color.Black.copy(alpha = 0.5f))
                 .clickable(enabled = false, onClick = {}),
             contentAlignment = Alignment.Center
         ) {
             Card(
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
-                Box(Modifier.padding(32.dp)) {
-                    CircularProgressIndicator()
+                Column(
+                    modifier = Modifier.padding(32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    if (state.progress != null) {
+                        CircularProgressIndicator(
+                            progress = { state.progress },
+                            modifier = Modifier.size(64.dp),
+                            strokeWidth = 6.dp
+                        )
+                        Text(
+                            "${(state.progress * 100).toInt()}%",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    } else {
+                        CircularProgressIndicator(modifier = Modifier.size(48.dp))
+                    }
+
+                    Text(
+                        text = state.message ?: "正在處理資料...",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Surface(
+                        color = MaterialTheme.colorScheme.errorContainer,
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            text = "⚠ 請勿關閉 App 以免資料損毀",
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun IconBox(
+    icon: ImageVector,
+    color: Color,
+    modifier: Modifier = Modifier,
+    tint: Color = MaterialTheme.colorScheme.onSecondaryContainer
+) {
+    Box(
+        modifier = modifier
+            .size(40.dp)
+            .background(color = color, shape = RoundedCornerShape(10.dp)),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = tint
+        )
     }
 }
 
@@ -432,23 +533,13 @@ private fun SettingsItem(
             Text(subtitle, style = MaterialTheme.typography.bodyMedium)
         },
         leadingContent = {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(
-                        color = if (enabled) MaterialTheme.colorScheme.secondaryContainer
-                        else MaterialTheme.colorScheme.surfaceVariant,
-                        shape = RoundedCornerShape(10.dp)
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = if (enabled) MaterialTheme.colorScheme.onSecondaryContainer
-                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
-                )
-            }
+            IconBox(
+                icon = icon,
+                color = if (enabled) MaterialTheme.colorScheme.secondaryContainer
+                else MaterialTheme.colorScheme.surfaceVariant,
+                tint = if (enabled) MaterialTheme.colorScheme.onSecondaryContainer
+                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+            )
         },
         modifier = Modifier
             .fillMaxWidth()

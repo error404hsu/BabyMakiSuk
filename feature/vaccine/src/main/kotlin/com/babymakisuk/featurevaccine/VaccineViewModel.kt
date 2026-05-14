@@ -32,79 +32,116 @@ class VaccineViewModel @Inject constructor(
     private val _showForm = MutableStateFlow(false)
     val showForm: StateFlow<Boolean> = _showForm.asStateFlow()
 
-    private val _editingReminder = MutableStateFlow<VaccineReminder?>(null)
-    val editingReminder: StateFlow<VaccineReminder?> = _editingReminder.asStateFlow()
+    private val _editingGroup = MutableStateFlow<GroupedVaccineReminder?>(null)
+    val editingGroup: StateFlow<GroupedVaccineReminder?> = _editingGroup.asStateFlow()
 
     init {
         viewModelScope.launch {
             combine(
                 childRepo.observeAll(),
-                _selectedChildId
-            ) { children, selectedId ->
-                children to selectedId
-            }.flatMapLatest { (children, selectedId) ->
-                if (children.isEmpty()) {
-                    return@flatMapLatest flowOf(VaccineUiState(children = emptyList()))
-                }
-                val effectiveId = selectedId
-                    ?: children.firstOrNull { it.gender == Gender.MALE }?.id
-                    ?: children.first().id
-                val child = children.find { it.id == effectiveId }
-                if (child != null) {
-                    val existing = vaccineReminderRepo.observeByChild(effectiveId).first()
-                    if (existing.isEmpty()) {
-                        vaccineReminderRepo.generateDefaultSchedule(child.birthday, effectiveId)
-                    }
-                }
-                vaccineReminderRepo.observeByChild(effectiveId).map { reminders ->
-                    VaccineUiState(
-                        children = children,
-                        selectedChildId = effectiveId,
-                        reminders = reminders
-                    )
-                }
+                vaccineReminderRepo.observeAll()
+            ) { children, reminders ->
+                VaccineUiState(
+                    children = children,
+                    reminders = reminders,
+                    isLoading = false
+                )
             }.collect { _uiState.value = it }
         }
     }
 
-    fun selectChild(childId: Long) { _selectedChildId.value = childId }
+    fun selectChild(childId: Long) { /* Removed filter */ }
 
     fun openForm() {
-        _editingReminder.value = null
+        _editingGroup.value = null
         _showForm.value = true
     }
 
-    fun editReminder(reminder: VaccineReminder) {
-        _editingReminder.value = reminder
+    fun editGroup(group: GroupedVaccineReminder) {
+        _editingGroup.value = group
         _showForm.value = true
     }
 
     fun closeForm() {
         _showForm.value = false
-        _editingReminder.value = null
+        _editingGroup.value = null
     }
 
-    fun toggleCompleted(reminder: VaccineReminder) {
+    fun toggleGroupCompleted(group: GroupedVaccineReminder) {
         viewModelScope.launch {
-            vaccineReminderRepo.update(reminder.copy(isCompleted = !reminder.isCompleted))
+            val nextState = !group.isAllCompleted
+            group.childReminders.values.forEach { reminder ->
+                vaccineReminderRepo.update(reminder.copy(isCompleted = nextState))
+            }
         }
     }
 
-    fun saveReminder(reminder: VaccineReminder) {
+    fun saveGroupedReminder(
+        name: String,
+        date: Long,
+        note: String,
+        isCompleted: Boolean,
+        childIds: List<Long>,
+        originalGroup: GroupedVaccineReminder?
+    ) {
         viewModelScope.launch {
-            if (reminder.id == 0) {
-                vaccineReminderRepo.save(reminder)
+            if (originalGroup == null) {
+                // New
+                childIds.forEach { childId ->
+                    vaccineReminderRepo.save(
+                        VaccineReminder(
+                            childId = childId,
+                            name = name,
+                            scheduledDate = date,
+                            isCompleted = isCompleted,
+                            note = note
+                        )
+                    )
+                }
             } else {
-                vaccineReminderRepo.update(reminder)
+                // Edit: Delete those not in childIds, update existing, add new
+                val oldChildIds = originalGroup.childReminders.keys
+                
+                // Remove removed
+                oldChildIds.filter { it !in childIds }.forEach { id ->
+                    originalGroup.childReminders[id]?.let { vaccineReminderRepo.delete(it) }
+                }
+                
+                // Update/Add
+                childIds.forEach { childId ->
+                    val existing = originalGroup.childReminders[childId]
+                    if (existing != null) {
+                        vaccineReminderRepo.update(
+                            existing.copy(
+                                name = name,
+                                scheduledDate = date,
+                                note = note,
+                                isCompleted = isCompleted
+                            )
+                        )
+                    } else {
+                        vaccineReminderRepo.save(
+                            VaccineReminder(
+                                childId = childId,
+                                name = name,
+                                scheduledDate = date,
+                                isCompleted = isCompleted,
+                                note = note
+                            )
+                        )
+                    }
+                }
             }
             _showForm.value = false
-            _editingReminder.value = null
+            _editingGroup.value = null
         }
     }
 
-    fun deleteReminder(reminder: VaccineReminder) {
+    fun deleteGroup(group: GroupedVaccineReminder) {
         viewModelScope.launch {
-            vaccineReminderRepo.delete(reminder)
+            group.childReminders.values.forEach {
+                vaccineReminderRepo.delete(it)
+            }
         }
     }
 }

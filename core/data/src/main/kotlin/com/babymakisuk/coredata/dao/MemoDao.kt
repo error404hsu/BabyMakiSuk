@@ -14,6 +14,15 @@ interface MemoDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(entity: MemoEntity): Long
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(entities: List<MemoEntity>)
+
+    @Query("SELECT * FROM memos")
+    suspend fun getAllOnce(): List<MemoEntity>
+
+    @Query("DELETE FROM memos")
+    suspend fun deleteAll()
+
     @Update
     suspend fun update(entity: MemoEntity)
 

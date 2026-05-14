@@ -11,6 +11,9 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface VaccineReminderDao {
+    @Query("SELECT * FROM vaccine_reminders ORDER BY scheduledDate ASC")
+    fun observeAll(): Flow<List<VaccineReminderEntity>>
+
     @Query("SELECT * FROM vaccine_reminders WHERE childId = :childId ORDER BY scheduledDate ASC")
     fun observeByChild(childId: Long): Flow<List<VaccineReminderEntity>>
 
@@ -19,6 +22,15 @@ interface VaccineReminderDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(entity: VaccineReminderEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(entities: List<VaccineReminderEntity>)
+
+    @Query("SELECT * FROM vaccine_reminders")
+    suspend fun getAllOnce(): List<VaccineReminderEntity>
+
+    @Query("DELETE FROM vaccine_reminders")
+    suspend fun deleteAll()
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(entities: List<VaccineReminderEntity>)

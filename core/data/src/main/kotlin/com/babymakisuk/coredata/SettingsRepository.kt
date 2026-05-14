@@ -78,6 +78,28 @@ class SettingsRepository @Inject constructor(
         }
     }
 
+    // ── 自動備份 ──────────────────────────────────────────
+
+    val autoBackupEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[SettingsPreferences.AUTO_BACKUP_ENABLED] ?: false
+    }
+
+    suspend fun setAutoBackupEnabled(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[SettingsPreferences.AUTO_BACKUP_ENABLED] = enabled
+        }
+    }
+
+    val lastBackupTime: Flow<String?> = context.dataStore.data.map { prefs ->
+        prefs[SettingsPreferences.LAST_BACKUP_TIME]
+    }
+
+    suspend fun updateLastBackupTime(timestamp: String) {
+        context.dataStore.edit { prefs ->
+            prefs[SettingsPreferences.LAST_BACKUP_TIME] = timestamp
+        }
+    }
+
     // ── 匯出 / 匯入 ──────────────────────────────────────────
 
     suspend fun buildExportIntent(): Intent = backupManager.exportToShareIntent()

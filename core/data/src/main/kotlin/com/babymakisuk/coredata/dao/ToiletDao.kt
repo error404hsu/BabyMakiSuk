@@ -16,6 +16,15 @@ interface ToiletDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(record: ToiletRecordEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(records: List<ToiletRecordEntity>)
+
+    @Query("SELECT * FROM toilet_records")
+    suspend fun getAllOnce(): List<ToiletRecordEntity>
+
+    @Query("DELETE FROM toilet_records")
+    suspend fun deleteAll()
+
     @Delete
     suspend fun delete(record: ToiletRecordEntity)
 }

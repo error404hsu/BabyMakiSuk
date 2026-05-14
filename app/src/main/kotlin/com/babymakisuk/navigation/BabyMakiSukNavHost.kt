@@ -41,7 +41,7 @@ import com.babymakisuk.featureweeklyreport.WeeklyReportSearchScreen
 import kotlinx.coroutines.launch
 
 sealed class BottomNavItem(val route: String, val label: String, val icon: ImageVector) {
-    data object Vaccine : BottomNavItem("vaccine", "疫苗 就醫", Icons.Filled.HealthAndSafety)
+    data object Vaccine : BottomNavItem("vaccine", "健護", Icons.Filled.HealthAndSafety)
     data object Medical : BottomNavItem("medical", "就醫", Icons.Filled.Favorite)
     data object Home : BottomNavItem("home", "首頁", Icons.Filled.Home)
     data object Growth : BottomNavItem("growth", "成長", Icons.AutoMirrored.Filled.ShowChart)

@@ -13,6 +13,15 @@ interface AiInsightDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(entity: AiInsightEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(entities: List<AiInsightEntity>)
+
+    @Query("SELECT * FROM ai_insights")
+    suspend fun getAllOnce(): List<AiInsightEntity>
+
+    @Query("DELETE FROM ai_insights")
+    suspend fun deleteAll()
+
     @Query("SELECT * FROM ai_insights WHERE childId = :childId ORDER BY createdAt DESC")
     fun getByChildId(childId: String): Flow<List<AiInsightEntity>>
 

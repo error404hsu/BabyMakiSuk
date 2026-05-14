@@ -19,4 +19,10 @@ object SettingsPreferences {
 
     /** 通知總開關（預設啟用） */
     val NOTIFICATIONS_ENABLED = booleanPreferencesKey("notifications_enabled")
+
+    /** 自動建立本地備份（預設關閉） */
+    val AUTO_BACKUP_ENABLED = booleanPreferencesKey("auto_backup_enabled")
+
+    /** 上次備份成功的時間戳記 (ISO 8601 格式) */
+    val LAST_BACKUP_TIME = stringPreferencesKey("last_backup_time")
 }

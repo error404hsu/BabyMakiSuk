@@ -23,18 +23,25 @@ import javax.inject.Singleton
 
 @Serializable
 data class BackupDto(
-    val version: Int = 2,
+    val version: Int = 3,
     val exportedAt: String = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
     val children: List<ChildProfileBackup> = emptyList(),
     val growthRecords: List<GrowthRecordBackup> = emptyList(),
     val medicalVisits: List<MedicalVisitBackup> = emptyList(),
     val vaccineRecords: List<VaccineRecordBackup> = emptyList(),
-    val dailyLogs: List<DailyLogBackup> = emptyList()
+    val dailyLogs: List<DailyLogBackup> = emptyList(),
+    val weeklyReports: List<WeeklyReportBackup> = emptyList(),
+    val aiInsights: List<AiInsightBackup> = emptyList(),
+    val memos: List<MemoBackup> = emptyList(),
+    val toiletRecords: List<ToiletRecordBackup> = emptyList(),
+    val vaccineReminders: List<VaccineReminderBackup> = emptyList(),
 )
 
 @Serializable data class ChildProfileBackup(
     val id: Long, val name: String, val gender: String,
-    val birthday: String, val bloodType: String? = null, val note: String = ""
+    val birthday: String, val bloodType: String? = null,
+    val allergies: String? = null, val note: String = "",
+    val photoUri: String? = null
 )
 
 @Serializable data class GrowthRecordBackup(
@@ -67,6 +74,35 @@ data class BackupDto(
     val poopCount: Int = 0, val mood: String = "", val freeText: String = ""
 )
 
+@Serializable data class WeeklyReportBackup(
+    val id: String, val rowId: Long, val childId: String,
+    val weekStart: String, val weekEnd: String, val aiSummary: String,
+    val medicalVisitIds: String, val snapshotWeight: Double?,
+    val snapshotHeight: Double?, val snapshotHeadCirc: Double?,
+    val vaccineDue: String, val searchKeywords: String,
+    val driveFileId: String?, val syncedAt: Long
+)
+
+@Serializable data class AiInsightBackup(
+    val id: String, val childId: String, val title: String,
+    val content: String, val sourceDate: Long, val createdAt: Long
+)
+
+@Serializable data class MemoBackup(
+    val id: Long, val childId: Long, val title: String,
+    val content: String, val date: Long, val reminderAt: Long?,
+    val createdAt: Long
+)
+
+@Serializable data class ToiletRecordBackup(
+    val id: Int, val childId: Long, val timestamp: Long
+)
+
+@Serializable data class VaccineReminderBackup(
+    val id: Int, val childId: Long, val name: String,
+    val scheduledDate: Long, val isCompleted: Boolean, val note: String
+)
+
 // ── BackupManager ──────────────────────────────────────────
 
 @Singleton
@@ -81,11 +117,16 @@ class BackupManager @Inject constructor(
     /** 將所有 Room 資料封裝成 JSON 字串 */
     suspend fun exportToJson(): String = withContext(Dispatchers.IO) {
         val dto = BackupDto(
-            children       = db.childDao().getAllOnce().map { it.toBackup() },
-            growthRecords  = db.growthDao().getAllOnce().map { it.toBackup() },
-            medicalVisits  = db.medicalDao().getAllOnce().map { it.toBackup() },
-            vaccineRecords = db.vaccineDao().getAllOnce().map { it.toBackup() },
-            dailyLogs      = db.dailyLogDao().getAllOnce().map { it.toBackup() }
+            children         = db.childDao().getAllOnce().map { it.toBackup() },
+            growthRecords    = db.growthDao().getAllOnce().map { it.toBackup() },
+            medicalVisits    = db.medicalDao().getAllOnce().map { it.toBackup() },
+            vaccineRecords   = db.vaccineDao().getAllOnce().map { it.toBackup() },
+            dailyLogs        = db.dailyLogDao().getAllOnce().map { it.toBackup() },
+            weeklyReports    = db.weeklyReportDao().getAllOnce().map { it.toBackup() },
+            aiInsights       = db.aiInsightDao().getAllOnce().map { it.toBackup() },
+            memos            = db.memoDao().getAllOnce().map { it.toBackup() },
+            toiletRecords    = db.toiletDao().getAllOnce().map { it.toBackup() },
+            vaccineReminders = db.vaccineReminderDao().getAllOnce().map { it.toBackup() }
         )
         json.encodeToString(dto)
     }
@@ -136,12 +177,22 @@ class BackupManager @Inject constructor(
                     db.medicalDao().deleteAll()
                     db.vaccineDao().deleteAll()
                     db.dailyLogDao().deleteAll()
+                    db.weeklyReportDao().deleteAll()
+                    db.aiInsightDao().deleteAll()
+                    db.memoDao().deleteAll()
+                    db.toiletDao().deleteAll()
+                    db.vaccineReminderDao().deleteAll()
                 }
                 db.childDao().upsertAll(dto.children.map { it.toEntity() })
                 db.growthDao().upsertAll(dto.growthRecords.map { it.toEntity() })
                 db.medicalDao().upsertAll(dto.medicalVisits.map { it.toEntity() })
                 db.vaccineDao().upsertAll(dto.vaccineRecords.map { it.toEntity() })
                 db.dailyLogDao().upsertAll(dto.dailyLogs.map { it.toEntity() })
+                db.weeklyReportDao().upsertAll(dto.weeklyReports.map { it.toEntity() })
+                db.aiInsightDao().upsertAll(dto.aiInsights.map { it.toEntity() })
+                db.memoDao().upsertAll(dto.memos.map { it.toEntity() })
+                db.toiletDao().upsertAll(dto.toiletRecords.map { it.toEntity() })
+                db.vaccineReminderDao().upsertAll(dto.vaccineReminders.map { it.toEntity() })
             }
         }
     }
@@ -150,7 +201,8 @@ class BackupManager @Inject constructor(
 
     private fun ChildProfileEntity.toBackup() = ChildProfileBackup(
         id = id, name = name, gender = gender,
-        birthday = birthday.toString(), bloodType = bloodType, note = note
+        birthday = birthday.toString(), bloodType = bloodType,
+        allergies = allergies, note = note, photoUri = photoUri
     )
 
     private fun GrowthRecordEntity.toBackup() = GrowthRecordBackup(
@@ -183,11 +235,41 @@ class BackupManager @Inject constructor(
         poopCount = poopCount, mood = mood, freeText = freeText
     )
 
+    private fun WeeklyReportEntity.toBackup() = WeeklyReportBackup(
+        id = id, rowId = rowId, childId = childId,
+        weekStart = weekStart, weekEnd = weekEnd, aiSummary = aiSummary,
+        medicalVisitIds = medicalVisitIds, snapshotWeight = snapshotWeight,
+        snapshotHeight = snapshotHeight, snapshotHeadCirc = snapshotHeadCirc,
+        vaccineDue = vaccineDue, searchKeywords = searchKeywords,
+        driveFileId = driveFileId, syncedAt = syncedAt
+    )
+
+    private fun AiInsightEntity.toBackup() = AiInsightBackup(
+        id = id, childId = childId, title = title,
+        content = content, sourceDate = sourceDate, createdAt = createdAt
+    )
+
+    private fun MemoEntity.toBackup() = MemoBackup(
+        id = id, childId = childId, title = title,
+        content = content, date = date, reminderAt = reminderAt,
+        createdAt = createdAt
+    )
+
+    private fun ToiletRecordEntity.toBackup() = ToiletRecordBackup(
+        id = id, childId = childId, timestamp = timestamp
+    )
+
+    private fun VaccineReminderEntity.toBackup() = VaccineReminderBackup(
+        id = id, childId = childId, name = name,
+        scheduledDate = scheduledDate, isCompleted = isCompleted, note = note
+    )
+
     // ── Backup DTO → Entity 映射 ───────────────────────────
 
     private fun ChildProfileBackup.toEntity() = ChildProfileEntity(
         id = id, name = name, gender = gender,
-        birthday = LocalDate.parse(birthday), bloodType = bloodType, note = note
+        birthday = LocalDate.parse(birthday), bloodType = bloodType,
+        allergies = allergies, note = note, photoUri = photoUri
     )
 
     private fun GrowthRecordBackup.toEntity() = GrowthRecordEntity(
@@ -218,5 +300,34 @@ class BackupManager @Inject constructor(
         id = id, childId = childId, date = LocalDate.parse(date),
         sleepInfo = sleepInfo, mealsInfo = mealsInfo,
         poopCount = poopCount, mood = mood, freeText = freeText
+    )
+
+    private fun WeeklyReportBackup.toEntity() = WeeklyReportEntity(
+        id = id, rowId = rowId, childId = childId,
+        weekStart = weekStart, weekEnd = weekEnd, aiSummary = aiSummary,
+        medicalVisitIds = medicalVisitIds, snapshotWeight = snapshotWeight,
+        snapshotHeight = snapshotHeight, snapshotHeadCirc = snapshotHeadCirc,
+        vaccineDue = vaccineDue, searchKeywords = searchKeywords,
+        driveFileId = driveFileId, syncedAt = syncedAt
+    )
+
+    private fun AiInsightBackup.toEntity() = AiInsightEntity(
+        id = id, childId = childId, title = title,
+        content = content, sourceDate = sourceDate, createdAt = createdAt
+    )
+
+    private fun MemoBackup.toEntity() = MemoEntity(
+        id = id, childId = childId, title = title,
+        content = content, date = date, reminderAt = reminderAt,
+        createdAt = createdAt
+    )
+
+    private fun ToiletRecordBackup.toEntity() = ToiletRecordEntity(
+        id = id, childId = childId, timestamp = timestamp
+    )
+
+    private fun VaccineReminderBackup.toEntity() = VaccineReminderEntity(
+        id = id, childId = childId, name = name,
+        scheduledDate = scheduledDate, isCompleted = isCompleted, note = note
     )
 }

@@ -112,10 +112,6 @@ class MedicalViewModel @Inject constructor(
      * 藥單圖片 AI 分析。
      * 呼叫 [MedicalAiRepository.analyzePrescriptionImage] 並將結果寫入 [AiAnalysisState]。
      * UI 透過 [LaunchedEffect] 監聽 [AiAnalysisState.Success] 後自動填入三欄位。
-     *
-     * TODO: MedicalAiRepository.analyzePrescriptionImage() 尚未實作，
-     *       目前呼叫會直接 fallback 到 onFailure。
-     *       實作完成（Gemini Vision API 串接）後移除此 TODO。
      */
     fun analyzeImageWithAi(imageUri: Uri?, symptomText: String, childId: Long) {
         if (imageUri == null) return

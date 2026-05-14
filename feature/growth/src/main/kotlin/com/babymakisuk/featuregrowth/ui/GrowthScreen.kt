@@ -30,6 +30,7 @@ import com.babymakisuk.ui.theme.BabyMakiSukTheme
 import com.babymakisuk.featuregrowth.domain.GrowthRecordWithPercentile
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 private val BoyBlue = Color(0xFF4A90D9)
 private val GirlPink = Color(0xFFE07BBD)
@@ -284,7 +285,7 @@ private fun LatestGrowthHero(item: GrowthRecordWithPercentile, accentColor: Colo
             shape = RoundedCornerShape(16.dp)
         ) {
             Text(
-                text = "最後更新於 ${r.date}",
+                text = "最後更新於 ${r.date.format(DateTimeFormatter.ofPattern("yyyy / MM / dd"))}",
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                 style = MaterialTheme.typography.labelSmall,
                 color = accentColor

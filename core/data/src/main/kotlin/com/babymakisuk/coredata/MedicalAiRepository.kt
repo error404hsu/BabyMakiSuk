@@ -1,5 +1,8 @@
 package com.babymakisuk.coredata
 
+import android.content.Context
+import android.graphics.BitmapFactory
+import android.net.Uri
 import android.util.Log
 import com.babymakisuk.coredata.ai.AiContextInjector
 import com.babymakisuk.coreai.AiDispatcher
@@ -7,6 +10,8 @@ import com.babymakisuk.coreai.AiPromptBuilder
 import com.babymakisuk.coreai.AiTask
 import com.babymakisuk.coredata.dao.MedicalDao
 import com.babymakisuk.coremodel.MedicalSummaryResult
+import com.babymakisuk.coremodel.PrescriptionAnalysisResult
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
@@ -21,6 +26,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class MedicalAiRepository @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val aiDispatcher: AiDispatcher,
     private val aiContextInjector: AiContextInjector,
     private val medicalDao: MedicalDao
@@ -90,6 +96,56 @@ class MedicalAiRepository @Inject constructor(
         } catch (e: Exception) {
             Log.e(TAG, "analyzePrescription failed: ${e.message}")
             ""
+        }
+    }
+
+    /**
+     * 藥單圖片多模態分析。
+     * 讀取 Uri 轉換為 Bitmap 後，呼叫 AiDispatcher.executeWithImage。
+     */
+    suspend fun analyzePrescriptionImage(
+        imageUri: Uri,
+        symptomHint: String,
+        ageMonths: Int,
+        gender: String,
+        allergies: String?
+    ): Result<PrescriptionAnalysisResult> = runCatching {
+        val bitmap = context.contentResolver.openInputStream(imageUri)?.use {
+            BitmapFactory.decodeStream(it)
+        } ?: throw IllegalArgumentException("無法讀取圖片 Uri: $imageUri")
+
+        val systemPrompt = buildString {
+            appendLine(PHARMACIST_SYSTEM_PROMPT)
+            appendLine("\n[個案資訊]")
+            appendLine("年齡：${ageMonths}個月")
+            appendLine("性別：$gender")
+            appendLine("過敏史：${allergies ?: "無"}")
+            appendLine("使用者描述症狀：$symptomHint")
+            appendLine("\n[輸出規範]")
+            appendLine("請分析圖片中的處方箋藥物，並嚴格以 JSON 格式回傳：")
+            appendLine("""{ "diagnosisSummary": "...", "prescriptions": ["藥名1", "藥名2"], "careInstructions": ["建議1"], "confidence": 90 }""")
+        }
+
+        val raw = aiDispatcher.executeWithImage(
+            task = AiTask.MEDICAL_OCR,
+            systemPrompt = systemPrompt,
+            userPrompt = "請辨識並分析這張處方箋圖片。",
+            image = bitmap
+        )
+
+        try {
+            // 嘗試解析 JSON，Gemini 有時會帶 ```json ... ``` 需要處理
+            val cleanJson = raw.substringAfter("```json").substringBefore("```").trim()
+            val jsonToDecode = cleanJson.ifBlank { raw }
+            json.decodeFromString<PrescriptionAnalysisResult>(jsonToDecode)
+        } catch (e: Exception) {
+            Log.w(TAG, "JSON parse failed, fallback to raw text: ${e.message}")
+            PrescriptionAnalysisResult(
+                diagnosisSummary = raw.take(500),
+                prescriptions = emptyList(),
+                careInstructions = emptyList(),
+                confidence = 40
+            )
         }
     }
 }

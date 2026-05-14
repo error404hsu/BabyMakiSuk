@@ -78,9 +78,11 @@
 
 ### Phase G — Settings（已完成部分）
 - [x] SettingsScreen 分區 UI
-- [x] SettingsViewModel MVI + BackupUiState
+- [x] SettingsViewModel MVI + BackupUiState (支援進度顯示)
 - [x] DarkModeOption + DataStore 深色模式
-- [x] BackupManager JSON 備份 / 匯入
+- [x] BackupManager JSON 備份 / 匯入升級 v3 (全模組補齊：書庫、疫苗提醒、如廁紀錄)
+- [x] 數據管理 UI 優化 (自動備份開關、上次備份時間、雲端同步預留)
+- [x] 匯入匯出安全提示與進度遮罩 (Loading Overlay)
 - [x] ApiTestScreen（API 連線測試子頁面）
 - [x] FileProvider 設定
 
@@ -107,17 +109,16 @@
 ### Phase C — 醫療 AI 圖片分析（待接 API）
 > 前置 UI 與 ViewModel 已完成，等待後端 API 實作後串接。
 
-- [ ] **`MedicalAiRepository.analyzePrescriptionImage(imageUri, symptomHint, ageMonths, gender, allergies)`**
+- [x] **`MedicalAiRepository.analyzePrescriptionImage(imageUri, symptomHint, ageMonths, gender, allergies)`**
   - 呼叫 Gemini Vision API（multimodal）辨識藥單圖片
-  - 回傳結構：`diagnosisSummary`, `prescriptions: List<String>`, `careInstructions: List<String>`, `confidence: Int`, `safetyFlag: String`
+  - 回傳結構：`diagnosisSummary`, `prescriptions: List<String>`, `careInstructions: List<String>`, `confidence: Int`
   - 實作位置：`core/ai` 模組
-  - 完成後移除 `MedicalViewModel` 與 `AiAnalysisState` 中的 TODO 標注
+  - 已移除 `MedicalViewModel` 與 `AiAnalysisState` 中的 TODO 標注
 
 ### Sprint 4 — Memo 整合每日日誌
 > 詳細規格見 `docs/AGENT_GUIDELINES.md` → Sprint 4 章節
 
-- [ ] 確認 MemoEntity 是否含 `childId`、`date`、`reminderAt` 欄位
-- [ ] 若缺欄位：MIGRATION_4_5 + AppDatabase bump v5
+- [x] 確認 MemoEntity 是否含 `childId`、`date`、`reminderAt` 欄位 (已於 Migration v9 完成)
 - [ ] MemoShelfScreen 改為日期分組顯示
 - [ ] MemoDao 補充 `getByChildAndDate()` 查詢
 - [ ] HomeScreen DailyLogOverviewCard 改讀當日 Memo
