@@ -33,12 +33,15 @@ import androidx.navigation.compose.rememberNavController
 import com.babymakisuk.featureai.AiPortalScreen
 import com.babymakisuk.featurehome.HomeScreen
 import com.babymakisuk.featuregrowth.GrowthScreen
+import com.babymakisuk.featuregrowth.ui.GrowthEditScreen
 import com.babymakisuk.featuremedical.MedicalScreen
+import com.babymakisuk.featuremedical.MedicalEditScreen
 import com.babymakisuk.featurevaccine.VaccineScreen
 import com.babymakisuk.featurelibrary.LibraryScreen
 import com.babymakisuk.featurelibrary.shelf.aiinsight.AiInsightShelfScreen
 import com.babymakisuk.featurelibrary.shelf.memo.MemoEditScreen
 import com.babymakisuk.featurelibrary.shelf.memo.MemoShelfScreen
+import com.babymakisuk.featuregrowth.ui.GrowthEditScreen
 import com.babymakisuk.featurelibrary.shelf.weekly.WeeklyShelfScreen
 import com.babymakisuk.featuresettings.ApiTestScreen
 import com.babymakisuk.featuresettings.SettingsScreen
@@ -47,7 +50,7 @@ import com.babymakisuk.featureweeklyreport.WeeklyReportSearchScreen
 import kotlinx.coroutines.launch
 
 sealed class BottomNavItem(val route: String, val label: String, val icon: ImageVector) {
-    data object Vaccine : BottomNavItem("vaccine", "健護", Icons.Filled.HealthAndSafety)
+    data object Vaccine : BottomNavItem("vaccine", "醫護", Icons.Filled.HealthAndSafety)
     data object Medical : BottomNavItem("medical", "就醫", Icons.Filled.Favorite)
     data object Home : BottomNavItem("home", "首頁", Icons.Filled.Home)
     data object Growth : BottomNavItem("growth", "成長", Icons.AutoMirrored.Filled.ShowChart)
@@ -173,6 +176,7 @@ fun BabyMakiSukNavHost() {
                     }
                     composable(BottomNavItem.Growth.route) {
                         GrowthScreen(
+                            navController = navController,
                             onNavigateToAi = { hint ->
                                 navController.navigate("ai_portal?presetHint=$hint")
                             }
@@ -180,6 +184,7 @@ fun BabyMakiSukNavHost() {
                     }
                     composable(BottomNavItem.Medical.route) {
                         MedicalScreen(
+                            navController = navController,
                             onNavigateToAi = { hint ->
                                 navController.navigate("ai_portal?presetHint=$hint")
                             }
@@ -316,6 +321,48 @@ fun BabyMakiSukNavHost() {
                         MemoEditScreen(
                             navController = navController,
                             memoId = memoId,
+                            childId = childId
+                        )
+                    }
+                    composable(
+                        route = "growth/edit?recordId={recordId}&childId={childId}",
+                        arguments = listOf(
+                            navArgument("recordId") {
+                                type = NavType.LongType
+                                defaultValue = -1L
+                            },
+                            navArgument("childId") {
+                                type = NavType.LongType
+                                defaultValue = -1L
+                            }
+                        )
+                    ) { backStackEntry ->
+                        val recordId = backStackEntry.arguments?.getLong("recordId") ?: -1L
+                        val childId = backStackEntry.arguments?.getLong("childId") ?: -1L
+                        GrowthEditScreen(
+                            navController = navController,
+                            recordId = recordId,
+                            childId = childId
+                        )
+                    }
+                    composable(
+                        route = "medical/edit?visitId={visitId}&childId={childId}",
+                        arguments = listOf(
+                            navArgument("visitId") {
+                                type = NavType.LongType
+                                defaultValue = -1L
+                            },
+                            navArgument("childId") {
+                                type = NavType.LongType
+                                defaultValue = -1L
+                            }
+                        )
+                    ) { backStackEntry ->
+                        val visitId = backStackEntry.arguments?.getLong("visitId") ?: -1L
+                        val childId = backStackEntry.arguments?.getLong("childId") ?: -1L
+                        MedicalEditScreen(
+                            navController = navController,
+                            visitId = visitId,
                             childId = childId
                         )
                     }

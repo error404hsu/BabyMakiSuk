@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavController
 import com.babymakisuk.coremodel.ChildProfile
 import com.babymakisuk.coremodel.Gender
 import com.babymakisuk.coremodel.MedicalVisit
@@ -34,14 +35,12 @@ private val GirlPink = Color(0xFFE07BBD)
 @Composable
 fun MedicalScreen(
     viewModel: MedicalViewModel = hiltViewModel(),
+    navController: NavController,
     onNavigateToAi: (String?) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val showForm by viewModel.showForm.collectAsState()
-    val editingVisit by viewModel.editingVisit.collectAsState()
     val canEditData by viewModel.canEditData.collectAsState()
     val canUseLocalAi by viewModel.canUseLocalAi.collectAsState()
-    val aiAnalysisState by viewModel.aiAnalysisState.collectAsState()
 
     val drawerState = LocalDrawerState.current
     val drawerScope = rememberCoroutineScope()
@@ -72,7 +71,10 @@ fun MedicalScreen(
                 showAdd = true,
                 onMenuClick = { drawerScope.launch { drawerState.open() } },
                 onAiClick = { onNavigateToAi("PEDIATRIC_DOCTOR") },
-                onAddClick = viewModel::openForm
+                onAddClick = {
+                    val childId = (uiState as? MedicalUiState.Success)?.selectedChildId ?: 1L
+                    navController.navigate("medical/edit?visitId=-1&childId=$childId")
+                }
             )
         }
     ) { innerPadding ->
@@ -126,7 +128,10 @@ fun MedicalScreen(
                                         if (canEditData) {
                                             Spacer(Modifier.height(24.dp))
                                             Button(
-                                                onClick = viewModel::openForm,
+                                                onClick = {
+                                                    val childId = (uiState as? MedicalUiState.Success)?.selectedChildId ?: 1L
+                                                    navController.navigate("medical/edit?visitId=-1&childId=$childId")
+                                                },
                                                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary),
                                                 shape = RoundedCornerShape(12.dp)
                                             ) {
@@ -148,7 +153,9 @@ fun MedicalScreen(
                                             accentColor = selectedChildColor,
                                             canEdit = canEditData,
                                             canUseLocalAi = canUseLocalAi,
-                                            onEdit = { viewModel.editVisit(visit) },
+                                            onEdit = {
+                                                navController.navigate("medical/edit?visitId=${visit.id}&childId=${visit.childId}")
+                                            },
                                             onDelete = { viewModel.deleteVisit(visit) },
                                             onTriggerAi = { viewModel.triggerAiSummary(visit) },
                                             onUpdateAiFields = { id, diagnosisSummary, prescriptions, careInstructions, isUrgent ->
@@ -163,22 +170,6 @@ fun MedicalScreen(
                 }
             }
         }
-    }
-
-    // ── 新增 / 編輯表單（ModalBottomSheet）──────────────────────────────────
-    if (showForm && canEditData) {
-        val selectedChildIdForm = (uiState as? MedicalUiState.Success)?.selectedChildId ?: 1L
-        NewMedicalVisitDialog(
-            childId         = selectedChildIdForm,
-            initialVisit    = editingVisit,
-            aiAnalysisState = aiAnalysisState,
-            onDismiss       = viewModel::closeForm,
-            onConfirm       = viewModel::saveVisit,
-            onAnalyzeImage  = { uri, symptom ->
-                viewModel.analyzeImageWithAi(uri, symptom, selectedChildIdForm)
-            },
-            onResetAiState  = viewModel::resetAiState
-        )
     }
 }
 

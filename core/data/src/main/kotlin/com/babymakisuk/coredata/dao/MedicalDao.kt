@@ -39,4 +39,7 @@ interface MedicalDao {
         careInstructions: String,
         isUrgent: Boolean
     )
+
+    @Query("SELECT * FROM medical_visit WHERE id = :id")
+    suspend fun getById(id: Long): MedicalVisitEntity?
 }

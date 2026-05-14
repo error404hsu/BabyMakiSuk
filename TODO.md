@@ -119,39 +119,39 @@
 > 詳細規格見 `docs/AGENT_GUIDELINES.md` → Sprint 4 章節
 
 - [x] 確認 MemoEntity 是否含 `childId`、`date`、`reminderAt` 欄位 (已於 Migration v9 完成)
-- [ ] MemoShelfScreen 改為日期分組顯示
-- [ ] MemoDao 補充 `getByChildAndDate()` 查詢
-- [ ] HomeScreen DailyLogOverviewCard 改讀當日 Memo
-- [ ] 新增 Memo 入口從 HomeScreen 今日日誌區「＋」觸發
-- [ ] Memo 編輯全頁 Screen（`library/memo/edit` 路由）
+- [x] MemoShelfScreen 改為日期分組顯示
+- [x] MemoDao 補充 `getByChildAndDate()` 查詢
+- [x] HomeScreen DailyLogOverviewCard 改讀當日 Memo
+- [x] 新增 Memo 入口從 HomeScreen 今日日誌區「＋」觸發
+- [x] Memo 編輯全頁 Screen（`library/memo/edit` 路由）
 
 ### Sprint 5 — HomeScreen 收折優化
 > 詳細規格見 `docs/AGENT_GUIDELINES.md` → Sprint 5 章節
 
-- [ ] ChildSummaryCard 收折 / 展開（AnimatedVisibility）
-- [ ] 展開區：上次就醫摘要 + 下次排程 + 本日 Memo
-- [ ] AiMorningBriefingCard（收折版，串接 AiDispatcher）
+- [x] ChildSummaryCard 收折 / 展開（AnimatedVisibility / animateFloatAsState）
+- [x] 展開區：上次就醫摘要 + 下次排程 + 本日 Memo
+- [x] AiMorningBriefingCard（收折版，串接 AiDispatcher）
 
 ### Sprint 6 — 通知排程
 > 詳細規格見 `docs/AGENT_GUIDELINES.md` → Sprint 6 章節
 
-- [ ] WorkManager + NotificationCompat
-- [ ] Memo 編輯畫面「設定提醒」DateTimePicker
-- [ ] SettingsScreen 通知總開關（DataStore）
-- [ ] POST_NOTIFICATIONS 權限申請（Android 13+）
+- [x] WorkManager + NotificationCompat
+- [x] Memo 編輯畫面「設定提醒」DateTimePicker
+- [x] SettingsScreen 通知總開關（DataStore）
+- [ ] POST_NOTIFICATIONS 權限申請 Runtime 確認（Android 13+）
 
-### 就醫畫面重構（剩餘項目）
-- [ ] MedicalEditScreen 全頁編輯 Screen（`medical/edit` 路由，取代 ModalBottomSheet）
-- [ ] 廢棄 NewMedicalVisitDialog 並遷移至 MedicalEditScreen
+### 就醫畫面重構
+- [x] MedicalEditScreen 全頁編輯 Screen（`medical/edit` 路由）
+- [x] 廢棄 NewMedicalVisitDialog 並遷移至 MedicalEditScreen
 
 ### 成長紀錄重構
-- [ ] GrowthEditScreen 全頁編輯（含 recordedAt DatePickerDialog）
-- [ ] 廢棄 NewGrowthRecordDialog
+- [x] GrowthEditScreen 全頁編輯（含 recordedAt DatePickerDialog）
+- [x] 廢棄 NewGrowthRecordDialog
 - [ ] 成長新增/編輯畫面加入日期欄位（與就醫同步）
-- [ ] 成長圖表深色模式白色區塊修正（使用 MaterialTheme.colorScheme.surface）
+- [x] 成長圖表深色模式白色區塊修正（使用 MaterialTheme.colorScheme.surface）
 
 ### BottomNavigation
-- [ ] 「疫苗」標籤改為「疫苗 就醫」
+- [x] 「健護」標籤改為「醫護」
 
 ---
 

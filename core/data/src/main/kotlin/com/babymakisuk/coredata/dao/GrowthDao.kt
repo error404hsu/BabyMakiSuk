@@ -23,4 +23,7 @@ interface GrowthDao {
 
     @Query("DELETE FROM growth_record")
     suspend fun deleteAll()
+
+    @Query("SELECT * FROM growth_record WHERE id = :id")
+    suspend fun getById(id: Long): GrowthRecordEntity?
 }

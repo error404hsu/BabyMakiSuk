@@ -135,6 +135,7 @@ private fun GrowthLineChart(
     val textMeasurer = rememberTextMeasurer()
     val sorted = remember(records) { records.sortedBy { it.ageMonths } }
     val gender = sorted.first().gender
+    val surfaceColor = MaterialTheme.colorScheme.surface
 
     val measuredValues = sorted.map {
         when (metric) {
@@ -194,7 +195,7 @@ private fun GrowthLineChart(
         drawReferenceLine(months, ref50, ::xOf, ::yOf, Color(0xFF2B6CB0), dashed = false)
         drawReferenceLine(months, ref85, ::xOf, ::yOf, Color(0xFF63A4D0), dashed = true)
         drawReferenceLine(months, ref97, ::xOf, ::yOf, Color(0xFF4A5568), dashed = true)
-        drawMeasuredLine(sorted, metric, ::xOf, ::yOf)
+        drawMeasuredLine(sorted, metric, ::xOf, ::yOf, surfaceColor)
 
         val label = when (metric) {
             PercentileCalculator.Metric.HEIGHT    -> "WHO 身高參考線 + 實測"
@@ -285,7 +286,8 @@ private fun DrawScope.drawMeasuredLine(
     records: List<GrowthRecordWithPercentile>,
     metric: PercentileCalculator.Metric,
     xOf: (Int) -> Float,
-    yOf: (Double) -> Float
+    yOf: (Double) -> Float,
+    surfaceColor: Color
 ) {
     if (records.isEmpty()) return
     val path = Path().apply {
@@ -297,7 +299,7 @@ private fun DrawScope.drawMeasuredLine(
     drawPath(path, Color(0xFFDD6B20), style = Stroke(width = 4f))
     records.forEach { item ->
         val v = item.metricValue(metric)
-        drawCircle(Color.White,  radius = 7f, center = Offset(xOf(item.ageMonths), yOf(v)))
+        drawCircle(surfaceColor, radius = 7f, center = Offset(xOf(item.ageMonths), yOf(v)))
         drawCircle(Color(0xFFDD6B20), radius = 5f, center = Offset(xOf(item.ageMonths), yOf(v)))
     }
 }

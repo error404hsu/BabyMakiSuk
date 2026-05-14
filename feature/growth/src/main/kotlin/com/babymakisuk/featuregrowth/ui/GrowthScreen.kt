@@ -21,6 +21,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavController
 import com.babymakisuk.coremodel.ChildProfile
 import com.babymakisuk.coremodel.Gender
 import com.babymakisuk.coremodel.GrowthRecord
@@ -90,6 +91,7 @@ fun ChildSelectorRow(
 @Composable
 fun GrowthScreen(
     viewModel: GrowthViewModel? = if (LocalInspectionMode.current) null else hiltViewModel(),
+    navController: NavController,
     onNavigateToAi: (String?) -> Unit = {}
 ) {
     if (viewModel == null) {
@@ -100,22 +102,15 @@ fun GrowthScreen(
     }
 
     val uiState by viewModel.uiState.collectAsState()
-    val showForm by viewModel.showForm.collectAsState()
-    val editingRecord by viewModel.editingRecord.collectAsState()
     val canEditData by viewModel.canEditData.collectAsState()
 
     GrowthScreenContent(
         uiState = uiState,
-        showForm = showForm,
-        editingRecord = editingRecord,
         canEditData = canEditData,
+        navController = navController,
         onNavigateToAi = onNavigateToAi,
         onSelectChild = viewModel::selectChild,
-        onOpenForm = viewModel::openForm,
-        onCloseForm = viewModel::closeForm,
-        onEditRecord = viewModel::editRecord,
-        onDeleteRecord = { viewModel.deleteRecord(it.record) },
-        onSaveRecord = viewModel::saveRecord
+        onDeleteRecord = { viewModel.deleteRecord(it.record) }
     )
 }
 
@@ -123,16 +118,11 @@ fun GrowthScreen(
 @Composable
 fun GrowthScreenContent(
     uiState: GrowthUiState,
-    showForm: Boolean,
-    editingRecord: GrowthRecordWithPercentile?,
     canEditData: Boolean,
+    navController: NavController,
     onNavigateToAi: (String?) -> Unit,
     onSelectChild: (Long) -> Unit,
-    onOpenForm: () -> Unit,
-    onCloseForm: () -> Unit,
-    onEditRecord: (GrowthRecordWithPercentile) -> Unit,
-    onDeleteRecord: (GrowthRecordWithPercentile) -> Unit,
-    onSaveRecord: (Float, Float, Float?, LocalDate, String) -> Unit
+    onDeleteRecord: (GrowthRecordWithPercentile) -> Unit
 ) {
     var showChart by remember { mutableStateOf(false) }
 
@@ -163,7 +153,10 @@ fun GrowthScreenContent(
                 showAdd = canEditData,
                 onMenuClick = { drawerScope.launch { drawerState.open() } },
                 onAiClick = { onNavigateToAi("GROWTH_ANALYST") },
-                onAddClick = onOpenForm
+                onAddClick = {
+                    val childId = (uiState as? GrowthUiState.Success)?.selectedChildId ?: 1L
+                    navController.navigate("growth/edit?recordId=-1&childId=$childId")
+                }
             )
         }
     ) { padding ->
@@ -218,7 +211,9 @@ fun GrowthScreenContent(
                                 } else {
                                     GrowthListScreen(
                                         records = state.records,
-                                        onEdit = onEditRecord,
+                                        onEdit = { item ->
+                                            navController.navigate("growth/edit?recordId=${item.record.id}&childId=${item.record.childId}")
+                                        },
                                         onDelete = onDeleteRecord
                                     )
                                 }
@@ -248,14 +243,6 @@ fun GrowthScreenContent(
                 }
             }
         }
-    }
-
-    if (showForm && canEditData) {
-        NewGrowthRecordDialog(
-            initialRecord = editingRecord,
-            onDismiss = onCloseForm,
-            onConfirm = onSaveRecord
-        )
     }
 }
 
@@ -390,16 +377,11 @@ fun GrowthScreenPreview() {
         CompositionLocalProvider(LocalDrawerState provides rememberDrawerState(DrawerValue.Closed)) {
             GrowthScreenContent(
                 uiState = sampleUiState,
-                showForm = false,
-                editingRecord = null,
                 canEditData = true,
+                navController = androidx.navigation.compose.rememberNavController(),
                 onNavigateToAi = {},
                 onSelectChild = {},
-                onOpenForm = {},
-                onCloseForm = {},
-                onEditRecord = {},
-                onDeleteRecord = {},
-                onSaveRecord = { _, _, _, _, _ -> }
+                onDeleteRecord = {}
             )
         }
     }
