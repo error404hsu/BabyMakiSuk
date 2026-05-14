@@ -5,10 +5,12 @@ import com.babymakisuk.coredata.ai.AiContextInjector
 import com.babymakisuk.coreai.AiDispatcher
 import com.babymakisuk.coreai.AiPromptBuilder
 import com.babymakisuk.coreai.AiTask
+import com.babymakisuk.coredata.dao.AiInsightDao
 import com.babymakisuk.coredata.dao.DailyLogDao
 import com.babymakisuk.coredata.dao.GrowthDao
 import com.babymakisuk.coredata.dao.MedicalDao
 import com.babymakisuk.coredata.dao.WeeklyReportDao
+import com.babymakisuk.coredata.entity.AiInsightEntity
 import com.babymakisuk.coredata.entity.toDomain
 import com.babymakisuk.coredata.entity.toEntity
 import com.babymakisuk.coredata.repository.ChildRepository
@@ -37,7 +39,8 @@ class WeeklyReportRepository @Inject constructor(
     private val dailyLogDao: DailyLogDao,
     private val childRepository: ChildRepository,
     private val aiDispatcher: AiDispatcher,
-    private val aiContextInjector: AiContextInjector
+    private val aiContextInjector: AiContextInjector,
+    private val aiInsightDao: AiInsightDao
 ) {
 
     companion object {
@@ -144,6 +147,21 @@ class WeeklyReportRepository @Inject constructor(
         } catch (e: Exception) {
             Log.e(TAG, "generateWeeklyReport AI failed: ${e.message}")
             Pair("（本週週報 AI 生成失敗，請稍後重試）", emptyList<String>())
+        }
+
+        // 自動產出 AI 精華卡
+        try {
+            val insight = AiInsightEntity(
+                id         = "weekly_${reportId}",
+                childId    = childIdStr,
+                title      = "週報摘要｜$weekLabel",
+                content    = aiSummary.take(200),
+                sourceDate = System.currentTimeMillis(),
+                createdAt  = System.currentTimeMillis()
+            )
+            aiInsightDao.insert(insight)
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to create AiInsight from weekly report: ${e.message}")
         }
 
         val keywords = if (searchKeywords.isNotEmpty()) searchKeywords else {

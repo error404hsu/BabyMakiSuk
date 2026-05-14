@@ -28,6 +28,7 @@ data class GrowthEditUiState(
     val weightKg: String = "",
     val headCircumferenceCm: String = "",
     val note: String = "",
+    val aiSuggestion: String = "",
     val date: LocalDate = LocalDate.now(),
     val dateStr: String = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy / MM / dd")),
     val heightError: Boolean = false,
@@ -62,6 +63,7 @@ class GrowthEditViewModel @Inject constructor(
                             weightKg = record.weightKg.toString(),
                             headCircumferenceCm = record.headCircumferenceCm?.toString() ?: "",
                             note = record.note,
+                            aiSuggestion = record.aiSuggestion,
                             date = record.date,
                             dateStr = record.date.format(DateTimeFormatter.ofPattern("yyyy / MM / dd"))
                         )
@@ -78,6 +80,7 @@ class GrowthEditViewModel @Inject constructor(
     fun updateWeight(v: String) { _uiState.update { it.copy(weightKg = v, weightError = false) } }
     fun updateHeadCircumference(v: String) { _uiState.update { it.copy(headCircumferenceCm = v) } }
     fun updateNote(v: String) { _uiState.update { it.copy(note = v) } }
+    fun updateAiSuggestion(v: String) { _uiState.update { it.copy(aiSuggestion = v) } }
 
     fun updateDate(date: LocalDate) {
         _uiState.update {
@@ -110,7 +113,8 @@ class GrowthEditViewModel @Inject constructor(
                 heightCm = h,
                 weightKg = w,
                 headCircumferenceCm = state.headCircumferenceCm.toFloatOrNull(),
-                note = state.note
+                note = state.note,
+                aiSuggestion = state.aiSuggestion
             )
             growthDao.upsert(record.toEntity())
             _savedEvent.emit(Unit)

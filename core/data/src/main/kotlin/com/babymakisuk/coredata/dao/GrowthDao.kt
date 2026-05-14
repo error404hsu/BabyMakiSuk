@@ -26,4 +26,7 @@ interface GrowthDao {
 
     @Query("SELECT * FROM growth_record WHERE id = :id")
     suspend fun getById(id: Long): GrowthRecordEntity?
+
+    @Query("UPDATE growth_record SET aiSuggestion = :suggestion WHERE id = :id")
+    suspend fun updateAiSuggestion(id: Long, suggestion: String)
 }

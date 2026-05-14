@@ -103,6 +103,7 @@ fun GrowthScreen(
 
     val uiState by viewModel.uiState.collectAsState()
     val canEditData by viewModel.canEditData.collectAsState()
+    val aiSuggestingIds by viewModel.aiSuggestingIds.collectAsState()
 
     GrowthScreenContent(
         uiState = uiState,
@@ -110,7 +111,9 @@ fun GrowthScreen(
         navController = navController,
         onNavigateToAi = onNavigateToAi,
         onSelectChild = viewModel::selectChild,
-        onDeleteRecord = { viewModel.deleteRecord(it.record) }
+        onDeleteRecord = { viewModel.deleteRecord(it.record) },
+        onAiSuggest = { viewModel.triggerAiSuggestion(it) },
+        aiSuggestingIds = aiSuggestingIds
     )
 }
 
@@ -122,7 +125,9 @@ fun GrowthScreenContent(
     navController: NavController,
     onNavigateToAi: (String?) -> Unit,
     onSelectChild: (Long) -> Unit,
-    onDeleteRecord: (GrowthRecordWithPercentile) -> Unit
+    onDeleteRecord: (GrowthRecordWithPercentile) -> Unit,
+    onAiSuggest: (GrowthRecordWithPercentile) -> Unit = {},
+    aiSuggestingIds: Set<Long> = emptySet()
 ) {
     var showChart by remember { mutableStateOf(false) }
 
@@ -214,7 +219,9 @@ fun GrowthScreenContent(
                                         onEdit = { item ->
                                             navController.navigate("growth/edit?recordId=${item.record.id}&childId=${item.record.childId}")
                                         },
-                                        onDelete = onDeleteRecord
+                                        onDelete = onDeleteRecord,
+                                        onAiSuggest = onAiSuggest,
+                                        aiSuggestingIds = aiSuggestingIds
                                     )
                                 }
                             }
@@ -381,7 +388,9 @@ fun GrowthScreenPreview() {
                 navController = androidx.navigation.compose.rememberNavController(),
                 onNavigateToAi = {},
                 onSelectChild = {},
-                onDeleteRecord = {}
+                onDeleteRecord = {},
+                onAiSuggest = {},
+                aiSuggestingIds = emptySet()
             )
         }
     }

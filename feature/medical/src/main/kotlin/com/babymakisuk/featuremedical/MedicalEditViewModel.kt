@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.babymakisuk.coredata.MedicalAiRepository
+import com.babymakisuk.coredata.PrescriptionImagePreprocessor
 import com.babymakisuk.coredata.dao.MedicalDao
 import com.babymakisuk.coredata.entity.toDomain
 import com.babymakisuk.coredata.entity.toEntity
@@ -41,7 +42,8 @@ data class MedicalEditUiState(
 class MedicalEditViewModel @Inject constructor(
     private val medicalDao: MedicalDao,
     private val medicalAiRepo: MedicalAiRepository,
-    private val childRepository: ChildRepository
+    private val childRepository: ChildRepository,
+    private val preprocessor: PrescriptionImagePreprocessor
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MedicalEditUiState())
@@ -114,17 +116,37 @@ class MedicalEditViewModel @Inject constructor(
                 ageMonths = child?.ageMonths ?: 0,
                 gender = child?.gender?.name ?: "UNKNOWN",
                 allergies = child?.allergies ?: ""
-            ).onSuccess { result ->
-                _aiAnalysisState.value = AiAnalysisState.Success(
+            ).onSuccess { (result, imagePath) ->
+                _aiAnalysisState.value = AiAnalysisState.Reviewing(
+                    rawText = result.diagnosisSummary,
                     diagnosisSummary = result.diagnosisSummary,
                     prescriptions = result.prescriptions.joinToString("・"),
                     careInstructions = result.careInstructions.joinToString("・"),
-                    confidence = result.confidence ?: 85
+                    confidence = result.confidence ?: 85,
+                    imagePath = imagePath
                 )
             }.onFailure { e ->
                 _aiAnalysisState.value = AiAnalysisState.Error(e.message ?: "AI 分析失敗")
             }
         }
+    }
+
+    fun confirmAnalysis() {
+        val reviewing = _aiAnalysisState.value as? AiAnalysisState.Reviewing ?: return
+        _uiState.update {
+            it.copy(
+                diagnosisSummary = reviewing.diagnosisSummary,
+                prescriptions = reviewing.prescriptions,
+                careInstructions = reviewing.careInstructions,
+                imageStoragePath = reviewing.imagePath
+            )
+        }
+        _aiAnalysisState.value = AiAnalysisState.Success(
+            diagnosisSummary = reviewing.diagnosisSummary,
+            prescriptions = reviewing.prescriptions,
+            careInstructions = reviewing.careInstructions,
+            confidence = reviewing.confidence
+        )
     }
 
     fun resetAiState() { _aiAnalysisState.value = AiAnalysisState.Idle }
@@ -136,24 +158,36 @@ class MedicalEditViewModel @Inject constructor(
             return
         }
 
+        // 確保 childId 有效，避免 Room 外鍵約束導致閃退
+        if (state.childId <= 0L) {
+            _aiAnalysisState.value = AiAnalysisState.Error("無效的寶寶 ID，無法儲存。")
+            return
+        }
+
         viewModelScope.launch {
-            val visit = MedicalVisit(
-                id = existingVisitId,
-                childId = state.childId,
-                date = state.date,
-                hospital = state.hospital.trim(),
-                department = state.department.trim(),
-                diagnosis = state.diagnosis.trim(),
-                notes = state.notes.trim(),
-                diagnosisSummary = state.diagnosisSummary.trim(),
-                prescriptions = state.prescriptions.trim(),
-                careInstructions = state.careInstructions.trim(),
-                isUrgent = false,
-                imageStoragePath = state.imageStoragePath,
-                aiPending = false
-            )
-            medicalDao.upsert(visit.toEntity())
-            _savedEvent.emit(Unit)
+            try {
+                val visit = MedicalVisit(
+                    id = existingVisitId,
+                    childId = state.childId,
+                    date = state.date,
+                    hospital = state.hospital.trim(),
+                    department = state.department.trim(),
+                    diagnosis = state.diagnosis.trim(),
+                    notes = state.notes.trim(),
+                    diagnosisSummary = state.diagnosisSummary.trim(),
+                    prescriptions = state.prescriptions.trim(),
+                    careInstructions = state.careInstructions.trim(),
+                    isUrgent = false,
+                    imageStoragePath = state.imageStoragePath,
+                    aiPending = false
+                )
+                medicalDao.upsert(visit.toEntity())
+
+                preprocessor.cleanupOldFiles()
+                _savedEvent.emit(Unit)
+            } catch (e: Exception) {
+                _aiAnalysisState.value = AiAnalysisState.Error("儲存失敗：${e.message}")
+            }
         }
     }
 }

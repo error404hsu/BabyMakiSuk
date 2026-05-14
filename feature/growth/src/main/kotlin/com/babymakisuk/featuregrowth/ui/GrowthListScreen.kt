@@ -3,7 +3,9 @@
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
@@ -21,6 +23,8 @@ fun GrowthListScreen(
     records: List<GrowthRecordWithPercentile>,
     onEdit: (GrowthRecordWithPercentile) -> Unit,
     onDelete: (GrowthRecordWithPercentile) -> Unit,
+    onAiSuggest: (GrowthRecordWithPercentile) -> Unit = {},
+    aiSuggestingIds: Set<Long> = emptySet()
 ) {
     if (records.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -33,7 +37,9 @@ fun GrowthListScreen(
             GrowthRecordCard(
                 item = item,
                 onEdit = { onEdit(item) },
-                onDelete = { onDelete(item) }
+                onDelete = { onDelete(item) },
+                onAiSuggest = { onAiSuggest(item) },
+                isAiSuggesting = aiSuggestingIds.contains(item.record.id)
             )
         }
     }
@@ -43,33 +49,63 @@ fun GrowthListScreen(
 private fun GrowthRecordCard(
     item: GrowthRecordWithPercentile,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onAiSuggest: () -> Unit = {},
+    isAiSuggesting: Boolean = false
 ) {
     val r = item.record
     val dateFormatter = DateTimeFormatter.ofPattern("yyyy / MM / dd")
 
     Card(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(r.date.format(dateFormatter), style = MaterialTheme.typography.labelMedium)
-                Spacer(Modifier.height(4.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Metric(label = "身高", value = "${r.heightCm} cm", pct = item.heightPercentile)
-                    Metric(label = "體重", value = "${r.weightKg} kg", pct = item.weightPercentile)
-                    r.headCircumferenceCm?.let {
-                        Metric(label = "頭圍", value = "$it cm", pct = -1)
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(r.date.format(dateFormatter), style = MaterialTheme.typography.labelMedium)
+                    Spacer(Modifier.height(4.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Metric(label = "身高", value = "${r.heightCm} cm", pct = item.heightPercentile)
+                        Metric(label = "體重", value = "${r.weightKg} kg", pct = item.weightPercentile)
+                        r.headCircumferenceCm?.let {
+                            Metric(label = "頭圍", value = "$it cm", pct = -1)
+                        }
+                    }
+                    if (r.note.isNotBlank()) Text(r.note, style = MaterialTheme.typography.bodySmall)
+                }
+                IconButton(onClick = onEdit) {
+                    Icon(Icons.Filled.Edit, contentDescription = "編輯", tint = Color.LightGray)
+                }
+                IconButton(onClick = onDelete) {
+                    Icon(Icons.Filled.Delete, contentDescription = "刪除", tint = Color.LightGray)
+                }
+                IconButton(onClick = onAiSuggest, enabled = !isAiSuggesting) {
+                    if (isAiSuggesting) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    } else {
+                        Icon(
+                            Icons.Filled.AutoAwesome,
+                            contentDescription = "AI 建議",
+                            tint = MaterialTheme.colorScheme.tertiary
+                        )
                     }
                 }
-                if (r.note.isNotBlank()) Text(r.note, style = MaterialTheme.typography.bodySmall)
             }
-            IconButton(onClick = onEdit) {
-                Icon(Icons.Filled.Edit, contentDescription = "編輯", tint = Color.LightGray)
-            }
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Filled.Delete, contentDescription = "刪除", tint = Color.LightGray)
+
+            if (r.aiSuggestion.isNotBlank()) {
+                Spacer(Modifier.height(8.dp))
+                Surface(
+                    color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Row(modifier = Modifier.padding(10.dp)) {
+                        Text("🤖", style = MaterialTheme.typography.bodySmall)
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            r.aiSuggestion,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                        )
+                    }
+                }
             }
         }
     }

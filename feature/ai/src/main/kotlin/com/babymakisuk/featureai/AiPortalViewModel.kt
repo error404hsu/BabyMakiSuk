@@ -8,15 +8,24 @@ import com.babymakisuk.coreai.AiDispatchException
 import com.babymakisuk.coreai.AiDispatcher
 import com.babymakisuk.coreai.AiPreset
 import com.babymakisuk.coreai.AiPromptBuilder
+import com.babymakisuk.coreai.AiTask
 import com.babymakisuk.coreai.GeminiModel
+import com.babymakisuk.coredata.ai.AiContextInjector
+import com.babymakisuk.coredata.dao.AiInsightDao
+import com.babymakisuk.coredata.dao.ChatMessageDao
+import com.babymakisuk.coredata.entity.AiInsightEntity
+import com.babymakisuk.coredata.entity.ChatMessageEntity
 import com.babymakisuk.coredata.repository.ChildRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
 import java.util.UUID
 import javax.inject.Inject
 
@@ -25,19 +34,18 @@ class AiPortalViewModel @Inject constructor(
     private val aiDispatcher: AiDispatcher,
     @Suppress("UnusedPrivateMember") private val aiConfig: AiConfig,
     private val childRepository: ChildRepository,
+    private val aiInsightDao: AiInsightDao,
+    private val chatMessageDao: ChatMessageDao,
+    private val aiContextInjector: AiContextInjector,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
-    /**
-     * 由導航層傳入的角色提示，格式為 AiPreset.name（e.g. "PEDIATRIC_DOCTOR"）。
-     *
-     * TODO(情境感知深度連結)：
-     *   從導航參數同時接收 contextPayload（JSON 字串），
-     *   包含最新身高體重、疫苗紀錄等資料，
-     *   自動附加至對應 AiPreset 的 systemPrompt，
-     *   讓使用者無需重複描述孩子狀況。
-     */
     private val presetHint: String? = savedStateHandle["presetHint"]
+
+    /**
+     * 由導航層傳入的目標幼兒 ID，若有則透過 AiContextInjector 注入個案背景。
+     */
+    private val contextChildId: Long? = (savedStateHandle.get<Long>("contextChildId"))
 
     private val initialPreset = AiPreset.fromHint(presetHint)
 
@@ -51,11 +59,19 @@ class AiPortalViewModel @Inject constructor(
     )
     val uiState: StateFlow<AiPortalUiState> = _uiState.asStateFlow()
 
-    /**
-     * 切換角色。
-     * - 未 override：自動帶入新角色的 preferredModel 並清除 override。
-     * - 已 override：只換角色，保留使用者選擇的模型。
-     */
+    init {
+        viewModelScope.launch {
+            val entities = withContext(Dispatchers.IO) {
+                chatMessageDao.getAllOnce()
+            }
+            if (entities.isNotEmpty()) {
+                _uiState.update { state ->
+                    state.copy(messages = entities.map { it.toChatMessage() })
+                }
+            }
+        }
+    }
+
     fun switchPreset(preset: AiPreset) {
         _uiState.update { state ->
             if (state.isModelOverridden) {
@@ -69,7 +85,6 @@ class AiPortalViewModel @Inject constructor(
         }
     }
 
-    /** 手動強制選擇模型，設定 isModelOverridden = true。 */
     fun overrideModel(model: GeminiModel) {
         _uiState.update {
             it.copy(
@@ -79,7 +94,6 @@ class AiPortalViewModel @Inject constructor(
         }
     }
 
-    /** 清除模型 Override，回歸目前角色的 preferredModel 建議。 */
     fun clearModelOverride() {
         _uiState.update { state ->
             state.copy(
@@ -92,9 +106,14 @@ class AiPortalViewModel @Inject constructor(
     fun sendMessage(prompt: String) {
         if (prompt.isBlank()) return
 
+        val contextualizedPrompt = buildContextualizedPrompt(prompt)
+
+        val userMsg = ChatMessage(role = Role.USER, text = prompt)
+        persistMessage(userMsg)
+
         _uiState.update { state ->
             state.copy(
-                messages        = state.messages + ChatMessage(role = Role.USER, text = prompt),
+                messages        = state.messages + userMsg,
                 isGenerating    = true,
                 isAwaitingInput = false,
                 errorMessage    = null
@@ -117,20 +136,22 @@ class AiPortalViewModel @Inject constructor(
 
                 val currentPreset = _uiState.value.selectedPreset
 
-                // 統一透過 AiPromptBuilder 組合 system prompt
-                // 全域限制（繁中、重點、安全規範等）由 AiPromptBuilder 自動附加
-                val systemPrompt = AiPromptBuilder.buildSystemPrompt(
-                    preset    = currentPreset,
-                    ageMonths = ageMonths,
-                    gender    = gender,
-                    allergies = allergies
+                val systemPrompt = buildSystemPromptWithContext(
+                    preset     = currentPreset,
+                    ageMonths  = ageMonths,
+                    gender     = gender,
+                    allergies  = allergies
                 )
 
                 val response = aiDispatcher.executeWithSystemPrompt(
-                    task         = currentPreset.task,
-                    systemPrompt = systemPrompt,
-                    userPrompt   = prompt
+                    task          = currentPreset.task,
+                    systemPrompt  = systemPrompt,
+                    userPrompt    = contextualizedPrompt,
+                    modelOverride = _uiState.value.effectiveModel
                 )
+
+                // 儲存 AI 完整回覆至 DB
+                persistMessage(ChatMessage(id = aiMessageId, role = Role.AI, text = response))
 
                 // 打字機效果（含角色名稱前綴）
                 val prefix = "【以 ${currentPreset.displayName} 的身分回答】\n"
@@ -158,6 +179,19 @@ class AiPortalViewModel @Inject constructor(
         }
     }
 
+    private fun persistMessage(message: ChatMessage) {
+        viewModelScope.launch(Dispatchers.IO) {
+            chatMessageDao.insert(
+                ChatMessageEntity(
+                    id          = message.id,
+                    role        = message.role.name,
+                    text        = message.text,
+                    timestampMs = message.timestampMs
+                )
+            )
+        }
+    }
+
     private fun updateAiMessage(messageId: String, newText: String) {
         _uiState.update { state ->
             val updatedMessages = state.messages.map { msg ->
@@ -167,23 +201,114 @@ class AiPortalViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 整理對話為知識庫。
-     *
-     * TODO(知識卡萃取)：
-     *   1. 將 currentMessages 序列化成對話文字。
-     *   2. 以 AiTask.CUSTOM_PRESET 再呼叫一次 AiDispatcher，
-     *      要求 AI 輸出 JSON 結構的知識卡：
-     *      { "summary": "", "suggestions": [], "warnings": [] }。
-     *   3. 解析 JSON 並寫入 Room DB（KnowledgeCardEntity）。
-     *   4. 首頁顯示「近期 AI 建議」，形成知識累積飛輪。
-     */
     fun summarizeToKnowledgeBase() {
         val currentMessages = _uiState.value.messages
         if (currentMessages.isEmpty()) return
 
         viewModelScope.launch {
-            // TODO: 實作知識卡萃取邏輯（見上方說明）
+            try {
+                val transcript = currentMessages.joinToString("\n") { msg ->
+                    val roleLabel = if (msg.role == Role.USER) "家長" else "AI"
+                    "$roleLabel：${msg.text}"
+                }
+                val childId = childRepository.getChildren()
+                    .firstOrNull()?.id?.toString() ?: "unknown"
+
+                val systemPrompt = buildString {
+                    appendLine("你是一位對話摘要 AI，專門將育兒對話整理成結構化知識卡。")
+                    appendLine()
+                    appendLine("【輸出規則 - 嚴格遵守】")
+                    appendLine("- 只輸出一個合法的 JSON 物件，不得有任何前綴、後綴、說明文字")
+                    appendLine("- 禁止使用 Markdown 包裝（禁止 ```json```）")
+                    appendLine("- JSON schema：")
+                    appendLine("""{ "title": "簡潔標題（15字內）", "content": "重點摘要整理（200字內，以繁體中文撰寫）" }""")
+                }
+
+                val raw = aiDispatcher.executeWithSystemPrompt(
+                    task          = AiTask.CUSTOM_PRESET,
+                    systemPrompt  = systemPrompt,
+                    userPrompt    = "請將以下育兒對話整理成知識卡：\n$transcript",
+                    modelOverride = _uiState.value.effectiveModel
+                )
+
+                val cleanJson = raw.substringAfter("```json")
+                    .substringBefore("```")
+                    .trim()
+                    .ifBlank { raw }
+
+                val json = JSONObject(cleanJson)
+                val title = json.optString("title", "AI 對話摘要")
+                    .take(15)
+                val content = json.optString("content", raw.take(200))
+                    .take(200)
+
+                val insight = AiInsightEntity(
+                    id         = UUID.randomUUID().toString(),
+                    childId    = childId,
+                    title      = title,
+                    content    = content,
+                    sourceDate = System.currentTimeMillis(),
+                    createdAt  = System.currentTimeMillis()
+                )
+                aiInsightDao.insert(insight)
+
+                _uiState.update { it.copy(errorMessage = "已儲存至「AI 精華」書架") }
+
+            } catch (e: Exception) {
+                _uiState.update { it.copy(errorMessage = "知識卡整理失敗：${e.message}") }
+            }
+        }
+    }
+
+    fun startNewConversation() {
+        _uiState.update { it.copy(messages = emptyList(), errorMessage = "已開始新對話") }
+        viewModelScope.launch(Dispatchers.IO) {
+            chatMessageDao.deleteAll()
+        }
+    }
+
+    /**
+     * 組合 system prompt，若有 contextChildId 則注入個案背景。
+     */
+    private suspend fun buildSystemPromptWithContext(
+        preset: AiPreset,
+        ageMonths: Int,
+        gender: String,
+        allergies: String?
+    ): String {
+        val basePrompt = AiPromptBuilder.buildSystemPrompt(preset, ageMonths, gender, allergies)
+
+        val injectedContext = contextChildId?.takeIf { it != -1L }?.let { childId ->
+            try {
+                aiContextInjector.buildContext(childId)
+            } catch (_: Exception) {
+                null
+            }
+        } ?: return basePrompt
+
+        return "$basePrompt\n\n$injectedContext"
+    }
+
+    /**
+     * 將整串對話歷史附加到目前問題前，讓 AI 擁有完整上下文。
+     * 對話越多時前端截斷為最後 10 組問答以控制 prompt 長度。
+     */
+    private fun buildContextualizedPrompt(currentPrompt: String): String {
+        val msgs = _uiState.value.messages
+        if (msgs.isEmpty()) return currentPrompt
+
+        // 取最後 10 組 (20 則訊息)
+        val recent = msgs.takeLast(20)
+
+        return buildString {
+            appendLine("【對話紀錄】")
+            recent.forEach { msg ->
+                val roleLabel = if (msg.role == Role.USER) "家長" else "AI"
+                appendLine("$roleLabel：${msg.text}")
+            }
+            appendLine()
+            appendLine("【目前問題】")
+            append(currentPrompt)
         }
     }
 
@@ -193,3 +318,10 @@ class AiPortalViewModel @Inject constructor(
         return listOf(hintPreset) + rest
     }
 }
+
+private fun ChatMessageEntity.toChatMessage() = ChatMessage(
+    id          = id,
+    role        = try { Role.valueOf(role) } catch (_: Exception) { Role.AI },
+    text        = text,
+    timestampMs = timestampMs
+)

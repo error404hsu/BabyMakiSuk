@@ -146,6 +146,16 @@ fun GrowthEditScreen(
                 singleLine = true
             )
 
+            OutlinedTextField(
+                value = uiState.aiSuggestion,
+                onValueChange = viewModel::updateAiSuggestion,
+                label = { Text("AI 建議") },
+                placeholder = { Text("由 AI 分析後自動填入，亦可手動編輯") },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 2,
+                maxLines = 4
+            )
+
             Spacer(Modifier.height(8.dp))
 
             Button(

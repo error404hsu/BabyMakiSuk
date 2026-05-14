@@ -9,5 +9,6 @@ data class GrowthRecord(
     val heightCm: Float,
     val weightKg: Float,
     val headCircumferenceCm: Float? = null,
-    val note: String = ""
+    val note: String = "",
+    val aiSuggestion: String = ""
 )

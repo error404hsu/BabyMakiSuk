@@ -240,12 +240,16 @@ fun BabyMakiSukNavHost() {
                         )
                     }
                     composable(
-                        route = "ai_portal?presetHint={presetHint}",
+                        route = "ai_portal?presetHint={presetHint}&contextChildId={contextChildId}",
                         arguments = listOf(
                             navArgument("presetHint") {
                                 type = NavType.StringType
                                 nullable = true
                                 defaultValue = null
+                            },
+                            navArgument("contextChildId") {
+                                type = NavType.LongType
+                                defaultValue = -1L
                             }
                         )
                     ) { backStackEntry ->

@@ -25,6 +25,8 @@ object DatabaseModule {
             .addMigrations(AppDatabase.MIGRATION_6_7)
             .addMigrations(AppDatabase.MIGRATION_7_8)
             .addMigrations(AppDatabase.MIGRATION_8_9)
+            .addMigrations(AppDatabase.MIGRATION_9_10)
+            .addMigrations(AppDatabase.MIGRATION_10_11)
             .build()
 
     @Provides fun provideChildDao(db: AppDatabase) = db.childDao()
@@ -37,4 +39,5 @@ object DatabaseModule {
     @Provides fun provideMemoDao(db: AppDatabase) = db.memoDao()
     @Provides fun provideToiletDao(db: AppDatabase) = db.toiletDao()
     @Provides fun provideVaccineReminderDao(db: AppDatabase) = db.vaccineReminderDao()
+    @Provides fun provideChatMessageDao(db: AppDatabase) = db.chatMessageDao()
 }

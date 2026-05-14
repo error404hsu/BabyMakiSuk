@@ -3,7 +3,11 @@ package com.babymakisuk.featuregrowth.ui
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.babymakisuk.coreai.AiDispatcher
+import com.babymakisuk.coreai.AiPreset
+import com.babymakisuk.coreai.AiPromptBuilder
 import com.babymakisuk.coredata.SettingsRepository
+import com.babymakisuk.coredata.dao.GrowthDao
 import com.babymakisuk.coredata.repository.ChildRepository
 import com.babymakisuk.coremodel.ChildProfile
 import com.babymakisuk.coremodel.Gender
@@ -38,7 +42,9 @@ class GrowthViewModel @Inject constructor(
     private val observeGrowth: ObserveGrowthWithPercentile,
     private val saveGrowth: SaveGrowthRecord,
     private val deleteGrowth: DeleteGrowthRecord,
-    private val settingsRepo: SettingsRepository
+    private val settingsRepo: SettingsRepository,
+    private val aiDispatcher: AiDispatcher,
+    private val growthDao: GrowthDao
 ) : ViewModel() {
 
     private val _selectedChildId = MutableStateFlow<Long?>(savedStateHandle["childId"])
@@ -127,7 +133,51 @@ class GrowthViewModel @Inject constructor(
         }
     }
 
+    private val _aiSuggestingIds = MutableStateFlow<Set<Long>>(emptySet())
+    val aiSuggestingIds: StateFlow<Set<Long>> = _aiSuggestingIds.asStateFlow()
+
     fun deleteRecord(record: GrowthRecord) {
         viewModelScope.launch { deleteGrowth(record) }
+    }
+
+    fun triggerAiSuggestion(item: GrowthRecordWithPercentile) {
+        val record = item.record
+        if (record.id == 0L || _aiSuggestingIds.value.contains(record.id)) return
+        _aiSuggestingIds.update { it + record.id }
+        viewModelScope.launch {
+            try {
+                val child = childRepo.getById(record.childId)
+                val systemPrompt = AiPromptBuilder.buildSystemPrompt(
+                    preset    = AiPreset.GROWTH_ANALYST,
+                    ageMonths = item.ageMonths,
+                    gender    = item.gender.name,
+                    allergies = child?.allergies
+                )
+
+                val dataPrompt = buildString {
+                    appendLine("請分析以下幼兒生長數據：")
+                    appendLine("身高：${record.heightCm} cm（P${item.heightPercentile}）")
+                    appendLine("體重：${record.weightKg} kg（P${item.weightPercentile}）")
+                    record.headCircumferenceCm?.let {
+                        appendLine("頭圍：$it cm（P${item.headCircPercentile ?: -1}）")
+                    }
+                    if (record.note.isNotBlank()) {
+                        appendLine("備註：${record.note}")
+                    }
+                }
+
+                val response = aiDispatcher.executeWithSystemPrompt(
+                    task          = AiPreset.GROWTH_ANALYST.task,
+                    systemPrompt  = systemPrompt,
+                    userPrompt    = dataPrompt
+                )
+
+                growthDao.updateAiSuggestion(record.id, response)
+            } catch (_: Exception) {
+                // 靜默失敗，不影響 UI
+            } finally {
+                _aiSuggestingIds.update { it - record.id }
+            }
+        }
     }
 }

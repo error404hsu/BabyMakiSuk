@@ -20,9 +20,10 @@ import com.babymakisuk.coredata.entity.*
         AiInsightEntity::class,
         MemoEntity::class,
         ToiletRecordEntity::class,
-        VaccineReminderEntity::class
+        VaccineReminderEntity::class,
+        ChatMessageEntity::class
     ],
-    version = 9,
+    version = 11,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -37,6 +38,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun memoDao(): MemoDao
     abstract fun toiletDao(): ToiletDao
     abstract fun vaccineReminderDao(): VaccineReminderDao
+    abstract fun chatMessageDao(): ChatMessageDao
 
     companion object {
         /**
@@ -274,6 +276,25 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_memos_date ON memos_new(date)")
                 db.execSQL("DROP TABLE IF EXISTS memos")
                 db.execSQL("ALTER TABLE memos_new RENAME TO memos")
+            }
+        }
+
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS chat_messages (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        role TEXT NOT NULL,
+                        text TEXT NOT NULL,
+                        timestampMs INTEGER NOT NULL
+                    )
+                """.trimIndent())
+            }
+        }
+
+        val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE growth_record ADD COLUMN aiSuggestion TEXT NOT NULL DEFAULT ''")
             }
         }
     }

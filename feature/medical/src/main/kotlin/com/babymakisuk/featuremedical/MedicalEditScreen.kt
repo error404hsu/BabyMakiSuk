@@ -54,21 +54,11 @@ fun MedicalEditScreen(
         }
     }
 
-    LaunchedEffect(aiAnalysisState) {
-        when (val state = aiAnalysisState) {
-            is AiAnalysisState.Success -> {
-                viewModel.updateDiagnosisSummary(state.diagnosisSummary)
-                viewModel.updatePrescriptions(state.prescriptions)
-                viewModel.updateCareInstructions(state.careInstructions)
-            }
-            else -> {}
-        }
-    }
-
     var showDatePicker by remember { mutableStateOf(false) }
     val datePickerState = rememberDatePickerState(
-        initialSelectedDateMillis = uiState.date
-            .atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        initialSelectedDateMillis = remember(uiState.date) {
+            uiState.date.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        }
     )
 
     if (showDatePicker) {
@@ -91,6 +81,14 @@ fun MedicalEditScreen(
     }
 
     var prescriptionImageUri by remember { mutableStateOf<Uri?>(null) }
+
+    // 當從資料庫讀取到現有圖片路徑時，更新預覽 Uri
+    LaunchedEffect(uiState.imageStoragePath) {
+        val path = uiState.imageStoragePath
+        if (path != null && prescriptionImageUri == null) {
+            prescriptionImageUri = Uri.fromFile(File(path))
+        }
+    }
     val imageFile = remember {
         File(context.cacheDir, "prescription_${System.currentTimeMillis()}.jpg")
     }
@@ -273,6 +271,98 @@ fun MedicalEditScreen(
                         )
                         Spacer(Modifier.width(8.dp))
                         Text("AI 分析藥單")
+                    }
+                }
+            }
+
+            AnimatedVisibility(visible = aiAnalysisState is AiAnalysisState.Reviewing) {
+                (aiAnalysisState as? AiAnalysisState.Reviewing)?.let { reviewing ->
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.tertiaryContainer,
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("🔍", fontSize = 14.sp)
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    "AI 辨識完成，可信度 ${reviewing.confidence}%。請確認以下內容後選擇填入。",
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            }
+                        }
+
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text(
+                                    "📋 診斷摘要",
+                                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    reviewing.diagnosisSummary.ifBlank { "（無）" },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    "💊 處方內容",
+                                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    reviewing.prescriptions.ifBlank { "（無）" },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    "🏠 照護建議",
+                                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    reviewing.careInstructions.ifBlank { "（無）" },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(
+                                onClick = { viewModel.resetAiState() },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("捨棄")
+                            }
+                            Button(
+                                onClick = { viewModel.confirmAnalysis() },
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.tertiary
+                                )
+                            ) {
+                                Icon(
+                                    Icons.Default.Check,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text("確認填入")
+                            }
+                        }
                     }
                 }
             }

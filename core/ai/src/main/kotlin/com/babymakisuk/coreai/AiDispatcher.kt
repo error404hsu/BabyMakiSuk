@@ -15,7 +15,7 @@ import javax.inject.Singleton
  * 2. 呼叫 [RateLimiter] 檢查配額，超限拋 [RateLimitException]。
  * 3. 逐一嘗試 Chain 中的模型，成功立即回傳；全部失敗拋 [AiDispatchException]。
  *
- * 刻意不注入 [CloudServiceAiClient]，直接 new [GenerativeModel]，
+ * 刻意直接 new [GenerativeModel]，
  * 讓各任務可獨立選用不同模型 ID，保持最大彈性。
  */
 @Singleton
@@ -90,10 +90,11 @@ class AiDispatcher @Inject constructor(
     suspend fun executeWithSystemPrompt(
         task: AiTask,
         systemPrompt: String,
-        userPrompt: String
+        userPrompt: String,
+        modelOverride: GeminiModel? = null
     ): String {
         checkRateLimit(task)
-        return tryChain(task, userPrompt, systemPrompt = systemPrompt)
+        return tryChain(task, userPrompt, systemPrompt = systemPrompt, modelOverride = modelOverride)
     }
 
     /**
@@ -109,10 +110,11 @@ class AiDispatcher @Inject constructor(
         task: AiTask,
         systemPrompt: String,
         userPrompt: String,
-        image: Bitmap
+        image: Bitmap,
+        modelOverride: GeminiModel? = null
     ): String {
         checkRateLimit(task)
-        return tryChain(task, userPrompt, systemPrompt = systemPrompt, image = image)
+        return tryChain(task, userPrompt, systemPrompt = systemPrompt, image = image, modelOverride = modelOverride)
     }
 
     // -------------------------------------------------------------------------
@@ -135,10 +137,14 @@ class AiDispatcher @Inject constructor(
         task: AiTask,
         prompt: String,
         systemPrompt: String?,
-        image: Bitmap? = null
+        image: Bitmap? = null,
+        modelOverride: GeminiModel? = null
     ): String {
-        val chain = FALLBACK_CHAINS[task]
-            ?: throw AiDispatchException(task, "No fallback chain defined for task $task")
+        val chain = if (modelOverride != null)
+            listOf(modelOverride)
+        else
+            FALLBACK_CHAINS[task]
+                ?: throw AiDispatchException(task, "No fallback chain defined for task $task")
 
         var lastError: Throwable? = null
 

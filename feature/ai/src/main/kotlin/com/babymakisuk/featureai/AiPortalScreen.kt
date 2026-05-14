@@ -13,6 +13,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Lightbulb
@@ -61,7 +62,8 @@ fun AiPortalScreen(
         onClearModelOverride = { viewModel.clearModelOverride() },
         onOverrideModel = { viewModel.overrideModel(it) },
         onSwitchPreset = { viewModel.switchPreset(it) },
-        onSendMessage = { viewModel.sendMessage(it) }
+        onSendMessage = { viewModel.sendMessage(it) },
+        onNewConversation = { viewModel.startNewConversation() }
     )
 }
 
@@ -75,10 +77,12 @@ fun AiPortalScreenContent(
     onClearModelOverride: () -> Unit,
     onOverrideModel: (GeminiModel) -> Unit,
     onSwitchPreset: (AiPreset) -> Unit,
-    onSendMessage: (String) -> Unit
+    onSendMessage: (String) -> Unit,
+    onNewConversation: () -> Unit
 ) {
     val isTestingMode = true
     var showModelMenu by remember { mutableStateOf(false) }
+    var showNewConvDialog by remember { mutableStateOf(false) }
 
     val listState = rememberLazyListState()
 
@@ -125,6 +129,17 @@ fun AiPortalScreenContent(
                     }
                 },
                 actions = {
+                    // 新對話
+                    if (uiState.messages.isNotEmpty()) {
+                        IconButton(onClick = { showNewConvDialog = true }) {
+                            Icon(
+                                Icons.Default.Add,
+                                contentDescription = "開啟新對話",
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
                     // 整理為知識庫
                     IconButton(onClick = onSummarizeToKnowledgeBase) {
                         Icon(Icons.Default.Book, contentDescription = "整理本次對話為知識庫")
@@ -293,6 +308,27 @@ fun AiPortalScreenContent(
                 isGenerating = uiState.isGenerating
             )
         }
+    }
+
+    if (showNewConvDialog) {
+        AlertDialog(
+            onDismissRequest = { showNewConvDialog = false },
+            title = { Text("開啟新對話") },
+            text = { Text("確定要清除所有對話記錄並開始新對話嗎？") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showNewConvDialog = false
+                    onNewConversation()
+                }) {
+                    Text("確定")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showNewConvDialog = false }) {
+                    Text("取消")
+                }
+            }
+        )
     }
 }
 
@@ -501,7 +537,8 @@ fun AiPortalScreenPreview() {
             onClearModelOverride = {},
             onOverrideModel = {},
             onSwitchPreset = {},
-            onSendMessage = {}
+            onSendMessage = {},
+            onNewConversation = {}
         )
     }
 }

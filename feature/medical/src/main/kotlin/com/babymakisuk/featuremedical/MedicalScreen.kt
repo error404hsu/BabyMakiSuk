@@ -382,29 +382,6 @@ private fun MedicalVisitCard(
                 }
             }
 
-            // AI 整理按鈕（保留）
-            if (canUseLocalAi && canEdit) {
-                Row(modifier = Modifier.align(Alignment.End)) {
-                    TextButton(
-                        onClick = onTriggerAi,
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.AutoAwesome,
-                            contentDescription = null,
-                            modifier = Modifier.size(14.dp),
-                            tint = accentColor
-                        )
-                        Spacer(Modifier.width(4.dp))
-                        Text(
-                            "AI 整理",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = accentColor
-                        )
-                    }
-                }
-            }
-
             if (expanded) {
                 Spacer(Modifier.height(4.dp))
                 HorizontalDivider(color = accentColor.copy(alpha = 0.1f))

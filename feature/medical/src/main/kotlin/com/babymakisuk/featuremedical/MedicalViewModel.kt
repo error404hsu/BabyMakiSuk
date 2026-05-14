@@ -124,7 +124,7 @@ class MedicalViewModel @Inject constructor(
                 ageMonths   = child?.ageMonths ?: 0,
                 gender      = child?.gender?.name ?: "UNKNOWN",
                 allergies   = child?.allergies ?: ""
-            ).onSuccess { result ->
+            ).onSuccess { (result, _) ->
                 _aiAnalysisState.value = AiAnalysisState.Success(
                     diagnosisSummary = result.diagnosisSummary,
                     prescriptions    = result.prescriptions.joinToString("・"),
@@ -145,6 +145,7 @@ class MedicalViewModel @Inject constructor(
             val child = childRepo.getById(visit.childId) ?: return@launch
             medicalAiRepo.summarizeMedicalVisit(
                 visitId   = visit.id,
+                childId   = visit.childId,
                 rawNote   = visit.notes.ifBlank { visit.diagnosis },
                 ageMonths = child.ageMonths,
                 gender    = child.gender.name,
