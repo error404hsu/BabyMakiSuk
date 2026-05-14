@@ -12,7 +12,7 @@
 |-------|------|------|
 | A | 多模組骨架 + 資料模型 | ✅ 完成 |
 | B | 成長紀錄 + WHO 圖表 | ✅ 完成 |
-| C | 醫療紀錄 + AI 整合 | ✅ 完成 |
+| C | 醫療紀錄 + AI 整合 | 🔄 進行中 |
 | H | 書庫（週報 / AI 精華 / Memo） | ✅ 完成 |
 | UI | 設計系統優化 | ✅ 完成 |
 | D | 每日日誌 × Memo 整合 | 🔲 Sprint 4 |
@@ -46,9 +46,9 @@
 ### Phase C — 醫療紀錄 + AI
 - [x] MedicalUiState / MedicalViewModel / MedicalScreen
 - [x] MedicalVisitCard（AI 三欄展示）
-- [x] NewMedicalVisitDialog（已規劃替換為 MedicalEditScreen）
+- [x] NewMedicalVisitDialog（已升級為 ModalBottomSheet 全欄位版）
 - [x] core/ai ServiceAI 真實 SDK 串接
-- [x] MedicalAiRepository（summarizeMedicalVisit + analyzePrescription）
+- [x] MedicalAiRepository（summarizeMedicalVisit + analyzePrescription stub）
 - [x] AI JSON 解析與寫入 MedicalVisit
 - [x] AI 結果手動編輯 UI
 - [x] AiDispatcher 核心層（Sprint 1）
@@ -56,6 +56,14 @@
 - [x] AiContextInjector 規則式 RAG Phase 1.5（Sprint 3）
 - [x] WeeklyReportRepository AI 整合
 - [x] WeeklyReportSearchScreen（FTS + keyword highlight）
+- [x] NewMedicalVisitDialog — 就診日期 DatePickerDialog
+- [x] NewMedicalVisitDialog — AI 診斷 / 處方 / 居家照護三欄位整合
+- [x] NewMedicalVisitDialog — 藥單拍照（相機 / 相簿）+ 圖片預覽
+- [x] NewMedicalVisitDialog — AI 分析按鈕 + 信心分數 Banner + 自動填入
+- [x] AiAnalysisState sealed class（Idle / Analyzing / Success / Error）
+- [x] MedicalViewModel.analyzeImageWithAi() + resetAiState()
+- [x] MedicalVisitCard — 整張卡片 clickable 展開，移除獨立展開按鈕
+- [x] coil-compose 3.x 加入 libs.versions.toml + feature/medical build.gradle
 
 ### Phase H — 書庫
 - [x] BottomNavItem 配置
@@ -96,6 +104,15 @@
 
 ## 🔲 待開發
 
+### Phase C — 醫療 AI 圖片分析（待接 API）
+> 前置 UI 與 ViewModel 已完成，等待後端 API 實作後串接。
+
+- [ ] **`MedicalAiRepository.analyzePrescriptionImage(imageUri, symptomHint, ageMonths, gender, allergies)`**
+  - 呼叫 Gemini Vision API（multimodal）辨識藥單圖片
+  - 回傳結構：`diagnosisSummary`, `prescriptions: List<String>`, `careInstructions: List<String>`, `confidence: Int`, `safetyFlag: String`
+  - 實作位置：`core/ai` 模組
+  - 完成後移除 `MedicalViewModel` 與 `AiAnalysisState` 中的 TODO 標注
+
 ### Sprint 4 — Memo 整合每日日誌
 > 詳細規格見 `docs/AGENT_GUIDELINES.md` → Sprint 4 章節
 
@@ -122,18 +139,15 @@
 - [ ] SettingsScreen 通知總開關（DataStore）
 - [ ] POST_NOTIFICATIONS 權限申請（Android 13+）
 
-### 就醫畫面重構
-> 詳細規格見 `docs/AGENT_GUIDELINES.md` → 就醫畫面規範
-
-- [ ] MedicalVisitCard 整張卡片 clickable，移除展開按鈕
-- [ ] MedicalEditScreen 全頁編輯（含 visitDate DatePickerDialog）
-- [ ] 廢棄 NewMedicalVisitDialog
+### 就醫畫面重構（剩餘項目）
+- [ ] MedicalEditScreen 全頁編輯 Screen（`medical/edit` 路由，取代 ModalBottomSheet）
+- [ ] 廢棄 NewMedicalVisitDialog 並遷移至 MedicalEditScreen
 
 ### 成長紀錄重構
-> 詳細規格見 `docs/AGENT_GUIDELINES.md` → 成長紀錄規範
-
 - [ ] GrowthEditScreen 全頁編輯（含 recordedAt DatePickerDialog）
 - [ ] 廢棄 NewGrowthRecordDialog
+- [ ] 成長新增/編輯畫面加入日期欄位（與就醫同步）
+- [ ] 成長圖表深色模式白色區塊修正（使用 MaterialTheme.colorScheme.surface）
 
 ### BottomNavigation
 - [ ] 「疫苗」標籤改為「疫苗 就醫」
@@ -148,7 +162,6 @@
 | Google Drive 備份（Phase F 剩餘） | 暫緩 |
 | feature/vaccine 完整功能 | 目錄留位，孩子 3 歲暫不需要 |
 | WHO 官方 0-60 月 LMS CSV 替換 | stub 精度足夠，上架前再升級 |
-| 📷 病歷 OCR → 自動填入 | 暫緩 |
 | PDF 報表輸出 | 暫緩 |
 | Widget 今日待辦 | 暫緩 |
 | LINE / 短訊分享就診摘要 | 暫緩 |

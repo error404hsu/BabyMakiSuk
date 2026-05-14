@@ -40,6 +40,7 @@ fun MedicalScreen(
     val editingVisit by viewModel.editingVisit.collectAsState()
     val canEditData by viewModel.canEditData.collectAsState()
     val canUseLocalAi by viewModel.canUseLocalAi.collectAsState()
+    val aiAnalysisState by viewModel.aiAnalysisState.collectAsState()
 
     val drawerState = LocalDrawerState.current
     val drawerScope = rememberCoroutineScope()
@@ -163,13 +164,19 @@ fun MedicalScreen(
         }
     }
 
+    // ── 新增 / 編輯表單（ModalBottomSheet）──────────────────────────────────
     if (showForm && canEditData) {
         val selectedChildIdForm = (uiState as? MedicalUiState.Success)?.selectedChildId ?: 1L
         NewMedicalVisitDialog(
-            childId = selectedChildIdForm,
-            initialVisit = editingVisit,
-            onDismiss = viewModel::closeForm,
-            onConfirm = viewModel::saveVisit
+            childId         = selectedChildIdForm,
+            initialVisit    = editingVisit,
+            aiAnalysisState = aiAnalysisState,
+            onDismiss       = viewModel::closeForm,
+            onConfirm       = viewModel::saveVisit,
+            onAnalyzeImage  = { uri, symptom ->
+                viewModel.analyzeImageWithAi(uri, symptom, selectedChildIdForm)
+            },
+            onResetAiState  = viewModel::resetAiState
         )
     }
 }
@@ -287,7 +294,9 @@ private fun MedicalVisitCard(
     var editPrescriptionsText by remember(visit.id, visit.prescriptions) { mutableStateOf(visit.prescriptions) }
     var editCareText by remember(visit.id, visit.careInstructions) { mutableStateOf(visit.careInstructions) }
 
+    // 整張卡片可點擊切換展開
     Card(
+        onClick = { expanded = !expanded },
         modifier = Modifier
             .fillMaxWidth()
             .animateContentSize(),
@@ -329,6 +338,13 @@ private fun MedicalVisitCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+                // 展開指示箭頭（替代原展開按鈕）
+                Icon(
+                    imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = if (expanded) "收合" else "展開",
+                    tint = accentColor,
+                    modifier = Modifier.size(20.dp)
+                )
                 if (canEdit) {
                     IconButton(onClick = onEdit) {
                         Icon(
@@ -381,11 +397,9 @@ private fun MedicalVisitCard(
                 }
             }
 
-            Row(
-                modifier = Modifier.align(Alignment.End),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                if (canUseLocalAi && canEdit) {
+            // AI 整理按鈕（保留）
+            if (canUseLocalAi && canEdit) {
+                Row(modifier = Modifier.align(Alignment.End)) {
                     TextButton(
                         onClick = onTriggerAi,
                         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
@@ -403,22 +417,6 @@ private fun MedicalVisitCard(
                             color = accentColor
                         )
                     }
-                }
-                TextButton(
-                    onClick = { expanded = !expanded },
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
-                ) {
-                    Text(
-                        if (expanded) "收合詳情" else "展開",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = accentColor
-                    )
-                    Icon(
-                        imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = accentColor
-                    )
                 }
             }
 

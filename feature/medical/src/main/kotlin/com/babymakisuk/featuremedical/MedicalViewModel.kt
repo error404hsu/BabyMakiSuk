@@ -1,5 +1,6 @@
 package com.babymakisuk.featuremedical
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.babymakisuk.coredata.MedicalAiRepository
@@ -10,7 +11,6 @@ import com.babymakisuk.coredata.entity.toEntity
 import com.babymakisuk.coredata.repository.ChildRepository
 import com.babymakisuk.coremodel.Gender
 import com.babymakisuk.coremodel.MedicalVisit
-import com.babymakisuk.coremodel.UserRole
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
@@ -28,7 +28,6 @@ class MedicalViewModel @Inject constructor(
 
     private val _selectedChildId = MutableStateFlow<Long?>(null)
 
-    // 角色旗標
     val canEditData: StateFlow<Boolean> = settingsRepo.userRoleFlow
         .map { it.canEditData }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
@@ -73,33 +72,77 @@ class MedicalViewModel @Inject constructor(
     private val _editingVisit = MutableStateFlow<MedicalVisit?>(null)
     val editingVisit: StateFlow<MedicalVisit?> = _editingVisit.asStateFlow()
 
+    // ── AI 圖片分析狀態 ──────────────────────────────────────────────────────
+    private val _aiAnalysisState = MutableStateFlow<AiAnalysisState>(AiAnalysisState.Idle)
+    val aiAnalysisState: StateFlow<AiAnalysisState> = _aiAnalysisState.asStateFlow()
+
     fun selectChild(childId: Long) { _selectedChildId.value = childId }
 
     fun openForm() {
         _editingVisit.value = null
+        _aiAnalysisState.value = AiAnalysisState.Idle
         _showForm.value = true
     }
 
     fun editVisit(visit: MedicalVisit) {
         _editingVisit.value = visit
+        _aiAnalysisState.value = AiAnalysisState.Idle
         _showForm.value = true
     }
 
     fun closeForm() {
         _showForm.value = false
         _editingVisit.value = null
+        _aiAnalysisState.value = AiAnalysisState.Idle
     }
 
     fun saveVisit(visit: MedicalVisit) {
         viewModelScope.launch {
             medicalDao.upsert(visit.toEntity())
             _showForm.value = false
+            _aiAnalysisState.value = AiAnalysisState.Idle
         }
     }
 
     fun deleteVisit(visit: MedicalVisit) {
         viewModelScope.launch { medicalDao.delete(visit.toEntity()) }
     }
+
+    /**
+     * 藥單圖片 AI 分析。
+     * 呼叫 [MedicalAiRepository.analyzePrescriptionImage] 並將結果寫入 [AiAnalysisState]。
+     * UI 透過 [LaunchedEffect] 監聽 [AiAnalysisState.Success] 後自動填入三欄位。
+     *
+     * TODO: MedicalAiRepository.analyzePrescriptionImage() 尚未實作，
+     *       目前呼叫會直接 fallback 到 onFailure。
+     *       實作完成（Gemini Vision API 串接）後移除此 TODO。
+     */
+    fun analyzeImageWithAi(imageUri: Uri?, symptomText: String, childId: Long) {
+        if (imageUri == null) return
+        _aiAnalysisState.value = AiAnalysisState.Analyzing
+        viewModelScope.launch {
+            val child = childRepo.getById(childId)
+            medicalAiRepo.analyzePrescriptionImage(
+                imageUri    = imageUri,
+                symptomHint = symptomText,
+                ageMonths   = child?.ageMonths ?: 0,
+                gender      = child?.gender?.name ?: "UNKNOWN",
+                allergies   = child?.allergies ?: ""
+            ).onSuccess { result ->
+                _aiAnalysisState.value = AiAnalysisState.Success(
+                    diagnosisSummary = result.diagnosisSummary,
+                    prescriptions    = result.prescriptions.joinToString("・"),
+                    careInstructions = result.careInstructions.joinToString("・"),
+                    confidence       = result.confidence ?: 85
+                )
+            }.onFailure { e ->
+                _aiAnalysisState.value = AiAnalysisState.Error(e.message ?: "AI 分析失敗")
+            }
+        }
+    }
+
+    /** 重置 AI 狀態（用戶移除圖片時呼叫）。 */
+    fun resetAiState() { _aiAnalysisState.value = AiAnalysisState.Idle }
 
     fun triggerAiSummary(visit: MedicalVisit) {
         viewModelScope.launch {
@@ -131,11 +174,11 @@ class MedicalViewModel @Inject constructor(
     ) {
         viewModelScope.launch {
             medicalDao.updateAiFields(
-                id = id,
+                id               = id,
                 diagnosisSummary = diagnosisSummary,
-                prescriptions = prescriptions,
+                prescriptions    = prescriptions,
                 careInstructions = careInstructions,
-                isUrgent = isUrgent
+                isUrgent         = isUrgent
             )
         }
     }
