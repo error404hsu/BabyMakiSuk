@@ -24,16 +24,12 @@ class SystemReminderShelfViewModel @Inject constructor(
 
     private val dateFormat = SimpleDateFormat("yyyy/MM/dd (E)", Locale.getDefault())
 
-    val reminders: StateFlow<List<SystemReminder>> = if (childId == 0L) {
-        MutableStateFlow(emptyList())
-    } else {
-        systemReminderRepository.getByChildId(childId)
-            .stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5_000),
-                initialValue = emptyList()
-            )
-    }
+    val reminders: StateFlow<List<SystemReminder>> = systemReminderRepository.getByChildId(childId)
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = emptyList()
+        )
 
     val groupedByDate: StateFlow<Map<String, List<SystemReminder>>> = reminders.map { list ->
         list.groupBy { reminder ->

@@ -13,5 +13,6 @@ data class SystemReminder(
 enum class SystemReminderType {
     LONG_NO_BM,
     VACCINE_DUE_SOON,
-    MEDICAL_FOLLOW_UP
+    MEDICAL_FOLLOW_UP,
+    MONTHLY_REPORT_PENDING
 }

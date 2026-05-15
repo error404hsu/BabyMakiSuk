@@ -1,5 +1,6 @@
 package com.babymakisuk.featureai
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -27,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
@@ -36,6 +38,7 @@ import com.babymakisuk.coreai.AiPreset
 import com.babymakisuk.coreai.GeminiModel
 import com.babymakisuk.coremodel.Gender
 import com.babymakisuk.ui.theme.BabyMakiSukTheme
+import androidx.compose.material.icons.filled.Info
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -87,6 +90,8 @@ fun AiPortalScreenContent(
     val isTestingMode = true
     var showModelMenu by remember { mutableStateOf(false) }
     var showNewConvDialog by remember { mutableStateOf(false) }
+    var pendingChildId by remember { mutableStateOf<Long?>(null) }
+    var showSwitchChildDialog by remember { mutableStateOf(false) }
 
     val listState = rememberLazyListState()
 
@@ -260,31 +265,58 @@ fun AiPortalScreenContent(
             }
 
             // 小孩選擇器
-            if (uiState.children.isNotEmpty()) {
-                LazyRow(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(uiState.children) { child ->
-                        val isSelected = child.id == uiState.selectedChildId
-                        val genderColor = if (child.gender == Gender.MALE) Color(0xFF4A90D9) else Color(0xFFE07BBD)
-
-                        FilterChip(
-                            selected = isSelected,
-                            onClick = { onSelectChild(child.id) },
-                            label = {
-                                Text(
-                                    "${if (child.gender == Gender.MALE) "👦" else "👧"} ${child.name}"
-                                )
-                            },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = genderColor.copy(alpha = 0.2f),
-                                selectedLabelColor = genderColor
-                            )
+            LazyRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // 不指定 (雙胞胎) 選項
+                item {
+                    val isSelected = uiState.selectedChildId == -1L
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = {
+                            if (uiState.messages.isNotEmpty() && !isSelected) {
+                                pendingChildId = -1L
+                                showSwitchChildDialog = true
+                            } else {
+                                onSelectChild(-1L)
+                            }
+                        },
+                        label = { Text("👫 雙胞胎 (不指定)") },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f),
+                            selectedLabelColor = MaterialTheme.colorScheme.tertiary
                         )
-                    }
+                    )
+                }
+
+                items(uiState.children) { child ->
+                    val isSelected = child.id == uiState.selectedChildId
+                    val genderColor = if (child.gender == Gender.MALE) Color(0xFF4A90D9) else Color(0xFFE07BBD)
+
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = {
+                            if (uiState.messages.isNotEmpty() && !isSelected) {
+                                pendingChildId = child.id
+                                showSwitchChildDialog = true
+                            } else {
+                                onSelectChild(child.id)
+                            }
+                        },
+                        label = {
+                            Text(
+                                "${if (child.gender == Gender.MALE) "👦" else "👧"} ${child.name}"
+                            )
+                        },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = genderColor.copy(alpha = 0.2f),
+                            selectedLabelColor = genderColor
+                        )
+                    )
                 }
             }
 
@@ -301,14 +333,17 @@ fun AiPortalScreenContent(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(uiState.messages, key = { it.id }) { message ->
-                    ChatBubble(
-                        message = message,
-                        aiPresetName = if (message.role == Role.AI) uiState.selectedPreset.displayName else null,
-                        aiPresetHint = if (message.role == Role.AI) uiState.selectedPreset.name else null
-                    )
+                    // 修正：AI 正在生成時，若內容為空則不顯示氣泡 (避免空泡泡)
+                    if (message.text.isNotEmpty() || message.role == Role.USER) {
+                        ChatBubble(
+                            message = message,
+                            aiPresetName = if (message.role == Role.AI) uiState.selectedPreset.displayName else null,
+                            aiPresetHint = if (message.role == Role.AI) uiState.selectedPreset.name else null
+                        )
+                    }
                 }
 
-                // AI 正在輸入中的提示
+                // AI 正在輸入中的提示 (僅保留這一個指示器)
                 if (uiState.isGenerating) {
                     item(key = "typing_indicator") {
                         ThinkingIndicator()
@@ -350,6 +385,27 @@ fun AiPortalScreenContent(
                 isGenerating = uiState.isGenerating
             )
         }
+    }
+
+    if (showSwitchChildDialog) {
+        AlertDialog(
+            onDismissRequest = { showSwitchChildDialog = false },
+            title = { Text("切換對象") },
+            text = { Text("切換孩子對象將會清除目前的對話記錄並開始新對話，確定要切換嗎？") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showSwitchChildDialog = false
+                    pendingChildId?.let { onSelectChild(it) }
+                }) {
+                    Text("確定切換")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSwitchChildDialog = false }) {
+                    Text("取消")
+                }
+            }
+        )
     }
 
     if (showNewConvDialog) {

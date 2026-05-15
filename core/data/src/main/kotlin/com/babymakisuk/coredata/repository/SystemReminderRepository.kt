@@ -18,7 +18,7 @@ class SystemReminderRepository @Inject constructor(
 ) {
 
     fun getByChildId(childId: Long): Flow<List<SystemReminder>> =
-        dao.getByChildId(childId).map { list -> list.map { it.toDomain() } }
+        dao.getByChildIdIncludingGlobal(childId).map { list -> list.map { it.toDomain() } }
 
     fun getUnresolvedByType(childId: Long, type: SystemReminderType): Flow<List<SystemReminder>> =
         dao.getUnresolvedByType(childId, type.name).map { list -> list.map { it.toDomain() } }

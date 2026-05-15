@@ -19,6 +19,9 @@ interface SystemReminderDao {
     @Query("SELECT * FROM system_reminders WHERE childId = :childId ORDER BY createdAt DESC")
     fun getByChildId(childId: Long): Flow<List<SystemReminderEntity>>
 
+    @Query("SELECT * FROM system_reminders WHERE childId = :childId OR childId = 0 ORDER BY createdAt DESC")
+    fun getByChildIdIncludingGlobal(childId: Long): Flow<List<SystemReminderEntity>>
+
     @Query("SELECT * FROM system_reminders WHERE childId = :childId AND type = :type AND resolvedAt IS NULL ORDER BY createdAt DESC")
     fun getUnresolvedByType(childId: Long, type: String): Flow<List<SystemReminderEntity>>
 

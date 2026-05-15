@@ -15,6 +15,8 @@ import com.babymakisuk.featuregrowth.domain.DeleteGrowthRecord
 import com.babymakisuk.featuregrowth.domain.GrowthRecordWithPercentile
 import com.babymakisuk.featuregrowth.domain.ObserveGrowthWithPercentile
 import com.babymakisuk.featuregrowth.domain.SaveGrowthRecord
+import com.babymakisuk.coredata.dao.AiInsightDao
+import com.babymakisuk.coredata.entity.AiInsightEntity
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
@@ -43,56 +45,62 @@ class GrowthViewModel @Inject constructor(
     private val saveGrowth: SaveGrowthRecord,
     private val deleteGrowth: DeleteGrowthRecord,
     private val settingsRepo: SettingsRepository,
-    private val aiDispatcher: AiDispatcher
+    private val aiDispatcher: AiDispatcher,
+    private val aiInsightDao: AiInsightDao
 ) : ViewModel() {
 
     private val _selectedChildId = MutableStateFlow<Long?>(savedStateHandle["childId"])
+
+    private val _isAnalyzing = MutableStateFlow(false)
 
     val canEditData: StateFlow<Boolean> = settingsRepo.userRoleFlow
         .map { it.canEditData }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
-    private val _uiState = MutableStateFlow<GrowthUiState>(GrowthUiState.Loading)
-    val uiState: StateFlow<GrowthUiState> = _uiState.asStateFlow()
-
-    init {
-        observeData()
-    }
-
     @OptIn(ExperimentalCoroutinesApi::class)
-    private fun observeData() {
-        viewModelScope.launch {
-            combine(
-                childRepo.observeAll(),
-                _selectedChildId
-            ) { children, selectedId ->
-                children to selectedId
-            }
-                .flatMapLatest { (children, selectedId) ->
-                    if (children.isEmpty()) {
-                        return@flatMapLatest flowOf<GrowthUiState>(
-                            GrowthUiState.Success(
-                                children = emptyList(),
-                                selectedChildId = -1L,
-                                records = emptyList()
-                            )
-                        )
-                    }
-                    val effectiveId = selectedId
-                        ?: children.firstOrNull { it.gender == Gender.MALE }?.id
-                        ?: children.first().id
-                    observeGrowth(effectiveId).map { records ->
-                        GrowthUiState.Success(
-                            children = children,
-                            selectedChildId = effectiveId,
-                            records = records
-                        )
-                    }
-                }
-                .catch { emit(GrowthUiState.Error(it.message ?: "Unknown error")) }
-                .collect { _uiState.value = it }
+    val uiState: StateFlow<GrowthUiState> = combine(
+        childRepo.observeAll(),
+        _selectedChildId,
+        aiInsightDao.getAllFlow().map { insights ->
+            insights.filter { it.id.startsWith("growth_analysis_") }
+                .associate { (it.childId.toLongOrNull() ?: 0L) to it.content }
+        },
+        _isAnalyzing
+    ) { children, selectedId, aiMap, isAnalyzing ->
+        DataSnapshot(children, selectedId, aiMap, isAnalyzing)
+    }.flatMapLatest { snapshot ->
+        val children = snapshot.children
+        if (children.isEmpty()) {
+            return@flatMapLatest flowOf(
+                GrowthUiState.Success(
+                    children = emptyList(),
+                    selectedChildId = -1L,
+                    records = emptyList()
+                )
+            )
         }
-    }
+        val effectiveId = snapshot.selectedId
+            ?: children.firstOrNull { it.gender == Gender.MALE }?.id
+            ?: children.first().id
+
+        observeGrowth(effectiveId).map<List<GrowthRecordWithPercentile>, GrowthUiState> { records ->
+            GrowthUiState.Success(
+                children = children,
+                selectedChildId = effectiveId,
+                records = records,
+                aiAnalysisText = snapshot.aiMap[effectiveId] ?: "",
+                isAnalyzing = snapshot.isAnalyzing
+            )
+        }
+    }.catch { emit(GrowthUiState.Error(it.message ?: "Unknown error")) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), GrowthUiState.Loading)
+
+    private data class DataSnapshot(
+        val children: List<ChildProfile>,
+        val selectedId: Long?,
+        val aiMap: Map<Long, String>,
+        val isAnalyzing: Boolean
+    )
 
     private val _showForm = MutableStateFlow(false)
     val showForm: StateFlow<Boolean> = _showForm.asStateFlow()
@@ -148,11 +156,11 @@ class GrowthViewModel @Inject constructor(
     }
 
     fun refreshAiAnalysis() {
-        val currentState = _uiState.value as? GrowthUiState.Success ?: return
+        val currentState = uiState.value as? GrowthUiState.Success ?: return
         val records = currentState.records
         if (records.isEmpty()) return
 
-        _uiState.update { (it as? GrowthUiState.Success)?.copy(isAnalyzing = true) ?: it }
+        _isAnalyzing.value = true
 
         viewModelScope.launch {
             try {
@@ -184,9 +192,19 @@ class GrowthViewModel @Inject constructor(
                     userPrompt = dataPrompt
                 )
 
-                _uiState.update { (it as? GrowthUiState.Success)?.copy(aiAnalysisText = response, isAnalyzing = false) ?: it }
+                val insight = AiInsightEntity(
+                    id = "growth_analysis_${currentState.selectedChildId}",
+                    childId = currentState.selectedChildId.toString(),
+                    title = "生長分析",
+                    content = response,
+                    sourceDate = System.currentTimeMillis(),
+                    createdAt = System.currentTimeMillis()
+                )
+                aiInsightDao.insert(insight)
             } catch (_: Exception) {
-                _uiState.update { (it as? GrowthUiState.Success)?.copy(aiAnalysisText = "AI 分析失敗，請稍後再試", isAnalyzing = false) ?: it }
+                // 如果失敗不更新，或可以考慮更新一個錯誤訊息到資料庫
+            } finally {
+                _isAnalyzing.value = false
             }
         }
     }

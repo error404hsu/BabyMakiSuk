@@ -24,11 +24,7 @@ class AiInsightShelfViewModel @Inject constructor(
 
     private val childId: String = savedStateHandle.get<String>("childId") ?: ""
 
-    val insights: StateFlow<List<AiInsightEntity>> = flowOf(childId)
-        .flatMapLatest { cid ->
-            if (cid.isBlank()) flowOf(emptyList())
-            else aiInsightDao.getByChildId(cid)
-        }
+    val insights: StateFlow<List<AiInsightEntity>> = aiInsightDao.getAllFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     fun deleteInsight(id: String) {

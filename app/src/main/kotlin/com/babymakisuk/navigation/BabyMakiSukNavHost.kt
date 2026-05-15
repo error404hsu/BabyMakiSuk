@@ -6,6 +6,8 @@ import com.babymakisuk.ui.components.LocalDrawerState
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -21,6 +23,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -86,30 +89,31 @@ fun BabyMakiSukNavHost() {
             drawerState = drawerState,
             drawerContent = {
                 ModalDrawerSheet {
-                    // Drawer Header
+                    // Drawer Header - App Branding
                     Column(
-                        modifier = Modifier.padding(24.dp, 32.dp, 24.dp, 16.dp)
+                        modifier = Modifier.padding(24.dp, 48.dp, 24.dp, 24.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
-                                imageVector = Icons.Filled.AccountCircle,
-                                contentDescription = "User Profile",
-                                modifier = Modifier.size(48.dp),
+                                imageVector = Icons.Default.ChildCare,
+                                contentDescription = null,
+                                modifier = Modifier.size(32.dp),
                                 tint = MaterialTheme.colorScheme.primary
                             )
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column {
-                                Text(
-                                    text = "親愛的家長",
-                                    style = MaterialTheme.typography.titleLarge
-                                )
-                                Text(
-                                    text = "歡迎回到 BabyMakiSuk",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "Baby Maki Suk",
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
                         }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "陪伴寶寶成長的每一天",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        )
                     }
 
                     LibraryScreen(

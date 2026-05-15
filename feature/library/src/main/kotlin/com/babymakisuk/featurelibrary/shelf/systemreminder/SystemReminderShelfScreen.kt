@@ -1,24 +1,27 @@
 package com.babymakisuk.featurelibrary.shelf.systemreminder
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.babymakisuk.coremodel.SystemReminder
-import com.babymakisuk.ui.components.BabyTopBar
-import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -31,31 +34,23 @@ fun SystemReminderShelfScreen(
 ) {
     val reminders by viewModel.reminders.collectAsState()
     val grouped by viewModel.groupedByDate.collectAsState()
-    val scope = rememberCoroutineScope()
-    val drawerState = com.babymakisuk.ui.components.LocalDrawerState.current
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
         topBar = {
-            BabyTopBar(
-                title = {
-                    Text(
-                        "系統提醒",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
-                    )
-                },
-                showSearch = false,
-                showAi = false,
-                showAdd = false,
-                onMenuClick = { scope.launch { drawerState.open() } }
+            TopAppBar(
+                title = { Text("系統提醒", fontWeight = FontWeight.ExtraBold) },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回")
+                    }
+                }
             )
         }
     ) { innerPadding ->
         if (reminders.isEmpty()) {
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
+                modifier = Modifier.fillMaxSize().padding(innerPadding),
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -63,26 +58,19 @@ fun SystemReminderShelfScreen(
                         Icons.Default.CheckCircle,
                         contentDescription = null,
                         modifier = Modifier.size(72.dp),
-                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
                     )
                     Spacer(Modifier.height(16.dp))
                     Text(
-                        "尚無系統提醒",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        "沒有任何需要處理的提醒",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        "尚無提醒項目",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                     )
                 }
             }
         } else {
             LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(top = innerPadding.calculateTopPadding()),
+                modifier = Modifier.fillMaxSize().padding(top = innerPadding.calculateTopPadding()),
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
@@ -98,12 +86,11 @@ fun SystemReminderShelfScreen(
                     items(dayReminders, key = { it.id }) { reminder ->
                         SystemReminderCard(
                             reminder = reminder,
-                            onResolve = { viewModel.markResolved(reminder.id) },
-                            onBack = { navController.popBackStack() }
+                            onResolve = { viewModel.markResolved(reminder.id) }
                         )
                     }
                 }
-                item { Spacer(Modifier.height(80.dp)) }
+                item { Spacer(Modifier.height(32.dp)) }
             }
         }
     }
@@ -112,13 +99,12 @@ fun SystemReminderShelfScreen(
 @Composable
 private fun SystemReminderCard(
     reminder: SystemReminder,
-    onResolve: () -> Unit,
-    onBack: () -> Unit
+    onResolve: () -> Unit
 ) {
     val dateFormat = SimpleDateFormat("yyyy/MM/dd HH:mm", Locale.getDefault())
 
     ElevatedCard(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
@@ -134,12 +120,12 @@ private fun SystemReminderCard(
                 color = if (reminder.resolvedAt != null)
                     MaterialTheme.colorScheme.surfaceVariant
                 else
-                    MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                    MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
                 modifier = Modifier.size(44.dp)
             ) {
-                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        Icons.Default.Warning,
+                        if (reminder.resolvedAt != null) Icons.Default.CheckCircle else Icons.Default.Warning,
                         contentDescription = null,
                         tint = if (reminder.resolvedAt != null)
                             MaterialTheme.colorScheme.outline
@@ -149,45 +135,48 @@ private fun SystemReminderCard(
                     )
                 }
             }
+            
             Spacer(Modifier.width(12.dp))
+            
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = reminder.title,
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = reminder.title,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = dateFormat.format(Date(reminder.createdAt)),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                }
                 Spacer(Modifier.height(4.dp))
                 Text(
                     text = reminder.content,
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 22.sp,
                     maxLines = 4,
                     overflow = TextOverflow.Ellipsis
                 )
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = dateFormat.format(Date(reminder.createdAt)),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.outline
-                )
+                
+                Spacer(Modifier.height(12.dp))
+                
                 if (reminder.resolvedAt == null) {
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedButton(
+                    Button(
                         onClick = onResolve,
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
+                        modifier = Modifier.height(32.dp),
                         shape = RoundedCornerShape(8.dp)
                     ) {
-                        Icon(
-                            Icons.Default.CheckCircle,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(Modifier.width(4.dp))
-                        Text("標記已處理", style = MaterialTheme.typography.labelSmall)
+                        Text("標記為已處理", style = MaterialTheme.typography.labelMedium)
                     }
                 } else {
-                    Spacer(Modifier.height(8.dp))
                     Surface(
                         shape = RoundedCornerShape(4.dp),
                         color = MaterialTheme.colorScheme.surfaceVariant

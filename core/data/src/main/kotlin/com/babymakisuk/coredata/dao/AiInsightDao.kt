@@ -19,6 +19,9 @@ interface AiInsightDao {
     @Query("SELECT * FROM ai_insights")
     suspend fun getAllOnce(): List<AiInsightEntity>
 
+    @Query("SELECT * FROM ai_insights ORDER BY createdAt DESC")
+    fun getAllFlow(): Flow<List<AiInsightEntity>>
+
     @Query("DELETE FROM ai_insights")
     suspend fun deleteAll()
 

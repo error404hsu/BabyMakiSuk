@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.babymakisuk.coredata.DarkModeOption
 import com.babymakisuk.coredata.SettingsRepository
+import com.babymakisuk.coredata.repository.MonthlyReportRepository
 import com.babymakisuk.coremodel.UserRole
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,7 +33,8 @@ sealed interface BackupUiState {
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val repository: SettingsRepository
+    private val repository: SettingsRepository,
+    private val monthlyReportRepository: MonthlyReportRepository
 ) : ViewModel() {
 
     // ── 深色模式 ──────────────────────────────────────────
@@ -128,5 +130,27 @@ class SettingsViewModel @Inject constructor(
 
     fun clearBackupState() {
         _backupState.value = BackupUiState.Idle
+    }
+
+    // ── 測試功能 ──────────────────────────────────────────
+
+    fun generateLastMonthReport() {
+        viewModelScope.launch {
+            _backupState.value = BackupUiState.Loading(message = "正在產生上月合併月報...")
+            runCatching {
+                val lastMonth = java.time.YearMonth.now().minusMonths(1)
+                monthlyReportRepository.generateMonthlyReport(lastMonth)
+            }.onSuccess {
+                _backupState.value = BackupUiState.Idle
+            }.onFailure {
+                _backupState.value = BackupUiState.Error(it.message ?: "產生失敗")
+            }
+        }
+    }
+
+    fun triggerMonthlyReminderTest() {
+        viewModelScope.launch {
+            monthlyReportRepository.checkAndCreateMonthlyReportReminder(force = true)
+        }
     }
 }

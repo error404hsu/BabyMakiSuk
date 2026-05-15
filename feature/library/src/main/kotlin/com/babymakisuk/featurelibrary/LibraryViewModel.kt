@@ -45,17 +45,15 @@ class LibraryViewModel @Inject constructor(
     private val selectedChildIdStr = selectedChildId.map { it.toString() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
 
-    val weeklyLastUpdated: StateFlow<Long?> = selectedChildIdStr.flatMapLatest { childId ->
-        if (childId.isBlank()) flowOf(null)
-        else monthlyReportDao.getRecentReports(childId, 1).map { list ->
-            list.firstOrNull()?.syncedAt
-        }
+    val weeklyLastUpdated: StateFlow<Long?> = monthlyReportDao.getRecentReports("merged", 1).map { list ->
+        list.firstOrNull()?.syncedAt
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     val aiInsightLastUpdated: StateFlow<Long?> = selectedChildIdStr.flatMapLatest { childId ->
-        if (childId.isBlank()) flowOf(null)
-        else aiInsightDao.getByChildId(childId).map { list ->
-            list.firstOrNull()?.createdAt
+        if (childId.isBlank() || childId == "-1") {
+            aiInsightDao.getAllFlow().map { list -> list.firstOrNull()?.createdAt }
+        } else {
+            aiInsightDao.getByChildId(childId).map { list -> list.firstOrNull()?.createdAt }
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 

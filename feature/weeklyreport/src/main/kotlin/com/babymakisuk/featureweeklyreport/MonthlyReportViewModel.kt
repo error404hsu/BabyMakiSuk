@@ -2,11 +2,10 @@ package com.babymakisuk.featureweeklyreport
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.babymakisuk.coredata.dao.MonthlyReportDao
-import com.babymakisuk.coredata.entity.toDomain
 import com.babymakisuk.coredata.repository.MonthlyReportRepository
 import com.babymakisuk.coremodel.MonthlyReport
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.YearMonth
@@ -14,8 +13,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class MonthlyReportViewModel @Inject constructor(
-    private val monthlyReportRepository: MonthlyReportRepository,
-    private val monthlyReportDao: MonthlyReportDao
+    private val monthlyReportRepository: MonthlyReportRepository
 ) : ViewModel() {
 
     private val _childId = MutableStateFlow("")
@@ -24,12 +22,11 @@ class MonthlyReportViewModel @Inject constructor(
         _childId.value = id
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     val reports: StateFlow<List<MonthlyReport>> = _childId
         .flatMapLatest { childId ->
-            if (childId.isBlank()) flowOf(emptyList())
-            else monthlyReportDao.getRecentReports(childId, limit = 50).map { entities ->
-                entities.map { it.toDomain() }
-            }
+            // 不分孩子，一律顯示合併月報 (使用 "merged" 作為標記)
+            monthlyReportRepository.getRecentReports("merged", limit = 50)
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
@@ -41,17 +38,13 @@ class MonthlyReportViewModel @Inject constructor(
 
     fun generateReport() {
         viewModelScope.launch {
-            val childIdStr = _childId.value
-            if (childIdStr.isBlank()) return@launch
-            val childId = childIdStr.toLongOrNull() ?: return@launch
-
             _isGenerating.value = true
             _errorMessage.value = null
 
             val yearMonth = YearMonth.now()
 
             runCatching {
-                monthlyReportRepository.generateMonthlyReport(childId, yearMonth)
+                monthlyReportRepository.generateMonthlyReport(yearMonth)
             }.onFailure {
                 _errorMessage.value = it.message
             }
@@ -63,9 +56,7 @@ class MonthlyReportViewModel @Inject constructor(
     fun deleteReport(reportId: String) {
         viewModelScope.launch {
             try {
-                monthlyReportDao.getById(reportId)?.let { entity ->
-                    monthlyReportDao.delete(entity)
-                }
+                monthlyReportRepository.deleteReport(reportId)
             } catch (e: Exception) {
                 _errorMessage.value = e.message
             }

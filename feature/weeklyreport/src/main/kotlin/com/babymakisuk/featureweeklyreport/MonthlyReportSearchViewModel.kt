@@ -23,10 +23,11 @@ class MonthlyReportSearchViewModel @Inject constructor(
     val searchResults: StateFlow<List<MonthlyReportEntity>> = searchQuery
         .debounce(300L)
         .flatMapLatest { query ->
-            if (query.isBlank() || currentChildId.isBlank()) {
+            if (query.isBlank()) {
                 flowOf(emptyList())
             } else {
-                dao.searchByKeyword(currentChildId, query)
+                // 月報目前採合併制，固定使用 "merged" 作為 childId 搜尋
+                dao.searchByKeyword("merged", query)
             }
         }
         .stateIn(

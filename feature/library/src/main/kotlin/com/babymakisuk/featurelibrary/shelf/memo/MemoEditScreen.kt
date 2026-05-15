@@ -273,9 +273,9 @@ private fun AdaptiveButton(
     content: @Composable RowScope.() -> Unit
 ) {
     if (variant == ButtonVariant.FILLED) {
-        Button(onClick = onClick, modifier = modifier, enabled = enabled, shape = shape, content = content)
+        androidx.compose.material3.Button(onClick = onClick, modifier = modifier, enabled = enabled, shape = shape, content = content)
     } else {
-        OutlinedButton(onClick = onClick, modifier = modifier, enabled = enabled, shape = shape, content = content)
+        androidx.compose.material3.OutlinedButton(onClick = onClick, modifier = modifier, enabled = enabled, shape = shape, content = content)
     }
 }
 

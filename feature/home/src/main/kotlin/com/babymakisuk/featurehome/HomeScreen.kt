@@ -7,12 +7,8 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -31,7 +27,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentWidth
@@ -42,9 +37,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ShowChart
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Boy
 import androidx.compose.material.icons.filled.ChildCare
 import androidx.compose.material.icons.filled.Girl
@@ -52,6 +49,7 @@ import androidx.compose.material.icons.filled.Height
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MedicalServices
 import androidx.compose.material.icons.filled.MonitorWeight
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material3.Button
@@ -63,6 +61,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -88,6 +87,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -165,72 +165,75 @@ fun HomeScreenContent(
         topBar = {
             BabyTopBar(
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.ChildCare,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(28.dp)
+                    val aiGradient = Brush.linearGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                            MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f)
                         )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            "Baby Maki Suk",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.ExtraBold
-                        )
+                    )
+                    
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(42.dp)
+                            .clickable { onNavigateToAi("QUICK_CHAT") },
+                        shape = RoundedCornerShape(21.dp),
+                        color = Color.Transparent,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .background(aiGradient)
+                                .padding(horizontal = 14.dp),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.AutoAwesome,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(Modifier.width(10.dp))
+                                Text(
+                                    text = "問點什麼？ AI 小幫手為您解答",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
                     }
                 },
-                showSearch = true,
-                showAi = true,
+                showSearch = false,
+                showAi = false,
                 showAdd = false,
                 onMenuClick = { drawerScope.launch { drawerState.open() } },
-                onAiClick = { onNavigateToAi("QUICK_CHAT") }
+                extraActions = {
+                    IconButton(onClick = { /* 帳號設定導向 */ }) {
+                        Icon(
+                            imageVector = Icons.Default.AccountCircle,
+                            contentDescription = "帳號",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(30.dp)
+                        )
+                    }
+                }
             )
         }
     ) { innerPadding ->
-        Box(
+        Column(
             modifier = Modifier
+                .padding(innerPadding)
                 .fillMaxSize()
-                .padding(top = innerPadding.calculateTopPadding())
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
         ) {
-            if (uiState.boy == null && uiState.girl == null) {
-                Column(
-                    modifier = Modifier.fillMaxSize().padding(32.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Icon(
-                        Icons.Default.ChildCare,
-                        contentDescription = null,
-                        modifier = Modifier.size(80.dp),
-                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
-                    )
-                    Spacer(Modifier.height(16.dp))
-                    Text(
-                        "尚未建立孩子資料",
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        "開始記錄寶寶的每一個成長時刻",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(Modifier.height(24.dp))
-                    Button(
-                        onClick = { },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.tertiary
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("新增孩子")
-                    }
-                }
-            } else {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            ) {
                 Column(modifier = Modifier.fillMaxSize()) {
                     val girlWeight by animateFloatAsState(
                         targetValue = when (expandedGender) {
@@ -243,7 +246,7 @@ fun HomeScreenContent(
                     if (girlWeight > 0.01f) {
                         Box(modifier = Modifier.weight(girlWeight).fillMaxWidth()) {
                             ChildSummaryCard(
-                                child = uiState.girl ?: ChildProfile(name = "妹妹", gender = Gender.FEMALE, birthday = LocalDate.now()),
+                                child = uiState.girl ?: ChildProfile(name = "姊姊", gender = Gender.FEMALE, birthday = LocalDate.now()),
                                 latestGrowth = uiState.girlLatestGrowth,
                                 latestMedical = uiState.girlLatestMedical,
                                 toiletRecords = uiState.girlToiletRecords,
@@ -262,7 +265,7 @@ fun HomeScreenContent(
                         }
                     }
 
-            val boyWeight by animateFloatAsState(
+                    val boyWeight by animateFloatAsState(
                         targetValue = when (expandedGender) {
                             Gender.MALE -> 0.85f
                             Gender.FEMALE -> 0.15f
@@ -412,108 +415,137 @@ private fun CollapsedContent(
     accentColor: Color
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
+        // 背景層：照片或漸層
         if (childPhoto != null) {
-            Image(bitmap = childPhoto, contentDescription = null,
-                modifier = Modifier.fillMaxSize().alpha(0.1f),
-                contentScale = ContentScale.Crop)
-        }
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(bottom = 0.dp, end = 0.dp)
-                .size(160.dp)
-                .clip(RoundedCornerShape(topStart = 80.dp))
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf(accentColor.copy(alpha = 0.12f), Color.Transparent),
-                        center = Offset(160f, 160f)
+            Image(
+                bitmap = childPhoto,
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+                alpha = 0.2f
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.linearGradient(
+                            listOf(accentColor.copy(alpha = 0.05f), accentColor.copy(alpha = 0.15f))
+                        )
                     )
-                ),
-            contentAlignment = Alignment.Center
-        ) {
+            )
             Icon(
                 imageVector = if (child.gender == Gender.FEMALE) Icons.Default.Girl else Icons.Default.Boy,
                 contentDescription = null,
-                modifier = Modifier.size(100.dp).offset(x = 20.dp, y = 20.dp),
-                tint = accentColor.copy(alpha = 0.08f)
+                modifier = Modifier
+                    .size(180.dp)
+                    .align(Alignment.BottomEnd)
+                    .offset(x = 40.dp, y = 40.dp)
+                    .alpha(0.05f),
+                tint = accentColor
             )
         }
 
-        Row(
-            modifier = Modifier.fillMaxSize().padding(24.dp),
-            verticalAlignment = Alignment.CenterVertically
+        // 內容層
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                if (childPhoto != null) {
-                    Image(bitmap = childPhoto, contentDescription = null,
-                        modifier = Modifier.size(72.dp).clip(CircleShape).alpha(0.25f),
-                        contentScale = ContentScale.Crop)
-                }
-                Surface(
-                    shape = CircleShape,
-                    color = accentColor.copy(alpha = if (childPhoto != null) 0.05f else 0.1f),
-                    modifier = Modifier.size(86.dp)
-                ) {}
-                Surface(
-                    shape = CircleShape,
-                    color = accentColor.copy(alpha = if (childPhoto != null) 0.1f else 0.2f),
-                    modifier = Modifier.size(72.dp)
-                ) {
-                    Icon(
-                        imageVector = if (child.gender == Gender.FEMALE) Icons.Default.Girl else Icons.Default.Boy,
-                        contentDescription = null,
-                        modifier = Modifier.padding(14.dp),
-                        tint = accentColor
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.width(20.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
+            // 上部：姓名與月齡
+            Column {
                 Text(
                     text = child.name,
-                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black),
+                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Black),
                     color = accentColor
                 )
                 val age = Period.between(child.birthday, LocalDate.now())
                 Text(
                     text = "${age.years}歲 ${age.months}個月",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.Medium
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    InfoBadge(icon = Icons.Default.Height,
-                        text = "${latestGrowth?.heightCm ?: "--"} cm",
-                        color = accentColor)
-                    InfoBadge(icon = Icons.Default.MonitorWeight,
-                        text = "${latestGrowth?.weightKg ?: "--"} kg",
-                        color = accentColor)
-                }
-
+            // 下部：數據摘要
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                QuickStatPill(
+                    icon = Icons.Default.MonitorWeight,
+                    label = "${latestGrowth?.weightKg ?: "--"} kg",
+                    isDark = false,
+                    accentColor = accentColor
+                )
+                Spacer(Modifier.width(10.dp))
+                QuickStatPill(
+                    icon = Icons.Default.Height,
+                    label = "${latestGrowth?.heightCm ?: "--"} cm",
+                    isDark = false,
+                    accentColor = accentColor
+                )
+                
                 if (toiletRecords.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    val latest = toiletRecords.first()
-                    val diff = System.currentTimeMillis() - latest.timestamp
-                    val hours = diff / 3600000
-                    val isWarning = hours >= 24
-                    
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("💩", fontSize = 12.sp)
-                        Spacer(Modifier.width(4.dp))
-                        Text(
-                            text = "距離上次 $hours 小時",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (isWarning) Color(0xFFE64A19) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                            fontWeight = if (isWarning) FontWeight.Bold else FontWeight.Normal
-                        )
-                    }
+                    Spacer(Modifier.weight(1f)) // 將大號紀錄推至右下角
+                    val lastPoop = toiletRecords.first().timestamp
+                    val diffHours = (System.currentTimeMillis() - lastPoop) / 3600000
+                    val isWarning = diffHours >= 24
+
+                    QuickStatPill(
+                        icon = Icons.Default.WaterDrop,
+                        label = formatElapsed(lastPoop),
+                        isDark = false,
+                        accentColor = accentColor,
+                        isEmoji = true,
+                        warningColor = if (isWarning) Color(0xFFE57373) else null // 超過 24h 顯示淡紅色提示
+                    )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun QuickStatPill(
+    icon: ImageVector, 
+    label: String, 
+    isDark: Boolean, 
+    accentColor: Color, 
+    isEmoji: Boolean = false,
+    warningColor: Color? = null
+) {
+    val bgColor = warningColor?.copy(alpha = if (isDark) 0.5f else 0.2f) 
+        ?: if (isDark) Color.White.copy(alpha = 0.15f) else accentColor.copy(alpha = 0.1f)
+    
+    val contentColor = warningColor ?: if (isDark) Color.White else accentColor
+
+    Surface(
+        color = bgColor,
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, contentColor.copy(alpha = 0.2f))
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (isEmoji) {
+                Text("💩", fontSize = 14.sp)
+            } else {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                    tint = contentColor
+                )
+            }
+            Spacer(Modifier.width(6.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                color = contentColor
+            )
         }
     }
 }
@@ -961,6 +993,19 @@ fun EditChildProfileDialog(
                     shape = RoundedCornerShape(12.dp)
                 )
 
+                Spacer(modifier = Modifier.height(16.dp))
+
+                var aiPrompt by remember { mutableStateOf(child.defaultAiPrompt ?: "") }
+                OutlinedTextField(
+                    value = aiPrompt,
+                    onValueChange = { aiPrompt = it },
+                    label = { Text("AI 助手提示 (孩子特質/過敏等)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    minLines = 2,
+                    maxLines = 4
+                )
+
                 Spacer(modifier = Modifier.height(32.dp))
 
                 Row(
@@ -973,7 +1018,12 @@ fun EditChildProfileDialog(
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
                         onClick = {
-                            onSave(child.copy(name = name, birthday = LocalDate.parse(birthday), photoUri = selectedUri))
+                            onSave(child.copy(
+                                name = name, 
+                                birthday = LocalDate.parse(birthday), 
+                                photoUri = selectedUri,
+                                defaultAiPrompt = aiPrompt
+                            ))
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = accentColor),
                         shape = RoundedCornerShape(12.dp)

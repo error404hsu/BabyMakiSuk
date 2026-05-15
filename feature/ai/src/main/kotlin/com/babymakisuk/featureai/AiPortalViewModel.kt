@@ -77,7 +77,12 @@ class AiPortalViewModel @Inject constructor(
     }
 
     fun selectChild(childId: Long) {
+        if (_uiState.value.selectedChildId == childId) return
+        
         _uiState.update { it.copy(selectedChildId = childId) }
+        
+        // 切換人員強制開啟新對話
+        startNewConversation()
     }
 
     fun switchPreset(preset: AiPreset) {
@@ -246,20 +251,34 @@ class AiPortalViewModel @Inject constructor(
                     modelOverride = _uiState.value.effectiveModel
                 )
 
-                val cleanJson = raw.substringAfter("```json")
-                    .substringBefore("```")
-                    .trim()
-                    .ifBlank { raw }
+                // 增強 JSON 解析：尋找第一個 { 與最後一個 }
+                val jsonStartIndex = raw.indexOf('{')
+                val jsonEndIndex = raw.lastIndexOf('}')
+                
+                val cleanJson = if (jsonStartIndex != -1 && jsonEndIndex != -1 && jsonEndIndex > jsonStartIndex) {
+                    raw.substring(jsonStartIndex, jsonEndIndex + 1)
+                } else {
+                    raw.trim()
+                }
 
-                val json = JSONObject(cleanJson)
-                val title = json.optString("title", "AI 對話摘要")
-                    .take(15)
-                val content = json.optString("content", raw.take(200))
-                    .take(200)
+                val (title, content) = try {
+                    val json = JSONObject(cleanJson)
+                    val t = json.optString("title", "AI 對話摘要").take(15)
+                    val c = json.optString("content", "").take(200)
+                    if (c.isBlank()) throw Exception("Empty content")
+                    t to c
+                } catch (_: Exception) {
+                    "AI 對話摘要" to raw.take(200)
+                }
 
+                if (content.isBlank()) {
+                    throw Exception("AI 回傳內容為空")
+                }
+
+                val childIdToSave = if (selectedChildId == -1L) "twins" else selectedChildId.toString()
                 val insight = AiInsightEntity(
                     id         = UUID.randomUUID().toString(),
-                    childId    = childId,
+                    childId    = childIdToSave,
                     title      = title,
                     content    = content,
                     sourceDate = System.currentTimeMillis(),
@@ -289,10 +308,27 @@ class AiPortalViewModel @Inject constructor(
         allergies: String?,
         childId: Long
     ): String {
-        val child = if (childId > 0) childRepository.getById(childId) else null
-        val basePrompt = AiPromptBuilder.buildSystemPrompt(preset, ageMonths, gender, allergies)
+        val basePrompt = if (childId == -1L) {
+            // 雙胞胎通用模式
+            val children = childRepository.getChildren()
+            val twinsAgeInfo = if (children.isNotEmpty()) {
+                "目前月齡約為 ${children.first().ageMonths} 個月"
+            } else ""
+            
+            """
+            你是一位專業的育兒專家。目前對話對象是一對男女雙胞胎的家長。
+            ${twinsAgeInfo}
+            請以同時照顧兩位不同性別寶寶的觀點出發，提供平衡且具備雙胞胎家庭特性的建議。
+            
+            ${preset.systemPrompt}
+            """.trimIndent()
+        } else {
+            AiPromptBuilder.buildSystemPrompt(preset, ageMonths, gender, allergies)
+        }
 
+        val child = if (childId > 0) childRepository.getById(childId) else null
         val defaultPrompt = child?.defaultAiPrompt
+        
         val injectedContext = if (childId > 0) {
             try {
                 aiContextInjector.buildContext(childId)
@@ -304,7 +340,7 @@ class AiPortalViewModel @Inject constructor(
         return buildString {
             append(basePrompt)
             if (!defaultPrompt.isNullOrBlank()) {
-                append("\n\n【小孩預設狀態】\n")
+                append("\n\n【小孩預設狀態與特質】\n")
                 append(defaultPrompt)
             }
             if (!injectedContext.isNullOrBlank()) {

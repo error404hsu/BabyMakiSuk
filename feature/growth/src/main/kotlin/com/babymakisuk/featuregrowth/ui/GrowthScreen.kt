@@ -1,6 +1,8 @@
 package com.babymakisuk.featuregrowth.ui
 
-import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -123,6 +125,7 @@ fun GrowthScreenContent(
     onRefreshAiAnalysis: () -> Unit = {}
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
+    val aiScrollState = rememberScrollState()
     val tabTitles = listOf("卡片", "圖表", "AI 建議")
 
     val drawerState = LocalDrawerState.current
@@ -199,35 +202,71 @@ fun GrowthScreenContent(
 
                             TabRow(
                                 selectedTabIndex = selectedTab,
-                                containerColor = MaterialTheme.colorScheme.surface
+                                containerColor = MaterialTheme.colorScheme.surface,
+                                contentColor = selectedChildColor,
+                                indicator = { tabPositions ->
+                                    if (selectedTab < tabPositions.size) {
+                                        TabRowDefaults.SecondaryIndicator(
+                                            modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
+                                            color = selectedChildColor
+                                        )
+                                    }
+                                },
+                                divider = {}
                             ) {
                                 tabTitles.forEachIndexed { index, title ->
+                                    val icon = when (index) {
+                                        0 -> Icons.Default.ViewAgenda
+                                        1 -> Icons.AutoMirrored.Filled.ShowChart
+                                        else -> Icons.Default.AutoAwesome
+                                    }
                                     Tab(
                                         selected = selectedTab == index,
                                         onClick = { selectedTab = index },
-                                        text = { Text(title) }
+                                        text = {
+                                            Text(
+                                                text = title,
+                                                style = MaterialTheme.typography.titleSmall,
+                                                fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Medium
+                                            )
+                                        },
+                                        icon = { Icon(icon, contentDescription = null) },
+                                        selectedContentColor = selectedChildColor,
+                                        unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
 
-                            Surface(
+                            AnimatedContent(
+                                targetState = selectedTab,
+                                transitionSpec = {
+                                    fadeIn(animationSpec = tween(220, delayMillis = 90)) +
+                                            scaleIn(initialScale = 0.92f, animationSpec = tween(220, delayMillis = 90)) togetherWith
+                                            fadeOut(animationSpec = tween(90))
+                                },
                                 modifier = Modifier.weight(1f).fillMaxWidth(),
-                                color = MaterialTheme.colorScheme.surface
-                            ) {
-                                when (selectedTab) {
-                                    0 -> GrowthListScreen(
-                                        records = state.records,
-                                        onEdit = { item ->
-                                            navController.navigate("growth/edit?recordId=${item.record.id}&childId=${item.record.childId}")
-                                        },
-                                        onDelete = onDeleteRecord
-                                    )
-                                    1 -> GrowthChartScreen(records = state.records)
-                                    2 -> GrowthAiTab(
-                                        aiAnalysisText = state.aiAnalysisText,
-                                        isAnalyzing = state.isAnalyzing,
-                                        onRefresh = onRefreshAiAnalysis
-                                    )
+                                label = "TabContent"
+                            ) { targetTab ->
+                                Surface(
+                                    modifier = Modifier.fillMaxSize(),
+                                    color = MaterialTheme.colorScheme.surface
+                                ) {
+                                    when (targetTab) {
+                                        0 -> GrowthListScreen(
+                                            records = state.records,
+                                            onEdit = { item ->
+                                                navController.navigate("growth/edit?recordId=${item.record.id}&childId=${item.record.childId}")
+                                            },
+                                            onDelete = onDeleteRecord
+                                        )
+                                        1 -> GrowthChartScreen(records = state.records)
+                                        2 -> GrowthAiTab(
+                                            aiAnalysisText = state.aiAnalysisText,
+                                            isAnalyzing = state.isAnalyzing,
+                                            onRefresh = onRefreshAiAnalysis,
+                                            scrollState = aiScrollState
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -242,7 +281,8 @@ fun GrowthScreenContent(
 private fun GrowthAiTab(
     aiAnalysisText: String,
     isAnalyzing: Boolean,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    scrollState: ScrollState
 ) {
     Column(
         modifier = Modifier
@@ -299,22 +339,28 @@ private fun GrowthAiTab(
                             CircularProgressIndicator()
                         }
                     } else {
-                        Text(
-                            aiAnalysisText,
-                            style = MaterialTheme.typography.bodyMedium,
-                            lineHeight = 22.sp
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Surface(
-                            color = MaterialTheme.colorScheme.tertiaryContainer,
-                            shape = RoundedCornerShape(8.dp)
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .verticalScroll(scrollState)
                         ) {
                             Text(
-                                "⚠️ AI 整理僅供參考，如有疑慮請諮詢兒科醫師",
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                                aiAnalysisText,
+                                style = MaterialTheme.typography.bodyMedium,
+                                lineHeight = 22.sp
                             )
+                            Spacer(Modifier.height(16.dp))
+                            Surface(
+                                color = MaterialTheme.colorScheme.tertiaryContainer,
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    "⚠️ AI 整理僅供參考，如有疑慮請諮詢兒科醫師",
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                            }
                         }
                     }
                 }

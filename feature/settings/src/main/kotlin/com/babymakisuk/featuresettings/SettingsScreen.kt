@@ -183,6 +183,26 @@ fun SettingsScreen(
                         subtitle = "驗證 Gemini API Key 是否可正常呼叫",
                         onClick = onNavigateToApiTest
                     )
+                    HorizontalDivider(
+                        Modifier.padding(horizontal = 16.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                    SettingsItem(
+                        icon = Icons.Default.Sync,
+                        title = "產生上月合併月報",
+                        subtitle = "彙整所有孩子資料並由 AI 生成上月份總結",
+                        onClick = { viewModel.generateLastMonthReport() }
+                    )
+                    HorizontalDivider(
+                        Modifier.padding(horizontal = 16.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                    SettingsItem(
+                        icon = Icons.Default.Notifications,
+                        title = "測試月底提醒生成",
+                        subtitle = "模擬月底最後一週觸發書庫提醒",
+                        onClick = { viewModel.triggerMonthlyReminderTest() }
+                    )
                 }
             }
 
