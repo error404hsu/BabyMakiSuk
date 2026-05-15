@@ -7,7 +7,6 @@ import com.babymakisuk.coreai.AiDispatcher
 import com.babymakisuk.coreai.AiPreset
 import com.babymakisuk.coreai.AiPromptBuilder
 import com.babymakisuk.coredata.SettingsRepository
-import com.babymakisuk.coredata.dao.GrowthDao
 import com.babymakisuk.coredata.repository.ChildRepository
 import com.babymakisuk.coremodel.ChildProfile
 import com.babymakisuk.coremodel.Gender
@@ -29,7 +28,8 @@ sealed interface GrowthUiState {
         val children: List<ChildProfile>,
         val selectedChildId: Long,
         val records: List<GrowthRecordWithPercentile>,
-        val showChart: Boolean = false
+        val aiAnalysisText: String = "",
+        val isAnalyzing: Boolean = false
     ) : GrowthUiState
     data class Error(val message: String) : GrowthUiState
 }
@@ -43,46 +43,56 @@ class GrowthViewModel @Inject constructor(
     private val saveGrowth: SaveGrowthRecord,
     private val deleteGrowth: DeleteGrowthRecord,
     private val settingsRepo: SettingsRepository,
-    private val aiDispatcher: AiDispatcher,
-    private val growthDao: GrowthDao
+    private val aiDispatcher: AiDispatcher
 ) : ViewModel() {
 
     private val _selectedChildId = MutableStateFlow<Long?>(savedStateHandle["childId"])
 
-    // 角色旗標
     val canEditData: StateFlow<Boolean> = settingsRepo.userRoleFlow
         .map { it.canEditData }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
-    val uiState: StateFlow<GrowthUiState> = combine(
-        childRepo.observeAll(),
-        _selectedChildId
-    ) { children, selectedId ->
-        children to selectedId
+    private val _uiState = MutableStateFlow<GrowthUiState>(GrowthUiState.Loading)
+    val uiState: StateFlow<GrowthUiState> = _uiState.asStateFlow()
+
+    init {
+        observeData()
     }
-        .flatMapLatest { (children, selectedId) ->
-            if (children.isEmpty()) {
-                return@flatMapLatest flowOf<GrowthUiState>(
-                    GrowthUiState.Success(
-                        children = emptyList(),
-                        selectedChildId = -1L,
-                        records = emptyList()
-                    )
-                )
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private fun observeData() {
+        viewModelScope.launch {
+            combine(
+                childRepo.observeAll(),
+                _selectedChildId
+            ) { children, selectedId ->
+                children to selectedId
             }
-            val effectiveId = selectedId
-                ?: children.firstOrNull { it.gender == Gender.MALE }?.id
-                ?: children.first().id
-            observeGrowth(effectiveId).map { records ->
-                GrowthUiState.Success(
-                    children = children,
-                    selectedChildId = effectiveId,
-                    records = records
-                )
-            }
+                .flatMapLatest { (children, selectedId) ->
+                    if (children.isEmpty()) {
+                        return@flatMapLatest flowOf<GrowthUiState>(
+                            GrowthUiState.Success(
+                                children = emptyList(),
+                                selectedChildId = -1L,
+                                records = emptyList()
+                            )
+                        )
+                    }
+                    val effectiveId = selectedId
+                        ?: children.firstOrNull { it.gender == Gender.MALE }?.id
+                        ?: children.first().id
+                    observeGrowth(effectiveId).map { records ->
+                        GrowthUiState.Success(
+                            children = children,
+                            selectedChildId = effectiveId,
+                            records = records
+                        )
+                    }
+                }
+                .catch { emit(GrowthUiState.Error(it.message ?: "Unknown error")) }
+                .collect { _uiState.value = it }
         }
-        .catch { emit(GrowthUiState.Error(it.message ?: "Unknown error")) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), GrowthUiState.Loading)
+    }
 
     private val _showForm = MutableStateFlow(false)
     val showForm: StateFlow<Boolean> = _showForm.asStateFlow()
@@ -133,50 +143,50 @@ class GrowthViewModel @Inject constructor(
         }
     }
 
-    private val _aiSuggestingIds = MutableStateFlow<Set<Long>>(emptySet())
-    val aiSuggestingIds: StateFlow<Set<Long>> = _aiSuggestingIds.asStateFlow()
-
     fun deleteRecord(record: GrowthRecord) {
         viewModelScope.launch { deleteGrowth(record) }
     }
 
-    fun triggerAiSuggestion(item: GrowthRecordWithPercentile) {
-        val record = item.record
-        if (record.id == 0L || _aiSuggestingIds.value.contains(record.id)) return
-        _aiSuggestingIds.update { it + record.id }
+    fun refreshAiAnalysis() {
+        val currentState = _uiState.value as? GrowthUiState.Success ?: return
+        val records = currentState.records
+        if (records.isEmpty()) return
+
+        _uiState.update { (it as? GrowthUiState.Success)?.copy(isAnalyzing = true) ?: it }
+
         viewModelScope.launch {
             try {
-                val child = childRepo.getById(record.childId)
+                val child = childRepo.getById(currentState.selectedChildId)
                 val systemPrompt = AiPromptBuilder.buildSystemPrompt(
-                    preset    = AiPreset.GROWTH_ANALYST,
-                    ageMonths = item.ageMonths,
-                    gender    = item.gender.name,
+                    preset = AiPreset.GROWTH_ANALYST,
+                    ageMonths = child?.ageMonths ?: 0,
+                    gender = child?.gender?.name ?: "未知",
                     allergies = child?.allergies
                 )
 
                 val dataPrompt = buildString {
-                    appendLine("請分析以下幼兒生長數據：")
-                    appendLine("身高：${record.heightCm} cm（P${item.heightPercentile}）")
-                    appendLine("體重：${record.weightKg} kg（P${item.weightPercentile}）")
-                    record.headCircumferenceCm?.let {
-                        appendLine("頭圍：$it cm（P${item.headCircPercentile ?: -1}）")
+                    appendLine("請分析以下幼兒的完整生長紀錄趨勢：")
+                    appendLine("小孩：${child?.name ?: "寶寶"}，月齡：${child?.ageMonths ?: 0}個月")
+                    appendLine()
+                    appendLine("【全部生長數據（由舊到新）】")
+                    records.forEach { item ->
+                        val r = item.record
+                        val dateStr = r.date.toString()
+                        appendLine("$dateStr 身高：${r.heightCm}cm(P${item.heightPercentile}) 體重：${r.weightKg}kg(P${item.weightPercentile}) 頭圍：${r.headCircumferenceCm ?: "-"}(P${item.headCircPercentile ?: "-"})")
                     }
-                    if (record.note.isNotBlank()) {
-                        appendLine("備註：${record.note}")
-                    }
+                    appendLine()
+                    appendLine("請分析生長趨勢、百分位變化、並給予建議。回答以繁體中文呈現，控制在 300 字以內。")
                 }
 
                 val response = aiDispatcher.executeWithSystemPrompt(
-                    task          = AiPreset.GROWTH_ANALYST.task,
-                    systemPrompt  = systemPrompt,
-                    userPrompt    = dataPrompt
+                    task = AiPreset.GROWTH_ANALYST.task,
+                    systemPrompt = systemPrompt,
+                    userPrompt = dataPrompt
                 )
 
-                growthDao.updateAiSuggestion(record.id, response)
+                _uiState.update { (it as? GrowthUiState.Success)?.copy(aiAnalysisText = response, isAnalyzing = false) ?: it }
             } catch (_: Exception) {
-                // 靜默失敗，不影響 UI
-            } finally {
-                _aiSuggestingIds.update { it - record.id }
+                _uiState.update { (it as? GrowthUiState.Success)?.copy(aiAnalysisText = "AI 分析失敗，請稍後再試", isAnalyzing = false) ?: it }
             }
         }
     }

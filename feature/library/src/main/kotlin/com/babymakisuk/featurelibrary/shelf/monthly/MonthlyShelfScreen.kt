@@ -1,4 +1,4 @@
-package com.babymakisuk.featurelibrary.shelf.weekly
+package com.babymakisuk.featurelibrary.shelf.monthly
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -28,21 +28,21 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import com.babymakisuk.coredata.entity.WeeklyReportEntity
+import com.babymakisuk.coredata.entity.MonthlyReportEntity
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WeeklyShelfScreen(
+fun MonthlyShelfScreen(
     navController: NavController,
     childId: String = "",
-    viewModel: WeeklyShelfViewModel = hiltViewModel()
+    viewModel: MonthlyShelfViewModel = hiltViewModel()
 ) {
     val reports by viewModel.reports.collectAsState()
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("週報書架", fontWeight = FontWeight.Bold) },
+                title = { Text("月報書架", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回")
@@ -53,7 +53,7 @@ fun WeeklyShelfScreen(
     ) { innerPadding ->
         if (reports.isEmpty()) {
             Text(
-                text = "尚無週報紀錄",
+                text = "尚無月報紀錄",
                 modifier = Modifier.padding(innerPadding).padding(16.dp),
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -77,7 +77,7 @@ fun WeeklyShelfScreen(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = "${report.weekStart} ～ ${report.weekEnd}",
+                                    text = "${report.monthStart} ～ ${report.monthEnd}",
                                     style = MaterialTheme.typography.titleSmall,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -92,7 +92,7 @@ fun WeeklyShelfScreen(
                                 )
                             }
                             IconButton(onClick = {
-                                navController.navigate("weekly_report_search?childId=$childId")
+                                navController.navigate("monthly_report_search?childId=$childId")
                             }) {
                                 Icon(Icons.Default.Search, "搜尋")
                             }

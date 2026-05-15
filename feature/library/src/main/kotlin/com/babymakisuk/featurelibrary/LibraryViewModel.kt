@@ -3,7 +3,8 @@ package com.babymakisuk.featurelibrary
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.babymakisuk.coredata.dao.AiInsightDao
-import com.babymakisuk.coredata.dao.WeeklyReportDao
+import com.babymakisuk.coredata.dao.MonthlyReportDao
+import com.babymakisuk.coredata.dao.SystemReminderDao
 import com.babymakisuk.coredata.repository.ChildRepository
 import com.babymakisuk.coredata.repository.MemoRepository
 import com.babymakisuk.coremodel.Gender
@@ -23,8 +24,9 @@ import javax.inject.Inject
 @HiltViewModel
 class LibraryViewModel @Inject constructor(
     private val childRepo: ChildRepository,
-    private val weeklyReportDao: WeeklyReportDao,
+    private val monthlyReportDao: MonthlyReportDao,
     private val aiInsightDao: AiInsightDao,
+    private val systemReminderDao: SystemReminderDao,
     private val memoRepository: MemoRepository
 ) : ViewModel() {
 
@@ -45,7 +47,7 @@ class LibraryViewModel @Inject constructor(
 
     val weeklyLastUpdated: StateFlow<Long?> = selectedChildIdStr.flatMapLatest { childId ->
         if (childId.isBlank()) flowOf(null)
-        else weeklyReportDao.getRecentReports(childId, 1).map { list ->
+        else monthlyReportDao.getRecentReports(childId, 1).map { list ->
             list.firstOrNull()?.syncedAt
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
@@ -53,6 +55,13 @@ class LibraryViewModel @Inject constructor(
     val aiInsightLastUpdated: StateFlow<Long?> = selectedChildIdStr.flatMapLatest { childId ->
         if (childId.isBlank()) flowOf(null)
         else aiInsightDao.getByChildId(childId).map { list ->
+            list.firstOrNull()?.createdAt
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    val systemReminderLastUpdated: StateFlow<Long?> = selectedChildId.flatMapLatest { childId ->
+        if (childId <= 0L) flowOf(null)
+        else systemReminderDao.getByChildId(childId).map { list ->
             list.firstOrNull()?.createdAt
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)

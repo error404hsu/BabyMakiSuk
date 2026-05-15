@@ -67,10 +67,9 @@ fun MedicalScreen(
                     }
                 },
                 showSearch = true,
-                showAi = true,
+                showAi = false,
                 showAdd = true,
                 onMenuClick = { drawerScope.launch { drawerState.open() } },
-                onAiClick = { onNavigateToAi("PEDIATRIC_DOCTOR") },
                 onAddClick = {
                     val childId = (uiState as? MedicalUiState.Success)?.selectedChildId ?: 1L
                     navController.navigate("medical/edit?visitId=-1&childId=$childId")

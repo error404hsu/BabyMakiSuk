@@ -1,6 +1,7 @@
 package com.babymakisuk.featureai
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -26,13 +27,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.babymakisuk.coreai.AiPreset
 import com.babymakisuk.coreai.GeminiModel
+import com.babymakisuk.coremodel.Gender
 import com.babymakisuk.ui.theme.BabyMakiSukTheme
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -63,7 +65,8 @@ fun AiPortalScreen(
         onOverrideModel = { viewModel.overrideModel(it) },
         onSwitchPreset = { viewModel.switchPreset(it) },
         onSendMessage = { viewModel.sendMessage(it) },
-        onNewConversation = { viewModel.startNewConversation() }
+        onNewConversation = { viewModel.startNewConversation() },
+        onSelectChild = { viewModel.selectChild(it) }
     )
 }
 
@@ -78,7 +81,8 @@ fun AiPortalScreenContent(
     onOverrideModel: (GeminiModel) -> Unit,
     onSwitchPreset: (AiPreset) -> Unit,
     onSendMessage: (String) -> Unit,
-    onNewConversation: () -> Unit
+    onNewConversation: () -> Unit,
+    onSelectChild: (Long) -> Unit = {}
 ) {
     val isTestingMode = true
     var showModelMenu by remember { mutableStateOf(false) }
@@ -141,8 +145,17 @@ fun AiPortalScreenContent(
                     }
 
                     // 整理為知識庫
-                    IconButton(onClick = onSummarizeToKnowledgeBase) {
-                        Icon(Icons.Default.Book, contentDescription = "整理本次對話為知識庫")
+                    if (uiState.isSummarizing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier
+                                .padding(12.dp)
+                                .size(24.dp),
+                            strokeWidth = 2.5.dp
+                        )
+                    } else {
+                        IconButton(onClick = onSummarizeToKnowledgeBase) {
+                            Icon(Icons.Default.Book, contentDescription = "整理本次對話為知識庫")
+                        }
                     }
 
                     if (isTestingMode) {
@@ -243,6 +256,35 @@ fun AiPortalScreenContent(
                             }
                         } else null
                     )
+                }
+            }
+
+            // 小孩選擇器
+            if (uiState.children.isNotEmpty()) {
+                LazyRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(uiState.children) { child ->
+                        val isSelected = child.id == uiState.selectedChildId
+                        val genderColor = if (child.gender == Gender.MALE) Color(0xFF4A90D9) else Color(0xFFE07BBD)
+
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = { onSelectChild(child.id) },
+                            label = {
+                                Text(
+                                    "${if (child.gender == Gender.MALE) "👦" else "👧"} ${child.name}"
+                                )
+                            },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = genderColor.copy(alpha = 0.2f),
+                                selectedLabelColor = genderColor
+                            )
+                        )
+                    }
                 }
             }
 

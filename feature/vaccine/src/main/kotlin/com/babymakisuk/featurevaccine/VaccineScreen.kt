@@ -64,10 +64,9 @@ fun VaccineScreen(
                     )
                 },
                 showSearch = true,
-                showAi = true,
+                showAi = false,
                 showAdd = true,
                 onMenuClick = { drawerScope.launch { drawerState.open() } },
-                onAiClick = { onNavigateToAi("PEDIATRIC_DOCTOR") },
                 onAddClick = viewModel::openForm
             )
         }

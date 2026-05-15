@@ -2,9 +2,12 @@ package com.babymakisuk.featurehome
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.babymakisuk.coredata.dao.MedicalDao
+import com.babymakisuk.coredata.entity.toDomain
 import com.babymakisuk.coredata.repository.ChildRepository
 import com.babymakisuk.coredata.repository.GrowthRepository
 import com.babymakisuk.coredata.repository.MemoRepository
+import com.babymakisuk.coredata.repository.SystemReminderRepository
 import com.babymakisuk.coredata.repository.ToiletRepository
 import com.babymakisuk.coredata.repository.VaccineReminderRepository
 import com.babymakisuk.coremodel.ChildProfile
@@ -23,7 +26,9 @@ class HomeViewModel @Inject constructor(
     private val growthRepository: GrowthRepository,
     private val toiletRepository: ToiletRepository,
     private val vaccineReminderRepository: VaccineReminderRepository,
-    private val memoRepository: MemoRepository
+    private val memoRepository: MemoRepository,
+    private val medicalDao: MedicalDao,
+    private val systemReminderRepository: SystemReminderRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -66,6 +71,18 @@ class HomeViewModel @Inject constructor(
     fun logToilet(childId: Long) {
         viewModelScope.launch {
             toiletRepository.insertToilet(ToiletRecord(childId = childId))
+            checkLongNoBm(childId)
+        }
+    }
+
+    private suspend fun checkLongNoBm(childId: Long) {
+        val latestTime = toiletRepository.getLatestToiletTime(childId) ?: return
+        val hoursSince = ((System.currentTimeMillis() - latestTime) / 3600000).toInt()
+        if (hoursSince >= 48) {
+            val existing = systemReminderRepository.getUnresolvedByType(childId, com.babymakisuk.coremodel.SystemReminderType.LONG_NO_BM).first()
+            if (existing.isEmpty()) {
+                systemReminderRepository.createLongNoBmReminder(childId, hoursSince)
+            }
         }
     }
 
@@ -83,16 +100,33 @@ class HomeViewModel @Inject constructor(
                     val girlToiletFlow = girl?.let { toiletRepository.getToiletRecords(it.id) }
                         ?: flowOf(emptyList())
 
+                    val boyMedicalFlow = boy?.let { medicalDao.observeByChild(it.id) }
+                        ?: flowOf(emptyList())
+                    val girlMedicalFlow = girl?.let { medicalDao.observeByChild(it.id) }
+                        ?: flowOf(emptyList())
+
                     val todayDate = LocalDate.now().toEpochDay()
                     val todayMemosFlow = memoRepository.getByDate(todayDate)
                         .let { flowOf(it) }
 
-                    combine(boyToiletFlow, girlToiletFlow, todayMemosFlow) { boyToilet, girlToilet, todayMemos ->
-                        Triple(children, Pair(boyToilet, girlToilet), todayMemos)
+                    combine(
+                        boyToiletFlow, 
+                        girlToiletFlow, 
+                        boyMedicalFlow, 
+                        girlMedicalFlow, 
+                        todayMemosFlow
+                    ) { boyToilet, girlToilet, boyMedical, girlMedical, todayMemos ->
+                        DataTuple(children, boyToilet, girlToilet, boyMedical, girlMedical, todayMemos)
                     }
                 }
-                .collect { (children, toiletPair, todayMemos) ->
-                    val (boyToilet, girlToilet) = toiletPair
+                .collect { tuple ->
+                    val children = tuple.children
+                    val boyToilet = tuple.boyToilet
+                    val girlToilet = tuple.girlToilet
+                    val boyMedical = tuple.boyMedical
+                    val girlMedical = tuple.girlMedical
+                    val todayMemos = tuple.todayMemos
+                    
                     val boy = children.firstOrNull { it.gender == Gender.MALE }
                     val girl = children.firstOrNull { it.gender == Gender.FEMALE }
 
@@ -102,7 +136,7 @@ class HomeViewModel @Inject constructor(
                     val boyNextVaccine = boy?.let { vaccineReminderRepository.getNextDue(it.id) }
                     val girlNextVaccine = girl?.let { vaccineReminderRepository.getNextDue(it.id) }
 
-                    val todayMemosByChild = todayMemos.groupBy { it.childId }
+                    val todayMemosByChild = todayMemos.groupBy { m -> m.childId }
 
                     _uiState.update {
                         it.copy(
@@ -116,6 +150,8 @@ class HomeViewModel @Inject constructor(
                             girlToiletRecords = girlToilet,
                             boyNextVaccine = boyNextVaccine,
                             girlNextVaccine = girlNextVaccine,
+                            boyLatestMedical = boyMedical.firstOrNull()?.toDomain(),
+                            girlLatestMedical = girlMedical.firstOrNull()?.toDomain(),
                             todayMemos = todayMemosByChild,
                             isLoading = false
                         )
@@ -123,4 +159,13 @@ class HomeViewModel @Inject constructor(
                 }
         }
     }
+
+    private data class DataTuple(
+        val children: List<ChildProfile>,
+        val boyToilet: List<ToiletRecord>,
+        val girlToilet: List<ToiletRecord>,
+        val boyMedical: List<com.babymakisuk.coredata.entity.MedicalVisitEntity>,
+        val girlMedical: List<com.babymakisuk.coredata.entity.MedicalVisitEntity>,
+        val todayMemos: List<com.babymakisuk.coremodel.Memo>
+    )
 }

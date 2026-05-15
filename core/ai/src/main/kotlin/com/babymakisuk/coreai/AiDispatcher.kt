@@ -45,7 +45,7 @@ class AiDispatcher @Inject constructor(
                 GeminiModel.GEMINI_31_FLASH_LITE,
                 GeminiModel.GEMMA_4_31B
             ),
-            AiTask.WEEKLY_REPORT to listOf(
+            AiTask.MONTHLY_REPORT to listOf(
                 GeminiModel.GEMINI_3_FLASH,
                 GeminiModel.GEMMA_4_31B,
                 GeminiModel.GEMMA_4_26B

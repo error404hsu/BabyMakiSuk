@@ -5,7 +5,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
@@ -22,9 +21,7 @@ import java.time.format.DateTimeFormatter
 fun GrowthListScreen(
     records: List<GrowthRecordWithPercentile>,
     onEdit: (GrowthRecordWithPercentile) -> Unit,
-    onDelete: (GrowthRecordWithPercentile) -> Unit,
-    onAiSuggest: (GrowthRecordWithPercentile) -> Unit = {},
-    aiSuggestingIds: Set<Long> = emptySet()
+    onDelete: (GrowthRecordWithPercentile) -> Unit
 ) {
     if (records.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -37,9 +34,7 @@ fun GrowthListScreen(
             GrowthRecordCard(
                 item = item,
                 onEdit = { onEdit(item) },
-                onDelete = { onDelete(item) },
-                onAiSuggest = { onAiSuggest(item) },
-                isAiSuggesting = aiSuggestingIds.contains(item.record.id)
+                onDelete = { onDelete(item) }
             )
         }
     }
@@ -49,9 +44,7 @@ fun GrowthListScreen(
 private fun GrowthRecordCard(
     item: GrowthRecordWithPercentile,
     onEdit: () -> Unit,
-    onDelete: () -> Unit,
-    onAiSuggest: () -> Unit = {},
-    isAiSuggesting: Boolean = false
+    onDelete: () -> Unit
 ) {
     val r = item.record
     val dateFormatter = DateTimeFormatter.ofPattern("yyyy / MM / dd")
@@ -76,17 +69,6 @@ private fun GrowthRecordCard(
                 }
                 IconButton(onClick = onDelete) {
                     Icon(Icons.Filled.Delete, contentDescription = "刪除", tint = Color.LightGray)
-                }
-                IconButton(onClick = onAiSuggest, enabled = !isAiSuggesting) {
-                    if (isAiSuggesting) {
-                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                    } else {
-                        Icon(
-                            Icons.Filled.AutoAwesome,
-                            contentDescription = "AI 建議",
-                            tint = MaterialTheme.colorScheme.tertiary
-                        )
-                    }
                 }
             }
 

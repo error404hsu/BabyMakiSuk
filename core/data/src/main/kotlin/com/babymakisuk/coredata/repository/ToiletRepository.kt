@@ -15,10 +15,11 @@ class ToiletRepository @Inject constructor(private val dao: ToiletDao) {
 
     suspend fun insertToilet(record: ToiletRecord) {
         dao.insert(record.toEntity())
-        val all = dao.getByChild(record.childId).first()
-        if (all.size > 3) {
-            all.lastOrNull()?.let { dao.delete(it) }
-        }
+    }
+
+    suspend fun getLatestToiletTime(childId: Long): Long? {
+        val all = dao.getByChild(childId).first()
+        return all.firstOrNull()?.timestamp
     }
 
     fun getToiletRecords(childId: Long): Flow<List<ToiletRecord>> =

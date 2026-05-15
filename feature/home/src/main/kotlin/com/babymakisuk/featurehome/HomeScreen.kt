@@ -262,7 +262,7 @@ fun HomeScreenContent(
                         }
                     }
 
-                    val boyWeight by animateFloatAsState(
+            val boyWeight by animateFloatAsState(
                         targetValue = when (expandedGender) {
                             Gender.MALE -> 0.85f
                             Gender.FEMALE -> 0.15f
@@ -345,7 +345,7 @@ fun ChildSummaryCard(
             if (maxHeight < 160.dp) {
                 CompactBar(child, childPhoto, accentColor)
             } else if (!isExpanded) {
-                CollapsedContent(child, childPhoto, latestGrowth, accentColor)
+                CollapsedContent(child, childPhoto, latestGrowth, toiletRecords, accentColor)
             } else {
                 ExpandedContent(
                     child = child,
@@ -408,6 +408,7 @@ private fun CollapsedContent(
     child: ChildProfile,
     childPhoto: androidx.compose.ui.graphics.ImageBitmap?,
     latestGrowth: GrowthRecord?,
+    toiletRecords: List<ToiletRecord>,
     accentColor: Color
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
@@ -493,6 +494,25 @@ private fun CollapsedContent(
                         text = "${latestGrowth?.weightKg ?: "--"} kg",
                         color = accentColor)
                 }
+
+                if (toiletRecords.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    val latest = toiletRecords.first()
+                    val diff = System.currentTimeMillis() - latest.timestamp
+                    val hours = diff / 3600000
+                    val isWarning = hours >= 24
+                    
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("💩", fontSize = 12.sp)
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = "距離上次 $hours 小時",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (isWarning) Color(0xFFE64A19) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            fontWeight = if (isWarning) FontWeight.Bold else FontWeight.Normal
+                        )
+                    }
+                }
             }
         }
     }
@@ -519,7 +539,7 @@ private fun ExpandedContent(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(160.dp)
+                .height(110.dp)
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(accentColor, accentColor.copy(alpha = 0.8f))
@@ -527,46 +547,59 @@ private fun ExpandedContent(
                 )
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onCollapse) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, "收合", tint = Color.White)
                 }
-                IconButton(onClick = onEditClick) {
-                    Icon(Icons.Outlined.Edit, "編輯", tint = Color.White)
-                }
-            }
 
-            Column(
-                modifier = Modifier.align(Alignment.Center),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
+                Spacer(Modifier.width(8.dp))
+
                 Surface(
                     shape = CircleShape,
                     color = Color.White.copy(alpha = 0.25f),
-                    modifier = Modifier.size(60.dp),
+                    modifier = Modifier.size(54.dp),
                     border = BorderStroke(2.dp, Color.White.copy(alpha = 0.5f))
                 ) {
-                    Icon(
-                        imageVector = if (child.gender == Gender.FEMALE) Icons.Default.Girl else Icons.Default.Boy,
-                        contentDescription = null,
-                        modifier = Modifier.padding(12.dp),
-                        tint = Color.White
+                    if (childPhoto != null) {
+                        Image(
+                            bitmap = childPhoto,
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize().clip(CircleShape),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Icon(
+                            imageVector = if (child.gender == Gender.FEMALE) Icons.Default.Girl else Icons.Default.Boy,
+                            contentDescription = null,
+                            modifier = Modifier.padding(10.dp),
+                            tint = Color.White
+                        )
+                    }
+                }
+
+                Spacer(Modifier.width(16.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = child.name,
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        color = Color.White
+                    )
+                    val age = Period.between(child.birthday, LocalDate.now())
+                    Text(
+                        text = "${age.years}歲 ${age.months}個月",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.9f)
                     )
                 }
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = child.name,
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                    color = Color.White
-                )
-                val age = Period.between(child.birthday, LocalDate.now())
-                Text(
-                    text = "${age.years}歲 ${age.months}個月",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.9f)
-                )
+
+                IconButton(onClick = onEditClick) {
+                    Icon(Icons.Outlined.Edit, "編輯", tint = Color.White)
+                }
             }
         }
 
@@ -592,53 +625,62 @@ private fun ExpandedContent(
             }
 
             HubSection(
-                title = "上次就醫紀錄",
+                title = "就醫紀錄",
                 icon = Icons.Default.MedicalServices,
                 accentColor = accentColor,
                 onClick = onNavigateToMedical
             ) {
-                if (latestMedical != null) {
+                // 上欄：最近一次 (讀取實際數據)
+                Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
-                        text = "${latestMedical.hospital} · ${latestMedical.diagnosisSummary.ifBlank { latestMedical.diagnosis }}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
+                        text = "最近一次",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = accentColor,
+                        fontWeight = FontWeight.Bold
                     )
                     Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = latestMedical.date.toString(),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                } else {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.History, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("尚無就醫紀錄", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-                if (nextVaccine != null) {
-                    Spacer(Modifier.height(8.dp))
-                    val dateFormat = java.text.SimpleDateFormat("yyyy/MM/dd", java.util.Locale.getDefault())
-                    Surface(
-                        color = accentColor.copy(alpha = 0.1f),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
+                    if (latestMedical != null) {
                         Text(
-                            text = "下次：${nextVaccine.name}（${dateFormat.format(java.util.Date(nextVaccine.scheduledDate))}）",
-                            modifier = Modifier.padding(8.dp),
-                            style = MaterialTheme.typography.labelLarge,
-                            fontWeight = FontWeight.SemiBold,
-                            color = accentColor
+                            text = "${latestMedical.date.toString().replace("-", "/")} · ${latestMedical.hospital}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    } else {
+                        Text(
+                            text = "尚無就醫紀錄",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                         )
                     }
-                } else {
-                    Spacer(Modifier.height(8.dp))
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+
+                // 下欄：預約排程
+                Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
-                        text = "尚無排程",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = "預約排程",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = accentColor,
+                        fontWeight = FontWeight.Bold
                     )
+                    Spacer(Modifier.height(4.dp))
+                    if (nextVaccine != null) {
+                        val dateFormat = java.text.SimpleDateFormat("yyyy/MM/dd", java.util.Locale.getDefault())
+                        Text(
+                            text = "${dateFormat.format(java.util.Date(nextVaccine.scheduledDate))} · ${nextVaccine.name}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    } else {
+                        Text(
+                            text = "尚無排程記錄",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        )
+                    }
                 }
             }
 
@@ -701,12 +743,13 @@ private fun ExpandedContent(
                 if (toiletRecords.isEmpty()) {
                     Text("尚無紀錄", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
+                    val timeFormatter = java.text.SimpleDateFormat("yyyy/MM/dd HH:mm", java.util.Locale.getDefault())
                     toiletRecords.forEach { record ->
-                        val elapsed = formatElapsed(record.timestamp)
+                        val formattedTime = timeFormatter.format(java.util.Date(record.timestamp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("💩", fontSize = 16.sp)
                             Spacer(Modifier.width(8.dp))
-                            Text(elapsed, style = MaterialTheme.typography.bodyMedium)
+                            Text(formattedTime, style = MaterialTheme.typography.bodyMedium)
                         }
                         Spacer(Modifier.height(4.dp))
                     }

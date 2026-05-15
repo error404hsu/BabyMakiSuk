@@ -6,6 +6,5 @@ import com.babymakisuk.featuregrowth.ui.GrowthScreen as GrowthScreenInternal
 
 @Composable
 fun GrowthScreen(
-    navController: NavController,
-    onNavigateToAi: (String?) -> Unit = {}
-) = GrowthScreenInternal(navController = navController, onNavigateToAi = onNavigateToAi)
+    navController: NavController
+) = GrowthScreenInternal(navController = navController)

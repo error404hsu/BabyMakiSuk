@@ -20,7 +20,7 @@ class RateLimiter @Inject constructor() {
         AiTask.MEDICAL_CONSULTATION to 5,
         AiTask.MEDICAL_OCR          to 3,
         AiTask.VOICE_INPUT          to 10,
-        AiTask.WEEKLY_REPORT        to 2,
+        AiTask.MONTHLY_REPORT        to 2,
         AiTask.QUICK_CHAT           to 10,
         AiTask.CUSTOM_PRESET        to 5
     )

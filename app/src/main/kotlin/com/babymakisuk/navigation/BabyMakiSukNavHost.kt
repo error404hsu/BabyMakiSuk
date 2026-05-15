@@ -42,11 +42,12 @@ import com.babymakisuk.featurelibrary.shelf.aiinsight.AiInsightShelfScreen
 import com.babymakisuk.featurelibrary.shelf.memo.MemoEditScreen
 import com.babymakisuk.featurelibrary.shelf.memo.MemoShelfScreen
 import com.babymakisuk.featuregrowth.ui.GrowthEditScreen
-import com.babymakisuk.featurelibrary.shelf.weekly.WeeklyShelfScreen
+import com.babymakisuk.featurelibrary.shelf.monthly.MonthlyShelfScreen
+import com.babymakisuk.featurelibrary.shelf.systemreminder.SystemReminderShelfScreen
 import com.babymakisuk.featuresettings.ApiTestScreen
 import com.babymakisuk.featuresettings.SettingsScreen
-import com.babymakisuk.featureweeklyreport.WeeklyReportScreen
-import com.babymakisuk.featureweeklyreport.WeeklyReportSearchScreen
+import com.babymakisuk.featureweeklyreport.MonthlyReportScreen
+import com.babymakisuk.featureweeklyreport.MonthlyReportSearchScreen
 import kotlinx.coroutines.launch
 
 sealed class BottomNavItem(val route: String, val label: String, val icon: ImageVector) {
@@ -176,26 +177,16 @@ fun BabyMakiSukNavHost() {
                     }
                     composable(BottomNavItem.Growth.route) {
                         GrowthScreen(
-                            navController = navController,
-                            onNavigateToAi = { hint ->
-                                navController.navigate("ai_portal?presetHint=$hint")
-                            }
+                            navController = navController
                         )
                     }
                     composable(BottomNavItem.Medical.route) {
                         MedicalScreen(
-                            navController = navController,
-                            onNavigateToAi = { hint ->
-                                navController.navigate("ai_portal?presetHint=$hint")
-                            }
+                            navController = navController
                         )
                     }
                     composable(BottomNavItem.Vaccine.route) {
-                        VaccineScreen(
-                            onNavigateToAi = { hint ->
-                                navController.navigate("ai_portal?presetHint=$hint")
-                            }
-                        )
+                        VaccineScreen()
                     }
                     composable(BottomNavItem.Settings.route) {
                         SettingsScreen(
@@ -208,7 +199,7 @@ fun BabyMakiSukNavHost() {
                         )
                     }
                     composable(
-                        route = "weekly_report_search?childId={childId}",
+                        route = "monthly_report_search?childId={childId}",
                         arguments = listOf(
                             navArgument("childId") {
                                 type = NavType.StringType
@@ -218,13 +209,13 @@ fun BabyMakiSukNavHost() {
                         )
                     ) { backStackEntry ->
                         val childId = backStackEntry.arguments?.getString("childId") ?: ""
-                        WeeklyReportSearchScreen(
+                        MonthlyReportSearchScreen(
                             navController = navController,
                             childId = childId
                         )
                     }
                     composable(
-                        route = "weekly_report?childId={childId}",
+                        route = "monthly_report?childId={childId}",
                         arguments = listOf(
                             navArgument("childId") {
                                 type = NavType.StringType
@@ -234,7 +225,7 @@ fun BabyMakiSukNavHost() {
                         )
                     ) { backStackEntry ->
                         val childId = backStackEntry.arguments?.getString("childId") ?: ""
-                        WeeklyReportScreen(
+                        MonthlyReportScreen(
                             childId = childId,
                             onBack = { navController.popBackStack() }
                         )
@@ -260,7 +251,7 @@ fun BabyMakiSukNavHost() {
                         )
                     }
                     composable(
-                        route = "library/weekly?childId={childId}",
+                        route = "library/monthly?childId={childId}",
                         arguments = listOf(
                             navArgument("childId") {
                                 type = NavType.StringType
@@ -270,7 +261,23 @@ fun BabyMakiSukNavHost() {
                         )
                     ) { backStackEntry ->
                         val childId = backStackEntry.arguments?.getString("childId") ?: ""
-                        WeeklyShelfScreen(
+                        MonthlyShelfScreen(
+                            navController = navController,
+                            childId = childId
+                        )
+                    }
+                    composable(
+                        route = "library/system-reminder?childId={childId}",
+                        arguments = listOf(
+                            navArgument("childId") {
+                                type = NavType.StringType
+                                nullable = true
+                                defaultValue = ""
+                            }
+                        )
+                    ) { backStackEntry ->
+                        val childId = backStackEntry.arguments?.getString("childId") ?: ""
+                        SystemReminderShelfScreen(
                             navController = navController,
                             childId = childId
                         )

@@ -30,7 +30,7 @@ data class BackupDto(
     val medicalVisits: List<MedicalVisitBackup> = emptyList(),
     val vaccineRecords: List<VaccineRecordBackup> = emptyList(),
     val dailyLogs: List<DailyLogBackup> = emptyList(),
-    val weeklyReports: List<WeeklyReportBackup> = emptyList(),
+    val monthlyReports: List<MonthlyReportBackup> = emptyList(),
     val aiInsights: List<AiInsightBackup> = emptyList(),
     val memos: List<MemoBackup> = emptyList(),
     val toiletRecords: List<ToiletRecordBackup> = emptyList(),
@@ -74,12 +74,12 @@ data class BackupDto(
     val poopCount: Int = 0, val mood: String = "", val freeText: String = ""
 )
 
-@Serializable data class WeeklyReportBackup(
+@Serializable data class MonthlyReportBackup(
     val id: String, val rowId: Long, val childId: String,
-    val weekStart: String, val weekEnd: String, val aiSummary: String,
-    val medicalVisitIds: String, val snapshotWeight: Double?,
-    val snapshotHeight: Double?, val snapshotHeadCirc: Double?,
-    val vaccineDue: String, val searchKeywords: String,
+    val monthStart: String, val monthEnd: String, val aiSummary: String,
+    val snapshotWeight: Double?, val snapshotHeight: Double?,
+    val snapshotHeadCirc: Double?, val medicalCount: Int,
+    val systemReminderCount: Int, val searchKeywords: String,
     val driveFileId: String?, val syncedAt: Long
 )
 
@@ -122,7 +122,7 @@ class BackupManager @Inject constructor(
             medicalVisits    = db.medicalDao().getAllOnce().map { it.toBackup() },
             vaccineRecords   = db.vaccineDao().getAllOnce().map { it.toBackup() },
             dailyLogs        = db.dailyLogDao().getAllOnce().map { it.toBackup() },
-            weeklyReports    = db.weeklyReportDao().getAllOnce().map { it.toBackup() },
+            monthlyReports   = db.monthlyReportDao().getAllOnce().map { it.toBackup() },
             aiInsights       = db.aiInsightDao().getAllOnce().map { it.toBackup() },
             memos            = db.memoDao().getAllOnce().map { it.toBackup() },
             toiletRecords    = db.toiletDao().getAllOnce().map { it.toBackup() },
@@ -177,7 +177,7 @@ class BackupManager @Inject constructor(
                     db.medicalDao().deleteAll()
                     db.vaccineDao().deleteAll()
                     db.dailyLogDao().deleteAll()
-                    db.weeklyReportDao().deleteAll()
+                    db.monthlyReportDao().deleteAll()
                     db.aiInsightDao().deleteAll()
                     db.memoDao().deleteAll()
                     db.toiletDao().deleteAll()
@@ -188,7 +188,7 @@ class BackupManager @Inject constructor(
                 db.medicalDao().upsertAll(dto.medicalVisits.map { it.toEntity() })
                 db.vaccineDao().upsertAll(dto.vaccineRecords.map { it.toEntity() })
                 db.dailyLogDao().upsertAll(dto.dailyLogs.map { it.toEntity() })
-                db.weeklyReportDao().upsertAll(dto.weeklyReports.map { it.toEntity() })
+                db.monthlyReportDao().upsertAll(dto.monthlyReports.map { it.toEntity() })
                 db.aiInsightDao().upsertAll(dto.aiInsights.map { it.toEntity() })
                 db.memoDao().upsertAll(dto.memos.map { it.toEntity() })
                 db.toiletDao().upsertAll(dto.toiletRecords.map { it.toEntity() })
@@ -235,12 +235,12 @@ class BackupManager @Inject constructor(
         poopCount = poopCount, mood = mood, freeText = freeText
     )
 
-    private fun WeeklyReportEntity.toBackup() = WeeklyReportBackup(
+    private fun MonthlyReportEntity.toBackup() = MonthlyReportBackup(
         id = id, rowId = rowId, childId = childId,
-        weekStart = weekStart, weekEnd = weekEnd, aiSummary = aiSummary,
-        medicalVisitIds = medicalVisitIds, snapshotWeight = snapshotWeight,
-        snapshotHeight = snapshotHeight, snapshotHeadCirc = snapshotHeadCirc,
-        vaccineDue = vaccineDue, searchKeywords = searchKeywords,
+        monthStart = monthStart, monthEnd = monthEnd, aiSummary = aiSummary,
+        snapshotWeight = snapshotWeight, snapshotHeight = snapshotHeight,
+        snapshotHeadCirc = snapshotHeadCirc, medicalCount = medicalCount,
+        systemReminderCount = systemReminderCount, searchKeywords = searchKeywords,
         driveFileId = driveFileId, syncedAt = syncedAt
     )
 
@@ -302,12 +302,12 @@ class BackupManager @Inject constructor(
         poopCount = poopCount, mood = mood, freeText = freeText
     )
 
-    private fun WeeklyReportBackup.toEntity() = WeeklyReportEntity(
+    private fun MonthlyReportBackup.toEntity() = MonthlyReportEntity(
         id = id, rowId = rowId, childId = childId,
-        weekStart = weekStart, weekEnd = weekEnd, aiSummary = aiSummary,
-        medicalVisitIds = medicalVisitIds, snapshotWeight = snapshotWeight,
-        snapshotHeight = snapshotHeight, snapshotHeadCirc = snapshotHeadCirc,
-        vaccineDue = vaccineDue, searchKeywords = searchKeywords,
+        monthStart = monthStart, monthEnd = monthEnd, aiSummary = aiSummary,
+        snapshotWeight = snapshotWeight, snapshotHeight = snapshotHeight,
+        snapshotHeadCirc = snapshotHeadCirc, medicalCount = medicalCount,
+        systemReminderCount = systemReminderCount, searchKeywords = searchKeywords,
         driveFileId = driveFileId, syncedAt = syncedAt
     )
 

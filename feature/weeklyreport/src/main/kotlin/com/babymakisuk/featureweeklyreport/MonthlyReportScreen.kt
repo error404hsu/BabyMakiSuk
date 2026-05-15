@@ -19,16 +19,15 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.babymakisuk.coremodel.GrowthSnapshot
-import com.babymakisuk.coremodel.WeeklyReport
+import com.babymakisuk.coremodel.MonthlyReport
 import com.babymakisuk.ui.theme.BabyMakiSukTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WeeklyReportScreen(
+fun MonthlyReportScreen(
     childId: String = "",
     onBack: () -> Unit = {},
-    viewModel: WeeklyReportViewModel = hiltViewModel()
+    viewModel: MonthlyReportViewModel = hiltViewModel()
 ) {
     LaunchedEffect(childId) {
         viewModel.setChildId(childId)
@@ -45,7 +44,7 @@ fun WeeklyReportScreen(
                 TopAppBar(
                     title = {
                         Text(
-                            "週報",
+                            "月報",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.ExtraBold
                         )
@@ -73,7 +72,7 @@ fun WeeklyReportScreen(
                     contentDescription = null
                 )
                 Spacer(Modifier.width(8.dp))
-                Text("✨ 生成本週週報")
+                Text("生成 本月月報")
             }
         }
     ) { innerPadding ->
@@ -88,7 +87,7 @@ fun WeeklyReportScreen(
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    "AI 正在生成週報…",
+                    "AI 正在生成月報…",
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(12.dp),
@@ -130,12 +129,12 @@ fun WeeklyReportScreen(
                         )
                         Spacer(Modifier.height(16.dp))
                         Text(
-                            "尚無週報",
+                            "尚無月報",
                             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                         )
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            "點擊下方按鈕生成第一份成長週報",
+                            "點擊下方按鈕生成第一份成長月報",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -148,7 +147,7 @@ fun WeeklyReportScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(reports, key = { it.id }) { report ->
-                        WeeklyReportCard(
+                        MonthlyReportCard(
                             report = report,
                             onDelete = { viewModel.deleteReport(report.id) }
                         )
@@ -161,8 +160,8 @@ fun WeeklyReportScreen(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun WeeklyReportCard(
-    report: WeeklyReport,
+private fun MonthlyReportCard(
+    report: MonthlyReport,
     onDelete: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -172,7 +171,7 @@ private fun WeeklyReportCard(
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
             title = { Text("確認刪除") },
-            text = { Text("確定要刪除這份週報嗎？此操作無法復原。") },
+            text = { Text("確定要刪除這份月報嗎？此操作無法復原。") },
             confirmButton = {
                 TextButton(onClick = {
                     onDelete()
@@ -204,7 +203,6 @@ private fun WeeklyReportCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // 週次標題
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(
                     shape = RoundedCornerShape(12.dp),
@@ -223,22 +221,9 @@ private fun WeeklyReportCard(
                 Spacer(Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        "${report.weekStart} ~ ${report.weekEnd}",
+                        "${report.monthStart} ~ ${report.monthEnd}",
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                     )
-                    val gs = report.growthSnapshot
-                    if (gs != null) {
-                        val parts = mutableListOf<String>()
-                        gs.weight?.let { parts.add("體重 ${"%,.1f".format(it)} kg") }
-                        gs.height?.let { parts.add("身高 ${"%,.1f".format(it)} cm") }
-                        if (parts.isNotEmpty()) {
-                            Text(
-                                parts.joinToString(" · "),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
                 }
                 Icon(
                     imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
@@ -247,7 +232,6 @@ private fun WeeklyReportCard(
                 )
             }
 
-            // 摘要（收合狀態）
             if (!expanded && report.aiSummary.isNotBlank()) {
                 Spacer(Modifier.height(8.dp))
                 Text(
@@ -259,7 +243,6 @@ private fun WeeklyReportCard(
                 )
             }
 
-            // 展開狀態
             if (expanded) {
                 Spacer(Modifier.height(8.dp))
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
@@ -294,19 +277,19 @@ private fun WeeklyReportCard(
 
 @Preview(showBackground = true)
 @Composable
-private fun WeeklyReportCardPreview() {
+private fun MonthlyReportCardPreview() {
     BabyMakiSukTheme {
-        WeeklyReportCard(
-            report = WeeklyReport(
-                id = "1_2026-W20",
+        MonthlyReportCard(
+            report = MonthlyReport(
+                id = "1_2026-M05",
                 childId = "1",
-                weekStart = "2026-05-11",
-                weekEnd = "2026-05-17",
-                aiSummary = "本週寶寶食慾良好，體重穩定成長。週二有輕微流鼻水但已自行痊癒。建議多注意天氣變化適時添衣。",
-                medicalVisitIds = emptyList(),
-                growthSnapshot = GrowthSnapshot(12.5, 86.0, null),
-                vaccineDue = emptyList(),
-                searchKeywords = listOf("食慾", "體重", "流鼻水"),
+                monthStart = "2026-05-01",
+                monthEnd = "2026-05-31",
+                aiSummary = "本月寶寶食慾良好，體重穩定成長。月中曾有一次輕微感冒已自行痊癒。建議多注意天氣變化適時添衣。",
+                growthSnapshot = null,
+                medicalCount = 1,
+                systemReminderCount = 0,
+                searchKeywords = listOf("食慾", "體重", "感冒"),
                 driveFileId = null,
                 syncedAt = System.currentTimeMillis()
             ),
@@ -317,9 +300,9 @@ private fun WeeklyReportCardPreview() {
 
 @Preview(showBackground = true)
 @Composable
-private fun WeeklyReportScreenPreview() {
+private fun MonthlyReportScreenPreview() {
     BabyMakiSukTheme {
-        WeeklyReportScreen(
+        MonthlyReportScreen(
             childId = "1",
             onBack = {}
         )

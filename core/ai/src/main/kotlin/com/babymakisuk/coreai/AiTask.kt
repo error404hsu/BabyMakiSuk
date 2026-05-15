@@ -11,8 +11,8 @@ enum class AiTask {
     MEDICAL_OCR,
     /** 語音輸入前處理（STT 佔位，尚未實作 STT 邏輯） */
     VOICE_INPUT,
-    /** 週報彙整：整合當週日誌產出摘要 */
-    WEEKLY_REPORT,
+    /** 月報彙整：整合當月日誌產出摘要 */
+    MONTHLY_REPORT,
     /** 單輪快速聊天：關閉視窗即清空對話記憶 */
     QUICK_CHAT,
     /** 自定義 System Prompt：由呼叫端注入任意 system instruction */

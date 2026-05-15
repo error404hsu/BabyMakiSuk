@@ -1,5 +1,6 @@
 package com.babymakisuk.featuregrowth.ui
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -7,7 +8,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.filled.ShowChart
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -17,7 +17,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -25,10 +24,10 @@ import androidx.navigation.NavController
 import com.babymakisuk.coremodel.ChildProfile
 import com.babymakisuk.coremodel.Gender
 import com.babymakisuk.coremodel.GrowthRecord
+import com.babymakisuk.featuregrowth.domain.GrowthRecordWithPercentile
 import com.babymakisuk.ui.components.BabyTopBar
 import com.babymakisuk.ui.components.LocalDrawerState
 import com.babymakisuk.ui.theme.BabyMakiSukTheme
-import com.babymakisuk.featuregrowth.domain.GrowthRecordWithPercentile
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -91,8 +90,7 @@ fun ChildSelectorRow(
 @Composable
 fun GrowthScreen(
     viewModel: GrowthViewModel? = if (LocalInspectionMode.current) null else hiltViewModel(),
-    navController: NavController,
-    onNavigateToAi: (String?) -> Unit = {}
+    navController: NavController
 ) {
     if (viewModel == null) {
         Box(Modifier.fillMaxSize()) {
@@ -103,17 +101,14 @@ fun GrowthScreen(
 
     val uiState by viewModel.uiState.collectAsState()
     val canEditData by viewModel.canEditData.collectAsState()
-    val aiSuggestingIds by viewModel.aiSuggestingIds.collectAsState()
 
     GrowthScreenContent(
         uiState = uiState,
         canEditData = canEditData,
         navController = navController,
-        onNavigateToAi = onNavigateToAi,
         onSelectChild = viewModel::selectChild,
         onDeleteRecord = { viewModel.deleteRecord(it.record) },
-        onAiSuggest = { viewModel.triggerAiSuggestion(it) },
-        aiSuggestingIds = aiSuggestingIds
+        onRefreshAiAnalysis = viewModel::refreshAiAnalysis
     )
 }
 
@@ -123,13 +118,12 @@ fun GrowthScreenContent(
     uiState: GrowthUiState,
     canEditData: Boolean,
     navController: NavController,
-    onNavigateToAi: (String?) -> Unit,
     onSelectChild: (Long) -> Unit,
     onDeleteRecord: (GrowthRecordWithPercentile) -> Unit,
-    onAiSuggest: (GrowthRecordWithPercentile) -> Unit = {},
-    aiSuggestingIds: Set<Long> = emptySet()
+    onRefreshAiAnalysis: () -> Unit = {}
 ) {
-    var showChart by remember { mutableStateOf(false) }
+    var selectedTab by remember { mutableIntStateOf(0) }
+    val tabTitles = listOf("卡片", "圖表", "AI 建議")
 
     val drawerState = LocalDrawerState.current
     val drawerScope = rememberCoroutineScope()
@@ -154,10 +148,9 @@ fun GrowthScreenContent(
                     }
                 },
                 showSearch = true,
-                showAi = true,
+                showAi = false,
                 showAdd = canEditData,
                 onMenuClick = { drawerScope.launch { drawerState.open() } },
-                onAiClick = { onNavigateToAi("GROWTH_ANALYST") },
                 onAddClick = {
                     val childId = (uiState as? GrowthUiState.Success)?.selectedChildId ?: 1L
                     navController.navigate("growth/edit?recordId=-1&childId=$childId")
@@ -175,7 +168,6 @@ fun GrowthScreenContent(
                 is GrowthUiState.Error -> Text("錯誤：${state.message}", Modifier.align(Alignment.Center))
                 is GrowthUiState.Success -> {
                     if (state.records.isEmpty()) {
-                        // ... (keep empty state as is)
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Spacer(Modifier.height(40.dp))
@@ -205,50 +197,141 @@ fun GrowthScreenContent(
                                 LatestGrowthHero(latest, selectedChildColor)
                             } ?: Box(Modifier.height(16.dp))
 
+                            TabRow(
+                                selectedTabIndex = selectedTab,
+                                containerColor = MaterialTheme.colorScheme.surface
+                            ) {
+                                tabTitles.forEachIndexed { index, title ->
+                                    Tab(
+                                        selected = selectedTab == index,
+                                        onClick = { selectedTab = index },
+                                        text = { Text(title) }
+                                    )
+                                }
+                            }
+
                             Surface(
                                 modifier = Modifier.weight(1f).fillMaxWidth(),
-                                shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
-                                shadowElevation = 8.dp,
                                 color = MaterialTheme.colorScheme.surface
                             ) {
-                                if (showChart) {
-                                    GrowthChartScreen(records = state.records)
-                                } else {
-                                    GrowthListScreen(
+                                when (selectedTab) {
+                                    0 -> GrowthListScreen(
                                         records = state.records,
                                         onEdit = { item ->
                                             navController.navigate("growth/edit?recordId=${item.record.id}&childId=${item.record.childId}")
                                         },
-                                        onDelete = onDeleteRecord,
-                                        onAiSuggest = onAiSuggest,
-                                        aiSuggestingIds = aiSuggestingIds
+                                        onDelete = onDeleteRecord
+                                    )
+                                    1 -> GrowthChartScreen(records = state.records)
+                                    2 -> GrowthAiTab(
+                                        aiAnalysisText = state.aiAnalysisText,
+                                        isAnalyzing = state.isAnalyzing,
+                                        onRefresh = onRefreshAiAnalysis
                                     )
                                 }
                             }
                         }
+                    }
+                }
+            }
+        }
+    }
+}
 
-                        // 將切換按鈕移至內容區域的右上角，正位於 TopBar 新增按鈕的下方
-                        IconButton(
-                            onClick = { showChart = !showChart },
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(end = 12.dp, top = 4.dp)
-                                .size(40.dp)
-                                .background(
-                                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
-                                    shape = CircleShape
-                                )
+@Composable
+private fun GrowthAiTab(
+    aiAnalysisText: String,
+    isAnalyzing: Boolean,
+    onRefresh: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        if (aiAnalysisText.isBlank() && !isAnalyzing) {
+            Box(
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        Icons.Default.Lightbulb,
+                        contentDescription = null,
+                        modifier = Modifier.size(64.dp),
+                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        "尚無 AI 分析",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "點擊下方按鈕讓 AI 分析所有生長紀錄趨勢",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        } else {
+            Surface(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.3f),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("🤖", fontSize = 20.sp)
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "AI 生長分析",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    if (isAnalyzing) {
+                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator()
+                        }
+                    } else {
+                        Text(
+                            aiAnalysisText,
+                            style = MaterialTheme.typography.bodyMedium,
+                            lineHeight = 22.sp
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Surface(
+                            color = MaterialTheme.colorScheme.tertiaryContainer,
+                            shape = RoundedCornerShape(8.dp)
                         ) {
-                            Icon(
-                                imageVector = if (showChart) Icons.AutoMirrored.Filled.List else Icons.AutoMirrored.Filled.ShowChart,
-                                contentDescription = if (showChart) "切換至列表" else "切換至圖表",
-                                tint = selectedChildColor,
-                                modifier = Modifier.size(24.dp)
+                            Text(
+                                "⚠️ AI 整理僅供參考，如有疑慮請諮詢兒科醫師",
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer
                             )
                         }
                     }
                 }
             }
+        }
+
+        Spacer(Modifier.height(16.dp))
+        Button(
+            onClick = onRefresh,
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !isAnalyzing,
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary)
+        ) {
+            Icon(Icons.Default.AutoAwesome, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            Text(if (isAnalyzing) "分析中..." else "開始分析")
         }
     }
 }
@@ -259,7 +342,7 @@ private fun LatestGrowthHero(item: GrowthRecordWithPercentile, accentColor: Colo
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(bottom = 24.dp, start = 24.dp, end = 24.dp),
+            .padding(bottom = 12.dp, start = 24.dp, end = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Row(
@@ -326,72 +409,7 @@ private fun HeroStat(label: String, value: String, unit: String, pct: Int, color
                 )
             }
         } else {
-            // Placeholder to keep alignment with other stats that have percentiles
             Spacer(modifier = Modifier.height(20.dp))
-        }
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GrowthScreenPreview() {
-    val sampleBoy = ChildProfile(
-        id = 1L,
-        name = "小明",
-        gender = Gender.MALE,
-        birthday = LocalDate.now().minusMonths(6)
-    )
-    val sampleRecords = listOf(
-        GrowthRecordWithPercentile(
-            record = GrowthRecord(
-                id = 1,
-                childId = 1,
-                date = LocalDate.now().minusMonths(1),
-                heightCm = 68f,
-                weightKg = 7.5f,
-                headCircumferenceCm = 42f
-            ),
-            ageMonths = 5,
-            gender = Gender.MALE,
-            heightPercentile = 45,
-            weightPercentile = 40,
-            headCircPercentile = 50
-        ),
-        GrowthRecordWithPercentile(
-            record = GrowthRecord(
-                id = 2,
-                childId = 1,
-                date = LocalDate.now(),
-                heightCm = 70f,
-                weightKg = 8.2f,
-                headCircumferenceCm = 43f
-            ),
-            ageMonths = 6,
-            gender = Gender.MALE,
-            heightPercentile = 55,
-            weightPercentile = 50,
-            headCircPercentile = 60
-        )
-    )
-
-    val sampleUiState = GrowthUiState.Success(
-        children = listOf(sampleBoy),
-        selectedChildId = 1L,
-        records = sampleRecords
-    )
-
-    BabyMakiSukTheme {
-        CompositionLocalProvider(LocalDrawerState provides rememberDrawerState(DrawerValue.Closed)) {
-            GrowthScreenContent(
-                uiState = sampleUiState,
-                canEditData = true,
-                navController = androidx.navigation.compose.rememberNavController(),
-                onNavigateToAi = {},
-                onSelectChild = {},
-                onDeleteRecord = {},
-                onAiSuggest = {},
-                aiSuggestingIds = emptySet()
-            )
         }
     }
 }

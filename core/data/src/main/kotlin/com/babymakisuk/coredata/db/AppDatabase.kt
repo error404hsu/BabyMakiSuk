@@ -15,15 +15,16 @@ import com.babymakisuk.coredata.entity.*
         MedicalVisitEntity::class,
         VaccineRecordEntity::class,
         DailyLogEntity::class,
-        WeeklyReportEntity::class,
-        WeeklyReportFts::class,
+        MonthlyReportEntity::class,
+        MonthlyReportFts::class,
+        SystemReminderEntity::class,
         AiInsightEntity::class,
         MemoEntity::class,
         ToiletRecordEntity::class,
         VaccineReminderEntity::class,
         ChatMessageEntity::class
     ],
-    version = 11,
+    version = 12,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -33,7 +34,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun medicalDao(): MedicalDao
     abstract fun vaccineDao(): VaccineDao
     abstract fun dailyLogDao(): DailyLogDao
-    abstract fun weeklyReportDao(): WeeklyReportDao
+    abstract fun monthlyReportDao(): MonthlyReportDao
+    abstract fun systemReminderDao(): SystemReminderDao
     abstract fun aiInsightDao(): AiInsightDao
     abstract fun memoDao(): MemoDao
     abstract fun toiletDao(): ToiletDao
@@ -295,6 +297,64 @@ abstract class AppDatabase : RoomDatabase() {
         val MIGRATION_10_11 = object : Migration(10, 11) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE growth_record ADD COLUMN aiSuggestion TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
+        /**
+         * Migration 11 -> 12
+         * 1. 刪除舊 weekly_reports 表及 FTS 表
+         * 2. 建立 monthly_reports 主表及 FTS 表
+         * 3. 建立 system_reminders 表
+         * 4. child_profile 新增 default_ai_prompt 欄位
+         */
+        val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DROP TABLE IF EXISTS weekly_reports_fts")
+                db.execSQL("DROP TABLE IF EXISTS weekly_reports")
+
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS monthly_reports (
+                        id                  TEXT NOT NULL PRIMARY KEY,
+                        `rowid`             INTEGER NOT NULL,
+                        child_id            TEXT NOT NULL,
+                        month_start         TEXT NOT NULL,
+                        month_end           TEXT NOT NULL,
+                        ai_summary          TEXT NOT NULL,
+                        snapshot_weight     REAL,
+                        snapshot_height     REAL,
+                        snapshot_head_circ  REAL,
+                        medical_count       INTEGER NOT NULL DEFAULT 0,
+                        system_reminder_count INTEGER NOT NULL DEFAULT 0,
+                        search_keywords     TEXT NOT NULL DEFAULT '',
+                        drive_file_id       TEXT,
+                        synced_at           INTEGER NOT NULL DEFAULT 0
+                    )
+                """.trimIndent())
+
+                db.execSQL("""
+                    CREATE VIRTUAL TABLE IF NOT EXISTS monthly_reports_fts
+                    USING fts4(
+                        content=`monthly_reports`,
+                        ai_summary,
+                        search_keywords
+                    )
+                """.trimIndent())
+
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS system_reminders (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        childId INTEGER NOT NULL,
+                        type TEXT NOT NULL,
+                        title TEXT NOT NULL,
+                        content TEXT NOT NULL,
+                        createdAt INTEGER NOT NULL,
+                        resolvedAt INTEGER,
+                        FOREIGN KEY(childId) REFERENCES child_profile(id) ON DELETE CASCADE
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_system_reminders_childId ON system_reminders(childId)")
+
+                db.execSQL("ALTER TABLE child_profile ADD COLUMN defaultAiPrompt TEXT")
             }
         }
     }

@@ -19,21 +19,15 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import com.babymakisuk.coredata.entity.WeeklyReportEntity
+import com.babymakisuk.coredata.entity.MonthlyReportEntity
 
-/**
- * WeeklyReportSearchScreen — Sprint 3
- *
- * FTS 全文搜尋週報，支援關鍵字高亮（AnnotatedString 標黃）。
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WeeklyReportSearchScreen(
+fun MonthlyReportSearchScreen(
     navController: NavController,
     childId: String = "",
-    viewModel: WeeklyReportSearchViewModel = hiltViewModel()
+    viewModel: MonthlyReportSearchViewModel = hiltViewModel()
 ) {
-    // 設定 childId
     LaunchedEffect(childId) {
         viewModel.currentChildId = childId
     }
@@ -44,7 +38,7 @@ fun WeeklyReportSearchScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("搜尋週報") },
+                title = { Text("搜尋月報") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(
@@ -62,14 +56,13 @@ fun WeeklyReportSearchScreen(
                 .padding(innerPadding)
                 .padding(horizontal = 16.dp)
         ) {
-            // ── 搜尋列 ──────────────────────────────────────────────────────
             SearchBar(
                 query = query,
                 onQueryChange = { viewModel.onQueryChange(it) },
                 onSearch = { /* FTS 即時搜尋，無需手動觸發 */ },
                 active = false,
                 onActiveChange = {},
-                placeholder = { Text("輸入關鍵字搜尋週報…") },
+                placeholder = { Text("輸入關鍵字搜尋月報…") },
                 leadingIcon = {
                     Icon(Icons.Filled.Search, contentDescription = "搜尋")
                 },
@@ -78,7 +71,6 @@ fun WeeklyReportSearchScreen(
                     .padding(bottom = 8.dp)
             ) {}
 
-            // ── 結果列表 / 空狀態 ────────────────────────────────────────────
             if (query.isBlank() && results.isEmpty()) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -93,12 +85,12 @@ fun WeeklyReportSearchScreen(
                         )
                         Spacer(Modifier.height(16.dp))
                         Text(
-                            "搜尋週報內容",
+                            "搜尋月報內容",
                             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                         )
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            "輸入關鍵字查找每週 AI 摘要與成長分析",
+                            "輸入關鍵字查找每月 AI 摘要與成長分析",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -118,7 +110,7 @@ fun WeeklyReportSearchScreen(
                         )
                         Spacer(Modifier.height(16.dp))
                         Text(
-                            "找不到相關週報",
+                            "找不到相關月報",
                             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                         )
                         Spacer(Modifier.height(8.dp))
@@ -135,7 +127,7 @@ fun WeeklyReportSearchScreen(
                     contentPadding = PaddingValues(vertical = 8.dp)
                 ) {
                     items(results, key = { it.id }) { report ->
-                        WeeklyReportSearchCard(
+                        MonthlyReportSearchCard(
                             report = report,
                             keyword = query
                         )
@@ -146,11 +138,9 @@ fun WeeklyReportSearchScreen(
     }
 }
 
-// ── 週報搜尋結果卡片 ─────────────────────────────────────────────────────────
-
 @Composable
-private fun WeeklyReportSearchCard(
-    report: WeeklyReportEntity,
+private fun MonthlyReportSearchCard(
+    report: MonthlyReportEntity,
     keyword: String
 ) {
     val summaryPreview = report.aiSummary.take(100).let {
@@ -164,14 +154,12 @@ private fun WeeklyReportSearchCard(
         )
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
-            // 週報日期區間
             Text(
-                text = "${report.weekStart} ～ ${report.weekEnd}",
+                text = "${report.monthStart} ～ ${report.monthEnd}",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold
             )
             Spacer(Modifier.height(4.dp))
-            // 摘要前 100 字 + 關鍵字高亮
             Text(
                 text = highlightKeyword(summaryPreview, keyword),
                 style = MaterialTheme.typography.bodySmall
@@ -180,9 +168,6 @@ private fun WeeklyReportSearchCard(
     }
 }
 
-/**
- * 以 AnnotatedString 將摘要中的關鍵字標為黃色粗體。
- */
 private fun highlightKeyword(text: String, keyword: String) = buildAnnotatedString {
     if (keyword.isBlank()) {
         append(text)

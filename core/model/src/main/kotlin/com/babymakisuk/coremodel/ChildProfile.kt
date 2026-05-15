@@ -11,7 +11,8 @@ data class ChildProfile(
     val bloodType: BloodType? = null,
     val allergies: String? = null,
     val note: String = "",
-    val photoUri: String? = null
+    val photoUri: String? = null,
+    val defaultAiPrompt: String? = null
 ) {
     /**
      * 計算當前月齡。

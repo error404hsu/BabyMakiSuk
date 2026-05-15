@@ -1,13 +1,13 @@
-﻿package com.babymakisuk.coredata.entity
+package com.babymakisuk.coredata.entity
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.babymakisuk.coremodel.GrowthSnapshot
-import com.babymakisuk.coremodel.WeeklyReport
+import com.babymakisuk.coremodel.MonthlyReport
 
-@Entity(tableName = "weekly_reports")
-data class WeeklyReportEntity(
+@Entity(tableName = "monthly_reports")
+data class MonthlyReportEntity(
     @PrimaryKey
     val id: String,
 
@@ -17,20 +17,15 @@ data class WeeklyReportEntity(
     @ColumnInfo(name = "child_id")
     val childId: String,
 
-    @ColumnInfo(name = "week_start")
-    val weekStart: String,
+    @ColumnInfo(name = "month_start")
+    val monthStart: String,
 
-    @ColumnInfo(name = "week_end")
-    val weekEnd: String,
+    @ColumnInfo(name = "month_end")
+    val monthEnd: String,
 
     @ColumnInfo(name = "ai_summary")
     val aiSummary: String,
 
-    /** 騾苓辧蛻・囈逧・medicalVisitId 蟄嶺ｸｲ */
-    @ColumnInfo(name = "medical_visit_ids")
-    val medicalVisitIds: String = "",
-
-    // GrowthSnapshot 螻募ｹｳ蜆ｲ蟄・
     @ColumnInfo(name = "snapshot_weight")
     val snapshotWeight: Double? = null,
 
@@ -40,11 +35,12 @@ data class WeeklyReportEntity(
     @ColumnInfo(name = "snapshot_head_circ")
     val snapshotHeadCirc: Double? = null,
 
-    /** 騾苓辧蛻・囈 */
-    @ColumnInfo(name = "vaccine_due")
-    val vaccineDue: String = "",
+    @ColumnInfo(name = "medical_count")
+    val medicalCount: Int = 0,
 
-    /** 騾苓辧蛻・囈・御ｾ・FTS 邏｢蠑・*/
+    @ColumnInfo(name = "system_reminder_count")
+    val systemReminderCount: Int = 0,
+
     @ColumnInfo(name = "search_keywords")
     val searchKeywords: String = "",
 
@@ -55,32 +51,32 @@ data class WeeklyReportEntity(
     val syncedAt: Long = 0L
 )
 
-fun WeeklyReportEntity.toDomain() = WeeklyReport(
+fun MonthlyReportEntity.toDomain() = MonthlyReport(
     id = id,
     childId = childId,
-    weekStart = weekStart,
-    weekEnd = weekEnd,
+    monthStart = monthStart,
+    monthEnd = monthEnd,
     aiSummary = aiSummary,
-    medicalVisitIds = if (medicalVisitIds.isBlank()) emptyList() else medicalVisitIds.split(","),
     growthSnapshot = if (snapshotWeight == null && snapshotHeight == null && snapshotHeadCirc == null) null
-                    else GrowthSnapshot(snapshotWeight, snapshotHeight, snapshotHeadCirc),
-    vaccineDue = if (vaccineDue.isBlank()) emptyList() else vaccineDue.split(","),
+    else GrowthSnapshot(snapshotWeight, snapshotHeight, snapshotHeadCirc),
+    medicalCount = medicalCount,
+    systemReminderCount = systemReminderCount,
     searchKeywords = if (searchKeywords.isBlank()) emptyList() else searchKeywords.split(","),
     driveFileId = driveFileId,
     syncedAt = syncedAt
 )
 
-fun WeeklyReport.toEntity() = WeeklyReportEntity(
+fun MonthlyReport.toEntity() = MonthlyReportEntity(
     id = id,
     childId = childId,
-    weekStart = weekStart,
-    weekEnd = weekEnd,
+    monthStart = monthStart,
+    monthEnd = monthEnd,
     aiSummary = aiSummary,
-    medicalVisitIds = medicalVisitIds.joinToString(","),
     snapshotWeight = growthSnapshot?.weight,
     snapshotHeight = growthSnapshot?.height,
     snapshotHeadCirc = growthSnapshot?.headCirc,
-    vaccineDue = vaccineDue.joinToString(","),
+    medicalCount = medicalCount,
+    systemReminderCount = systemReminderCount,
     searchKeywords = searchKeywords.joinToString(","),
     driveFileId = driveFileId,
     syncedAt = syncedAt

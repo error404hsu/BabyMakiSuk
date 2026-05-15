@@ -76,10 +76,9 @@ fun MemoShelfScreen(
                     )
                 },
                 showSearch = true,
-                showAi = true,
+                showAi = false,
                 showAdd = true,
                 onMenuClick = { drawerScope.launch { drawerState.open() } },
-                onAiClick = { onNavigateToAi("CUSTOM") },
                 onAddClick = {
                     navController.navigate("library/memo/edit?memoId=-1&childId=$entryChildIdLong")
                 }

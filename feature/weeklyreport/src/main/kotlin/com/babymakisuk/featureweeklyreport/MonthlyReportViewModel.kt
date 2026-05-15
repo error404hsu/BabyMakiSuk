@@ -2,22 +2,20 @@ package com.babymakisuk.featureweeklyreport
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.babymakisuk.coredata.dao.WeeklyReportDao
+import com.babymakisuk.coredata.dao.MonthlyReportDao
 import com.babymakisuk.coredata.entity.toDomain
-import com.babymakisuk.coredata.repository.WeeklyReportRepository
-import com.babymakisuk.coremodel.WeeklyReport
+import com.babymakisuk.coredata.repository.MonthlyReportRepository
+import com.babymakisuk.coremodel.MonthlyReport
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import java.time.DayOfWeek
-import java.time.LocalDate
-import java.time.temporal.TemporalAdjusters
+import java.time.YearMonth
 import javax.inject.Inject
 
 @HiltViewModel
-class WeeklyReportViewModel @Inject constructor(
-    private val weeklyReportRepository: WeeklyReportRepository,
-    private val weeklyReportDao: WeeklyReportDao
+class MonthlyReportViewModel @Inject constructor(
+    private val monthlyReportRepository: MonthlyReportRepository,
+    private val monthlyReportDao: MonthlyReportDao
 ) : ViewModel() {
 
     private val _childId = MutableStateFlow("")
@@ -26,10 +24,10 @@ class WeeklyReportViewModel @Inject constructor(
         _childId.value = id
     }
 
-    val reports: StateFlow<List<WeeklyReport>> = _childId
+    val reports: StateFlow<List<MonthlyReport>> = _childId
         .flatMapLatest { childId ->
             if (childId.isBlank()) flowOf(emptyList())
-            else weeklyReportDao.getRecentReports(childId, limit = 50).map { entities ->
+            else monthlyReportDao.getRecentReports(childId, limit = 50).map { entities ->
                 entities.map { it.toDomain() }
             }
         }
@@ -50,11 +48,10 @@ class WeeklyReportViewModel @Inject constructor(
             _isGenerating.value = true
             _errorMessage.value = null
 
-            val today = LocalDate.now()
-            val weekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+            val yearMonth = YearMonth.now()
 
             runCatching {
-                weeklyReportRepository.generateWeeklyReport(childId, weekStart)
+                monthlyReportRepository.generateMonthlyReport(childId, yearMonth)
             }.onFailure {
                 _errorMessage.value = it.message
             }
@@ -66,8 +63,8 @@ class WeeklyReportViewModel @Inject constructor(
     fun deleteReport(reportId: String) {
         viewModelScope.launch {
             try {
-                weeklyReportDao.getById(reportId)?.let { entity ->
-                    weeklyReportDao.delete(entity)
+                monthlyReportDao.getById(reportId)?.let { entity ->
+                    monthlyReportDao.delete(entity)
                 }
             } catch (e: Exception) {
                 _errorMessage.value = e.message

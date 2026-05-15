@@ -59,20 +59,23 @@ fun LibraryScreen(
     val weeklyUpdated by viewModel.weeklyLastUpdated.collectAsState()
     val aiUpdated by viewModel.aiInsightLastUpdated.collectAsState()
     val memoUpdated by viewModel.memoLastUpdated.collectAsState()
+    val systemReminderUpdated by viewModel.systemReminderLastUpdated.collectAsState()
 
     val drawerState = LocalDrawerState.current
     val scope = rememberCoroutineScope()
 
     val shelves = listOf(
-        ShelfItem("週報書架", "AI 生成的每週綜合報告", "library/weekly", "📅"),
+        ShelfItem("月報書架", "AI 生成的每月綜合報告", "library/monthly", "📅"),
         ShelfItem("AI 精華", "智能摘錄的重要記錄", "library/aiinsight", "🤖"),
-        ShelfItem("手動 Memo", "隨手記錄育兒筆記", "library/memo", "📝")
+        ShelfItem("手動 Memo", "隨手記錄育兒筆記", "library/memo", "📝"),
+        ShelfItem("系統提醒", "自動記錄事項（如排便提醒）", "library/system-reminder", "🔔")
     )
 
     val lastUpdatedMap = mapOf(
-        "library/weekly" to weeklyUpdated,
+        "library/monthly" to weeklyUpdated,
         "library/aiinsight" to aiUpdated,
-        "library/memo" to memoUpdated
+        "library/memo" to memoUpdated,
+        "library/system-reminder" to systemReminderUpdated
     )
 
     Scaffold(
@@ -88,15 +91,6 @@ fun LibraryScreen(
                 actions = {
                     IconButton(onClick = { }) {
                         Icon(Icons.Default.Search, "搜尋")
-                    }
-                    IconButton(onClick = {
-                        onNavigateToAi("")
-                    }) {
-                        Icon(
-                            Icons.Default.AutoAwesome,
-                            "問問AI",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)

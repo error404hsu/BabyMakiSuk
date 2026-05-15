@@ -14,7 +14,8 @@ data class ChildProfileEntity(
     val bloodType: String? = null,
     val allergies: String? = null,
     val note: String = "",
-    val photoUri: String? = null
+    val photoUri: String? = null,
+    val defaultAiPrompt: String? = null
 )
 
 fun ChildProfileEntity.toDomain() = ChildProfile(
@@ -24,7 +25,8 @@ fun ChildProfileEntity.toDomain() = ChildProfile(
     bloodType = bloodType?.let { BloodType.valueOf(it) },
     allergies = allergies,
     note = note,
-    photoUri = photoUri
+    photoUri = photoUri,
+    defaultAiPrompt = defaultAiPrompt
 )
 
 fun ChildProfile.toEntity() = ChildProfileEntity(
@@ -34,5 +36,6 @@ fun ChildProfile.toEntity() = ChildProfileEntity(
     bloodType = bloodType?.name,
     allergies = allergies,
     note = note,
-    photoUri = photoUri
+    photoUri = photoUri,
+    defaultAiPrompt = defaultAiPrompt
 )

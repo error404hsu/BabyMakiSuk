@@ -1,17 +1,13 @@
-﻿package com.babymakisuk.coredata.entity
+package com.babymakisuk.coredata.entity
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Fts4
 import androidx.room.PrimaryKey
 
-/**
- * FTS4 外部內容表，對應 WeeklyReportEntity。
- * Room 中 FTS external content 實體的屬性名稱需與外部實體的 ColumnInfo name 一致。
- */
-@Fts4(contentEntity = WeeklyReportEntity::class)
-@Entity(tableName = "weekly_reports_fts")
-data class WeeklyReportFts(
+@Fts4(contentEntity = MonthlyReportEntity::class)
+@Entity(tableName = "monthly_reports_fts")
+data class MonthlyReportFts(
     @PrimaryKey
     @ColumnInfo(name = "rowid")
     val rowId: Long = 0,

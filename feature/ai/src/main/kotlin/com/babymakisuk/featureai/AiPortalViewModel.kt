@@ -22,6 +22,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -41,10 +42,6 @@ class AiPortalViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val presetHint: String? = savedStateHandle["presetHint"]
-
-    /**
-     * 由導航層傳入的目標幼兒 ID，若有則透過 AiContextInjector 注入個案背景。
-     */
     private val contextChildId: Long? = (savedStateHandle.get<Long>("contextChildId"))
 
     private val initialPreset = AiPreset.fromHint(presetHint)
@@ -61,15 +58,26 @@ class AiPortalViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
+            val children = childRepository.observeAll().first()
             val entities = withContext(Dispatchers.IO) {
                 chatMessageDao.getAllOnce()
             }
-            if (entities.isNotEmpty()) {
-                _uiState.update { state ->
-                    state.copy(messages = entities.map { it.toChatMessage() })
-                }
+            val effectiveChildId = contextChildId?.takeIf { it != -1L }
+                ?: children.firstOrNull()?.id
+                ?: -1L
+
+            _uiState.update { state ->
+                state.copy(
+                    children = children,
+                    selectedChildId = effectiveChildId,
+                    messages = if (entities.isNotEmpty()) entities.map { it.toChatMessage() } else emptyList()
+                )
             }
         }
+    }
+
+    fun selectChild(childId: Long) {
+        _uiState.update { it.copy(selectedChildId = childId) }
     }
 
     fun switchPreset(preset: AiPreset) {
@@ -129,7 +137,8 @@ class AiPortalViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
-                val child     = childRepository.getChildren().firstOrNull()
+                val selectedChildId = _uiState.value.selectedChildId
+                val child = if (selectedChildId > 0) childRepository.getById(selectedChildId) else childRepository.getChildren().firstOrNull()
                 val ageMonths = child?.ageMonths ?: 0
                 val gender    = child?.gender?.name ?: "未知"
                 val allergies = child?.allergies
@@ -140,7 +149,8 @@ class AiPortalViewModel @Inject constructor(
                     preset     = currentPreset,
                     ageMonths  = ageMonths,
                     gender     = gender,
-                    allergies  = allergies
+                    allergies  = allergies,
+                    childId    = selectedChildId
                 )
 
                 val response = aiDispatcher.executeWithSystemPrompt(
@@ -150,10 +160,8 @@ class AiPortalViewModel @Inject constructor(
                     modelOverride = _uiState.value.effectiveModel
                 )
 
-                // 儲存 AI 完整回覆至 DB
                 persistMessage(ChatMessage(id = aiMessageId, role = Role.AI, text = response))
 
-                // 打字機效果（含角色名稱前綴）
                 val prefix = "【以 ${currentPreset.displayName} 的身分回答】\n"
                 for (char in (prefix + response)) {
                     delay(15)
@@ -203,7 +211,12 @@ class AiPortalViewModel @Inject constructor(
 
     fun summarizeToKnowledgeBase() {
         val currentMessages = _uiState.value.messages
-        if (currentMessages.isEmpty()) return
+        if (currentMessages.isEmpty()) {
+            _uiState.update { it.copy(errorMessage = "尚無對話內容可整理") }
+            return
+        }
+
+        _uiState.update { it.copy(isSummarizing = true) }
 
         viewModelScope.launch {
             try {
@@ -211,8 +224,10 @@ class AiPortalViewModel @Inject constructor(
                     val roleLabel = if (msg.role == Role.USER) "家長" else "AI"
                     "$roleLabel：${msg.text}"
                 }
-                val childId = childRepository.getChildren()
-                    .firstOrNull()?.id?.toString() ?: "unknown"
+                val selectedChildId = _uiState.value.selectedChildId
+                val child = if (selectedChildId > 0) childRepository.getById(selectedChildId) else childRepository.getChildren().firstOrNull()
+                val childId = child?.id?.toString() ?: "unknown"
+                val childName = child?.name ?: "寶寶"
 
                 val systemPrompt = buildString {
                     appendLine("你是一位對話摘要 AI，專門將育兒對話整理成結構化知識卡。")
@@ -227,7 +242,7 @@ class AiPortalViewModel @Inject constructor(
                 val raw = aiDispatcher.executeWithSystemPrompt(
                     task          = AiTask.CUSTOM_PRESET,
                     systemPrompt  = systemPrompt,
-                    userPrompt    = "請將以下育兒對話整理成知識卡：\n$transcript",
+                    userPrompt    = "請將以下關於 ${childName} 的育兒對話整理成知識卡：\n$transcript",
                     modelOverride = _uiState.value.effectiveModel
                 )
 
@@ -252,10 +267,10 @@ class AiPortalViewModel @Inject constructor(
                 )
                 aiInsightDao.insert(insight)
 
-                _uiState.update { it.copy(errorMessage = "已儲存至「AI 精華」書架") }
+                _uiState.update { it.copy(errorMessage = "已儲存至「AI 精華」書架", isSummarizing = false) }
 
             } catch (e: Exception) {
-                _uiState.update { it.copy(errorMessage = "知識卡整理失敗：${e.message}") }
+                _uiState.update { it.copy(errorMessage = "知識卡整理失敗：${e.message}", isSummarizing = false) }
             }
         }
     }
@@ -267,37 +282,41 @@ class AiPortalViewModel @Inject constructor(
         }
     }
 
-    /**
-     * 組合 system prompt，若有 contextChildId 則注入個案背景。
-     */
     private suspend fun buildSystemPromptWithContext(
         preset: AiPreset,
         ageMonths: Int,
         gender: String,
-        allergies: String?
+        allergies: String?,
+        childId: Long
     ): String {
+        val child = if (childId > 0) childRepository.getById(childId) else null
         val basePrompt = AiPromptBuilder.buildSystemPrompt(preset, ageMonths, gender, allergies)
 
-        val injectedContext = contextChildId?.takeIf { it != -1L }?.let { childId ->
+        val defaultPrompt = child?.defaultAiPrompt
+        val injectedContext = if (childId > 0) {
             try {
                 aiContextInjector.buildContext(childId)
             } catch (_: Exception) {
                 null
             }
-        } ?: return basePrompt
+        } else null
 
-        return "$basePrompt\n\n$injectedContext"
+        return buildString {
+            append(basePrompt)
+            if (!defaultPrompt.isNullOrBlank()) {
+                append("\n\n【小孩預設狀態】\n")
+                append(defaultPrompt)
+            }
+            if (!injectedContext.isNullOrBlank()) {
+                append("\n\n$injectedContext")
+            }
+        }
     }
 
-    /**
-     * 將整串對話歷史附加到目前問題前，讓 AI 擁有完整上下文。
-     * 對話越多時前端截斷為最後 10 組問答以控制 prompt 長度。
-     */
     private fun buildContextualizedPrompt(currentPrompt: String): String {
         val msgs = _uiState.value.messages
         if (msgs.isEmpty()) return currentPrompt
 
-        // 取最後 10 組 (20 則訊息)
         val recent = msgs.takeLast(20)
 
         return buildString {
