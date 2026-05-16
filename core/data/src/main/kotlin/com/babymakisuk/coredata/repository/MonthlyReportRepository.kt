@@ -58,9 +58,13 @@ class MonthlyReportRepository @Inject constructor(
             // 檢查是否已存在 (不論 childId，月報提醒為全域)
             val existing = systemReminderDao.getAllOnce().find { it.id == reminderId }
             if (existing == null) {
+                // 取得第一個孩子作為關聯 ID (由於 DB 限制 childId 為 Long 且有 FK 限制，無法使用 0 或 null)
+                val children = childRepository.getChildren()
+                val targetChildId = children.firstOrNull()?.id ?: return
+
                 val reminder = com.babymakisuk.coredata.entity.SystemReminderEntity(
                     id = reminderId,
-                    childId = 0L, // 全域提醒使用 0
+                    childId = targetChildId,
                     type = com.babymakisuk.coremodel.SystemReminderType.MONTHLY_REPORT_PENDING.name,
                     title = "月底月報預報",
                     content = "${monthLabel} 即將結束，AI 將於下月初為您整理本月成長點滴。請確保這幾天的日誌已填寫完整喔！",
@@ -68,6 +72,12 @@ class MonthlyReportRepository @Inject constructor(
                     resolvedAt = null
                 )
                 systemReminderDao.insert(reminder)
+            } else if (force) {
+                // 如果是強制測試，且已存在，則將其設為未解決狀態 (Resolved -> Unresolved)
+                systemReminderDao.markResolved(reminderId, -1L) // 使用特定值或 null 代表重置
+                // 由於 markResolved 實作可能不支援 null，我們直接更新整個 Entity
+                val updated = existing.copy(resolvedAt = null, createdAt = System.currentTimeMillis())
+                systemReminderDao.insert(updated)
             }
         }
     }
@@ -238,6 +248,11 @@ class MonthlyReportRepository @Inject constructor(
         )
 
         monthlyReportDao.upsert(report.toEntity())
+
+        // 成功產生後，嘗試關閉對應月份的提醒
+        val reminderId = "monthly_remind_${yearValue}_${monthValue}"
+        systemReminderDao.markResolved(reminderId, System.currentTimeMillis())
+
         return report
     }
 }

@@ -100,6 +100,18 @@ class SettingsRepository @Inject constructor(
         }
     }
 
+    // ── 開發者模式 ──────────────────────────────────────────
+
+    val developerModeEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[SettingsPreferences.DEVELOPER_MODE_ENABLED] ?: false
+    }
+
+    suspend fun setDeveloperModeEnabled(enabled: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[SettingsPreferences.DEVELOPER_MODE_ENABLED] = enabled
+        }
+    }
+
     // ── 匯出 / 匯入 ──────────────────────────────────────────
 
     suspend fun buildExportIntent(): Intent = backupManager.exportToShareIntent()

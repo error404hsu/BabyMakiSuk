@@ -21,5 +21,6 @@ data class HomeUiState(
     val girlToiletRecords: List<ToiletRecord> = emptyList(),
     val boyNextVaccine: VaccineReminder? = null,
     val girlNextVaccine: VaccineReminder? = null,
+    val systemReminders: List<com.babymakisuk.coremodel.SystemReminder> = emptyList(),
     val isLoading: Boolean = false
 )

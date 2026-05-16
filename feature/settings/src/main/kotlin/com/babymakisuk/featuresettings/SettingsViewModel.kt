@@ -100,6 +100,38 @@ class SettingsViewModel @Inject constructor(
         initialValue = null
     )
 
+    // ── 開發者模式 ──────────────────────────────────────────
+
+    val developerModeEnabled: StateFlow<Boolean> = repository.developerModeEnabled.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = false
+    )
+
+    private var clickCount = 0
+    private var lastClickTime = 0L
+
+    fun onVersionClick(onDevModeEnabled: () -> Unit) {
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - lastClickTime > 2000) {
+            clickCount = 0
+        }
+        clickCount++
+        lastClickTime = currentTime
+
+        if (clickCount >= 7 && !developerModeEnabled.value) {
+            viewModelScope.launch {
+                repository.setDeveloperModeEnabled(true)
+                onDevModeEnabled()
+            }
+            clickCount = 0
+        }
+    }
+
+    fun setDeveloperModeEnabled(enabled: Boolean) {
+        viewModelScope.launch { repository.setDeveloperModeEnabled(enabled) }
+    }
+
     // ── 匯出 / 匯入 ──────────────────────────────────────────
     private val _backupState = MutableStateFlow<BackupUiState>(BackupUiState.Idle)
     val backupState: StateFlow<BackupUiState> = _backupState.asStateFlow()

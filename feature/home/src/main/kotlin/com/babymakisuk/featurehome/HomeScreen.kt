@@ -136,7 +136,8 @@ fun HomeScreen(
         onNavigateToGrowth = onNavigateToGrowth,
         onNavigateToMedical = onNavigateToMedical,
         onNavigateToAi = onNavigateToAi,
-        onNavigateToMemoEdit = onNavigateToMemoEdit
+        onNavigateToMemoEdit = onNavigateToMemoEdit,
+        onResolveReminder = { viewModel?.resolveReminder(it) }
     )
 }
 
@@ -149,7 +150,8 @@ fun HomeScreenContent(
     onNavigateToGrowth: () -> Unit,
     onNavigateToMedical: () -> Unit,
     onNavigateToAi: (String?) -> Unit = {},
-    onNavigateToMemoEdit: (Long) -> Unit = {}
+    onNavigateToMemoEdit: (Long) -> Unit = {},
+    onResolveReminder: (String) -> Unit = {}
 ) {
     var expandedGender by remember { mutableStateOf<Gender?>(null) }
     var isEditMode by remember { mutableStateOf(false) }
@@ -163,6 +165,7 @@ fun HomeScreenContent(
 
     Scaffold(
         topBar = {
+            // ... (keep existing topBar)
             BabyTopBar(
                 title = {
                     val aiGradient = Brush.linearGradient(
@@ -229,6 +232,24 @@ fun HomeScreenContent(
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
         ) {
+            // 系統提醒區域 (Banners)
+            val unresolvedReminders = uiState.systemReminders.filter { it.resolvedAt == null }
+            if (unresolvedReminders.isNotEmpty()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    unresolvedReminders.forEach { reminder ->
+                        ReminderBanner(
+                            reminder = reminder,
+                            onDismiss = { onResolveReminder(reminder.id) }
+                        )
+                    }
+                }
+            }
+
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -1094,6 +1115,65 @@ fun HomeScreenPreview() {
             onNavigateToMedical = {},
             onNavigateToAi = {}
         )
+    }
+}
+
+@Composable
+private fun ReminderBanner(
+    reminder: com.babymakisuk.coremodel.SystemReminder,
+    onDismiss: () -> Unit
+) {
+    val containerColor = when (reminder.type) {
+        com.babymakisuk.coremodel.SystemReminderType.LONG_NO_BM -> MaterialTheme.colorScheme.errorContainer
+        com.babymakisuk.coremodel.SystemReminderType.MONTHLY_REPORT_PENDING -> MaterialTheme.colorScheme.primaryContainer
+        else -> MaterialTheme.colorScheme.secondaryContainer
+    }
+    
+    val contentColor = when (reminder.type) {
+        com.babymakisuk.coremodel.SystemReminderType.LONG_NO_BM -> MaterialTheme.colorScheme.onErrorContainer
+        com.babymakisuk.coremodel.SystemReminderType.MONTHLY_REPORT_PENDING -> MaterialTheme.colorScheme.onPrimaryContainer
+        else -> MaterialTheme.colorScheme.onSecondaryContainer
+    }
+
+    val icon = when (reminder.type) {
+        com.babymakisuk.coremodel.SystemReminderType.LONG_NO_BM -> Icons.Default.WaterDrop
+        com.babymakisuk.coremodel.SystemReminderType.MONTHLY_REPORT_PENDING -> Icons.Default.AutoAwesome
+        else -> Icons.Default.ChildCare
+    }
+
+    Surface(
+        color = containerColor,
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = contentColor,
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = reminder.title,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = contentColor
+                )
+                Text(
+                    text = reminder.content,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = contentColor.copy(alpha = 0.8f)
+                )
+            }
+            TextButton(onClick = onDismiss) {
+                Text("知道了", color = contentColor, fontWeight = FontWeight.Bold)
+            }
+        }
     }
 }
 

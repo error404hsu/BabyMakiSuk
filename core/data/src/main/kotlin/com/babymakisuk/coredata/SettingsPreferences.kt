@@ -25,4 +25,7 @@ object SettingsPreferences {
 
     /** 上次備份成功的時間戳記 (ISO 8601 格式) */
     val LAST_BACKUP_TIME = stringPreferencesKey("last_backup_time")
+
+    /** 開發者模式開關 */
+    val DEVELOPER_MODE_ENABLED = booleanPreferencesKey("developer_mode_enabled")
 }

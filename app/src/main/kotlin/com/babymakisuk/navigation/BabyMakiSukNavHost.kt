@@ -44,8 +44,6 @@ import com.babymakisuk.featurelibrary.LibraryScreen
 import com.babymakisuk.featurelibrary.shelf.aiinsight.AiInsightShelfScreen
 import com.babymakisuk.featurelibrary.shelf.memo.MemoEditScreen
 import com.babymakisuk.featurelibrary.shelf.memo.MemoShelfScreen
-import com.babymakisuk.featuregrowth.ui.GrowthEditScreen
-import com.babymakisuk.featurelibrary.shelf.monthly.MonthlyShelfScreen
 import com.babymakisuk.featurelibrary.shelf.systemreminder.SystemReminderShelfScreen
 import com.babymakisuk.featuresettings.ApiTestScreen
 import com.babymakisuk.featuresettings.SettingsScreen
@@ -252,22 +250,6 @@ fun BabyMakiSukNavHost() {
                         AiPortalScreen(
                             navController = navController,
                             presetHint = presetHint
-                        )
-                    }
-                    composable(
-                        route = "library/monthly?childId={childId}",
-                        arguments = listOf(
-                            navArgument("childId") {
-                                type = NavType.StringType
-                                nullable = true
-                                defaultValue = ""
-                            }
-                        )
-                    ) { backStackEntry ->
-                        val childId = backStackEntry.arguments?.getString("childId") ?: ""
-                        MonthlyShelfScreen(
-                            navController = navController,
-                            childId = childId
                         )
                     }
                     composable(

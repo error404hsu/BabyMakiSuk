@@ -59,7 +59,7 @@ class LibraryViewModel @Inject constructor(
 
     val systemReminderLastUpdated: StateFlow<Long?> = selectedChildId.flatMapLatest { childId ->
         if (childId <= 0L) flowOf(null)
-        else systemReminderDao.getByChildId(childId).map { list ->
+        else systemReminderDao.getByChildIdIncludingGlobal(childId).map { list ->
             list.firstOrNull()?.createdAt
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)

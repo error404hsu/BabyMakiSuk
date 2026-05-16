@@ -7,6 +7,7 @@ import com.babymakisuk.coredata.entity.toDomain
 import com.babymakisuk.coredata.repository.ChildRepository
 import com.babymakisuk.coredata.repository.GrowthRepository
 import com.babymakisuk.coredata.repository.MemoRepository
+import com.babymakisuk.coredata.repository.MonthlyReportRepository
 import com.babymakisuk.coredata.repository.SystemReminderRepository
 import com.babymakisuk.coredata.repository.ToiletRepository
 import com.babymakisuk.coredata.repository.VaccineReminderRepository
@@ -28,7 +29,8 @@ class HomeViewModel @Inject constructor(
     private val vaccineReminderRepository: VaccineReminderRepository,
     private val memoRepository: MemoRepository,
     private val medicalDao: MedicalDao,
-    private val systemReminderRepository: SystemReminderRepository
+    private val systemReminderRepository: SystemReminderRepository,
+    private val monthlyReportRepository: MonthlyReportRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -68,10 +70,25 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    fun resolveReminder(id: String) {
+        viewModelScope.launch {
+            systemReminderRepository.markResolved(id)
+        }
+    }
+
     fun logToilet(childId: Long) {
         viewModelScope.launch {
-            toiletRepository.insertToilet(ToiletRecord(childId = childId))
+            // 1. 記錄前先檢查：若目前已超過閾值，先產生一筆「異常間隔」的提醒紀錄
             checkLongNoBm(childId)
+            
+            // 2. 執行本次排便紀錄
+            toiletRepository.insertToilet(ToiletRecord(childId = childId))
+            
+            // 3. 記錄後處理：因為寶寶排便了，將所有未處理的「長時未排便」提醒標記為已解決
+            systemReminderRepository.markAllResolvedByType(
+                childId, 
+                com.babymakisuk.coremodel.SystemReminderType.LONG_NO_BM
+            )
         }
     }
 
@@ -79,7 +96,12 @@ class HomeViewModel @Inject constructor(
         val latestTime = toiletRepository.getLatestToiletTime(childId) ?: return
         val hoursSince = ((System.currentTimeMillis() - latestTime) / 3600000).toInt()
         if (hoursSince >= 48) {
-            val existing = systemReminderRepository.getUnresolvedByType(childId, com.babymakisuk.coremodel.SystemReminderType.LONG_NO_BM).first()
+            // 檢查是否已有「未處理」的同類型提醒，避免重複產生
+            val existing = systemReminderRepository.getUnresolvedByType(
+                childId, 
+                com.babymakisuk.coremodel.SystemReminderType.LONG_NO_BM
+            ).first()
+            
             if (existing.isEmpty()) {
                 systemReminderRepository.createLongNoBmReminder(childId, hoursSince)
             }
@@ -91,6 +113,11 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             childRepository.observeAll()
+                .onEach { children ->
+                    // 每次孩童清單更新或啟動時，主動巡檢排便間隔與月報提醒
+                    children.forEach { checkLongNoBm(it.id) }
+                    monthlyReportRepository.checkAndCreateMonthlyReportReminder()
+                }
                 .flatMapLatest { children ->
                     val boy = children.firstOrNull { it.gender == Gender.MALE }
                     val girl = children.firstOrNull { it.gender == Gender.FEMALE }
@@ -109,14 +136,32 @@ class HomeViewModel @Inject constructor(
                     val todayMemosFlow = memoRepository.getByDate(todayDate)
                         .let { flowOf(it) }
 
+                    val remindersFlow = if (children.isNotEmpty()) {
+                        // 觀察所有孩子的提醒
+                        val flows = children.map { systemReminderRepository.getByChildId(it.id) }
+                        combine(flows) { arrays -> arrays.flatMap { it } }
+                    } else {
+                        flowOf(emptyList())
+                    }
+
                     combine(
-                        boyToiletFlow, 
-                        girlToiletFlow, 
-                        boyMedicalFlow, 
-                        girlMedicalFlow, 
-                        todayMemosFlow
-                    ) { boyToilet, girlToilet, boyMedical, girlMedical, todayMemos ->
-                        DataTuple(children, boyToilet, girlToilet, boyMedical, girlMedical, todayMemos)
+                        boyToiletFlow,
+                        girlToiletFlow,
+                        boyMedicalFlow,
+                        girlMedicalFlow,
+                        todayMemosFlow,
+                        remindersFlow
+                    ) { args: Array<Any?> ->
+                        @Suppress("UNCHECKED_CAST")
+                        DataTuple(
+                            children = children,
+                            boyToilet = args[0] as List<ToiletRecord>,
+                            girlToilet = args[1] as List<ToiletRecord>,
+                            boyMedical = args[2] as List<com.babymakisuk.coredata.entity.MedicalVisitEntity>,
+                            girlMedical = args[3] as List<com.babymakisuk.coredata.entity.MedicalVisitEntity>,
+                            todayMemos = args[4] as List<com.babymakisuk.coremodel.Memo>,
+                            reminders = args[5] as List<com.babymakisuk.coremodel.SystemReminder>
+                        )
                     }
                 }
                 .collect { tuple ->
@@ -126,6 +171,7 @@ class HomeViewModel @Inject constructor(
                     val boyMedical = tuple.boyMedical
                     val girlMedical = tuple.girlMedical
                     val todayMemos = tuple.todayMemos
+                    val reminders = tuple.reminders
                     
                     val boy = children.firstOrNull { it.gender == Gender.MALE }
                     val girl = children.firstOrNull { it.gender == Gender.FEMALE }
@@ -153,6 +199,7 @@ class HomeViewModel @Inject constructor(
                             boyLatestMedical = boyMedical.firstOrNull()?.toDomain(),
                             girlLatestMedical = girlMedical.firstOrNull()?.toDomain(),
                             todayMemos = todayMemosByChild,
+                            systemReminders = reminders,
                             isLoading = false
                         )
                     }
@@ -166,6 +213,7 @@ class HomeViewModel @Inject constructor(
         val girlToilet: List<ToiletRecord>,
         val boyMedical: List<com.babymakisuk.coredata.entity.MedicalVisitEntity>,
         val girlMedical: List<com.babymakisuk.coredata.entity.MedicalVisitEntity>,
-        val todayMemos: List<com.babymakisuk.coremodel.Memo>
+        val todayMemos: List<com.babymakisuk.coremodel.Memo>,
+        val reminders: List<com.babymakisuk.coremodel.SystemReminder>
     )
 }

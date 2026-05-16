@@ -51,6 +51,7 @@ fun SettingsScreen(
     val notificationsEnabled by viewModel.notificationsEnabled.collectAsState()
     val autoBackupEnabled by viewModel.autoBackupEnabled.collectAsState()
     val lastBackupTime by viewModel.lastBackupTime.collectAsState()
+    val developerModeEnabled by viewModel.developerModeEnabled.collectAsState()
 
     var showDarkModeSheet by remember { mutableStateOf(false) }
     var showRoleSheet by remember { mutableStateOf(false) }
@@ -113,47 +114,62 @@ fun SettingsScreen(
             item { Spacer(Modifier.height(8.dp)) }
 
             item {
-                SettingsSection(title = "裝置角色") {
+                SettingsSection(title = "個人化與偏好") {
                     SettingsItem(
                         icon = userRole.toIcon(),
                         title = "目前角色：${userRole.label}",
                         subtitle = userRole.description,
                         onClick = { showRoleSheet = true }
                     )
-                }
-            }
-
-            item {
-                SettingsSection(title = "外觀") {
+                    HorizontalDivider(
+                        Modifier.padding(horizontal = 16.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant
+                    )
                     SettingsItem(
                         icon = Icons.Default.DarkMode,
                         title = "深色模式",
                         subtitle = darkMode.label,
                         onClick = { showDarkModeSheet = true }
                     )
+                    HorizontalDivider(
+                        Modifier.padding(horizontal = 16.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                    ListItem(
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        leadingContent = {
+                            IconBox(
+                                icon = Icons.Default.Notifications,
+                                color = MaterialTheme.colorScheme.secondaryContainer
+                            )
+                        },
+                        headlineContent = { Text("啟用通知") },
+                        supportingContent = {
+                            Text(
+                                if (notificationsEnabled) "Memo 提醒通知已啟用" else "已關閉所有通知",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        },
+                        trailingContent = {
+                            Switch(
+                                checked = notificationsEnabled,
+                                onCheckedChange = { viewModel.setNotificationsEnabled(it) }
+                            )
+                        },
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
                 }
             }
 
             item {
-                SettingsSection(title = "AI 雲端推論") {
+                SettingsSection(title = "AI 功能") {
                     ListItem(
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                         leadingContent = {
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .background(
-                                        color = MaterialTheme.colorScheme.secondaryContainer,
-                                        shape = RoundedCornerShape(10.dp)
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Cloud,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSecondaryContainer
-                                )
-                            }
+                            IconBox(
+                                icon = Icons.Default.Cloud,
+                                color = MaterialTheme.colorScheme.secondaryContainer
+                            )
                         },
                         headlineContent = {
                             Text("啟用 Gemini 雲端分析")
@@ -178,30 +194,10 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.surfaceVariant
                     )
                     SettingsItem(
-                        icon = Icons.Default.BugReport,
-                        title = "API 連線測試",
-                        subtitle = "驗證 Gemini API Key 是否可正常呼叫",
-                        onClick = onNavigateToApiTest
-                    )
-                    HorizontalDivider(
-                        Modifier.padding(horizontal = 16.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant
-                    )
-                    SettingsItem(
                         icon = Icons.Default.Sync,
                         title = "產生上月合併月報",
                         subtitle = "彙整所有孩子資料並由 AI 生成上月份總結",
                         onClick = { viewModel.generateLastMonthReport() }
-                    )
-                    HorizontalDivider(
-                        Modifier.padding(horizontal = 16.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant
-                    )
-                    SettingsItem(
-                        icon = Icons.Default.Notifications,
-                        title = "測試月底提醒生成",
-                        subtitle = "模擬月底最後一週觸發書庫提醒",
-                        onClick = { viewModel.triggerMonthlyReminderTest() }
                     )
                 }
             }
@@ -269,42 +265,49 @@ fun SettingsScreen(
                 }
             }
 
-            item {
-                SettingsSection(title = "通知") {
-                    ListItem(
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                        leadingContent = {
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .background(
-                                        color = MaterialTheme.colorScheme.secondaryContainer,
-                                        shape = RoundedCornerShape(10.dp)
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Notifications,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSecondaryContainer
+            if (developerModeEnabled) {
+                item {
+                    SettingsSection(title = "開發者選項") {
+                        SettingsItem(
+                            icon = Icons.Default.BugReport,
+                            title = "API 連線測試",
+                            subtitle = "驗證 Gemini API Key 是否可正常呼叫",
+                            onClick = onNavigateToApiTest
+                        )
+                        HorizontalDivider(
+                            Modifier.padding(horizontal = 16.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                        SettingsItem(
+                            icon = Icons.Default.Notifications,
+                            title = "測試月底提醒生成",
+                            subtitle = "模擬月底最後一週觸發書庫提醒",
+                            onClick = { viewModel.triggerMonthlyReminderTest() }
+                        )
+                        HorizontalDivider(
+                            Modifier.padding(horizontal = 16.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                        ListItem(
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            leadingContent = {
+                                IconBox(
+                                    icon = Icons.Default.AdminPanelSettings,
+                                    color = MaterialTheme.colorScheme.errorContainer,
+                                    tint = MaterialTheme.colorScheme.onErrorContainer
                                 )
-                            }
-                        },
-                        headlineContent = { Text("啟用通知") },
-                        supportingContent = {
-                            Text(
-                                if (notificationsEnabled) "Memo 提醒通知已啟用" else "已關閉所有通知",
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        },
-                        trailingContent = {
-                            Switch(
-                                checked = notificationsEnabled,
-                                onCheckedChange = { viewModel.setNotificationsEnabled(it) }
-                            )
-                        },
-                        modifier = Modifier.padding(vertical = 4.dp)
-                    )
+                            },
+                            headlineContent = { Text("開發者模式") },
+                            supportingContent = { Text("關閉後隱藏此分區") },
+                            trailingContent = {
+                                Switch(
+                                    checked = developerModeEnabled,
+                                    onCheckedChange = { viewModel.setDeveloperModeEnabled(it) }
+                                )
+                            },
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        )
+                    }
                 }
             }
 
@@ -314,7 +317,13 @@ fun SettingsScreen(
                         icon = Icons.Default.Info,
                         title = "版本",
                         subtitle = "1.0.0",
-                        onClick = {}
+                        onClick = {
+                            viewModel.onVersionClick {
+                                coroutineScope.launch {
+                                    snackbarHostState.showSnackbar("開發者模式已開啟")
+                                }
+                            }
+                        }
                     )
                 }
             }

@@ -12,15 +12,15 @@
 |-------|------|------|
 | A | 多模組骨架 + 資料模型 | ✅ 完成 |
 | B | 成長紀錄 + WHO 圖表 | ✅ 完成 |
-| C | 醫療紀錄 + AI 整合 | 🔄 進行中 |
+| C | 醫療紀錄 + AI 整合 | ✅ 完成 |
 | H | 書庫（週報 / AI 精華 / Memo） | ✅ 完成 |
 | UI | 設計系統優化 | ✅ 完成 |
-| D | 每日日誌 × Memo 整合 | 🔲 Sprint 4 |
-| 5 | HomeScreen 收折優化 | 🔲 Sprint 5 |
+| D | 每日日誌 × Memo 整合 | ✅ 完成 |
+| 5 | HomeScreen 收折優化 | 🔄 進行中 |
 | 6 | 通知排程 | 🔲 Sprint 6 |
 | E | Firebase 同步 | ⏸ 暫緩 |
 | F | Google Drive 備份 | ⏸ 暫緩 |
-| G | Settings 功能 | 🔲 部分完成，見下方 |
+| G | Settings 功能 | ✅ 完成 |
 
 ---
 
@@ -64,6 +64,7 @@
 - [x] MedicalViewModel.analyzeImageWithAi() + resetAiState()
 - [x] MedicalVisitCard — 整張卡片 clickable 展開，移除獨立展開按鈕
 - [x] coil-compose 3.x 加入 libs.versions.toml + feature/medical build.gradle
+- [x] **`MedicalAiRepository.analyzePrescriptionImage`** (Gemini Vision 藥單辨識)
 
 ### Phase H — 書庫
 - [x] BottomNavItem 配置
@@ -76,7 +77,7 @@
 - [x] MemoShelfScreen（CRUD + ModalBottomSheet）
 - [x] NavHost library 子路由補齊
 
-### Phase G — Settings（已完成部分）
+### Phase G — Settings
 - [x] SettingsScreen 分區 UI
 - [x] SettingsViewModel MVI + BackupUiState (支援進度顯示)
 - [x] DarkModeOption + DataStore 深色模式
@@ -86,13 +87,25 @@
 - [x] ApiTestScreen（API 連線測試子頁面）
 - [x] FileProvider 設定
 
-### UI 設計系統
+### Sprint 4 — Memo 整合每日日誌
+- [x] 確認 MemoEntity 是否含 `childId`、`date`、`reminderAt` 欄位
+- [x] MemoShelfScreen 改為日期分組顯示
+- [x] MemoDao 補充 `getByChildAndDate()` 查詢
+- [x] HomeScreen DailyLogOverviewCard 改讀當日 Memo
+- [x] 新增 Memo 入口從 HomeScreen 今日日誌區「＋」觸發
+- [x] Memo 編輯全頁 Screen（`library/memo/edit` 路由）
+
+### UI 與重構優化
 - [x] 色票系統更新（Primary / Dark / Tertiary / Background / Text）
 - [x] Lora + Raleway Typography scale
 - [x] Empty States 補強（Home / Growth / Medical / Search）
 - [x] Growth Chart 色盲友善配色
 - [x] AI Chat Bubble 樣式優化
 - [x] HTML 原型產出（ui-ux-preview.html）
+- [x] MedicalEditScreen 全頁編輯（廢棄 NewMedicalVisitDialog）
+- [x] GrowthEditScreen 全頁編輯（廢棄 NewGrowthRecordDialog）
+- [x] 成長圖表深色模式白色區塊修正
+- [x] 「健護」標籤改為「醫護」
 
 ### Phase E-0 — Firebase 留位（不含實作）
 - [x] MedicalVisit 新增 imageStoragePath / aiPending 欄位
@@ -106,31 +119,12 @@
 
 ## 🔲 待開發
 
-### Phase C — 醫療 AI 圖片分析（待接 API）
-> 前置 UI 與 ViewModel 已完成，等待後端 API 實作後串接。
-
-- [x] **`MedicalAiRepository.analyzePrescriptionImage(imageUri, symptomHint, ageMonths, gender, allergies)`**
-  - 呼叫 Gemini Vision API（multimodal）辨識藥單圖片
-  - 回傳結構：`diagnosisSummary`, `prescriptions: List<String>`, `careInstructions: List<String>`, `confidence: Int`
-  - 實作位置：`core/ai` 模組
-  - 已移除 `MedicalViewModel` 與 `AiAnalysisState` 中的 TODO 標注
-
-### Sprint 4 — Memo 整合每日日誌
-> 詳細規格見 `docs/AGENT_GUIDELINES.md` → Sprint 4 章節
-
-- [x] 確認 MemoEntity 是否含 `childId`、`date`、`reminderAt` 欄位 (已於 Migration v9 完成)
-- [x] MemoShelfScreen 改為日期分組顯示
-- [x] MemoDao 補充 `getByChildAndDate()` 查詢
-- [x] HomeScreen DailyLogOverviewCard 改讀當日 Memo
-- [x] 新增 Memo 入口從 HomeScreen 今日日誌區「＋」觸發
-- [x] Memo 編輯全頁 Screen（`library/memo/edit` 路由）
-
 ### Sprint 5 — HomeScreen 收折優化
 > 詳細規格見 `docs/AGENT_GUIDELINES.md` → Sprint 5 章節
 
 - [x] ChildSummaryCard 收折 / 展開（AnimatedVisibility / animateFloatAsState）
 - [x] 展開區：上次就醫摘要 + 下次排程 + 本日 Memo
-- [x] AiMorningBriefingCard（收折版，串接 AiDispatcher）
+- [ ] AiMorningBriefingCard（收折版，串接 AiDispatcher）
 
 ### Sprint 6 — 通知排程
 > 詳細規格見 `docs/AGENT_GUIDELINES.md` → Sprint 6 章節
@@ -139,19 +133,6 @@
 - [x] Memo 編輯畫面「設定提醒」DateTimePicker
 - [x] SettingsScreen 通知總開關（DataStore）
 - [ ] POST_NOTIFICATIONS 權限申請 Runtime 確認（Android 13+）
-
-### 就醫畫面重構
-- [x] MedicalEditScreen 全頁編輯 Screen（`medical/edit` 路由）
-- [x] 廢棄 NewMedicalVisitDialog 並遷移至 MedicalEditScreen
-
-### 成長紀錄重構
-- [x] GrowthEditScreen 全頁編輯（含 recordedAt DatePickerDialog）
-- [x] 廢棄 NewGrowthRecordDialog
-- [ ] 成長新增/編輯畫面加入日期欄位（與就醫同步）
-- [x] 成長圖表深色模式白色區塊修正（使用 MaterialTheme.colorScheme.surface）
-
-### BottomNavigation
-- [x] 「健護」標籤改為「醫護」
 
 ---
 

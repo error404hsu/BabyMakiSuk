@@ -65,14 +65,14 @@ fun LibraryScreen(
     val scope = rememberCoroutineScope()
 
     val shelves = listOf(
-        ShelfItem("月報書架", "AI 生成的每月綜合報告", "library/monthly", "📅"),
+        ShelfItem("月報書架", "AI 生成的每月綜合報告", "monthly_report", "📅"),
         ShelfItem("AI 精華", "智能摘錄的重要記錄", "library/aiinsight", "🤖"),
         ShelfItem("手動 Memo", "隨手記錄育兒筆記", "library/memo", "📝"),
         ShelfItem("系統提醒", "自動記錄事項（如排便提醒）", "library/system-reminder", "🔔")
     )
 
     val lastUpdatedMap = mapOf(
-        "library/monthly" to weeklyUpdated,
+        "monthly_report" to weeklyUpdated,
         "library/aiinsight" to aiUpdated,
         "library/memo" to memoUpdated,
         "library/system-reminder" to systemReminderUpdated
