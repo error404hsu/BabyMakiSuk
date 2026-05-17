@@ -1,4 +1,4 @@
-﻿package com.babymakisuk.coredata.db
+package com.babymakisuk.coredata.db
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
@@ -22,9 +22,10 @@ import com.babymakisuk.coredata.entity.*
         MemoEntity::class,
         ToiletRecordEntity::class,
         VaccineReminderEntity::class,
-        ChatMessageEntity::class
+        ChatMessageEntity::class,
+        FeverRecordEntity::class
     ],
-    version = 12,
+    version = 13,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -41,25 +42,13 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun toiletDao(): ToiletDao
     abstract fun vaccineReminderDao(): VaccineReminderDao
     abstract fun chatMessageDao(): ChatMessageDao
+    abstract fun feverDao(): FeverDao
 
     companion object {
-        /**
-         * Migration 1 -> 2
-         * 1. medical_visit 新增 imageStoragePath, aiPending
-         * 2. 建立 weekly_reports 主表
-         * 3. 建立 weekly_reports_fts FTS4 虛擬表
-         */
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                // --- MedicalVisit 新增欄位 ---
-                db.execSQL(
-                    "ALTER TABLE medical_visit ADD COLUMN imageStoragePath TEXT"
-                )
-                db.execSQL(
-                    "ALTER TABLE medical_visit ADD COLUMN aiPending INTEGER NOT NULL DEFAULT 0"
-                )
-
-                // --- WeeklyReports 主表 ---
+                db.execSQL("ALTER TABLE medical_visit ADD COLUMN imageStoragePath TEXT")
+                db.execSQL("ALTER TABLE medical_visit ADD COLUMN aiPending INTEGER NOT NULL DEFAULT 0")
                 db.execSQL("""
                     CREATE TABLE IF NOT EXISTS weekly_reports (
                         id                  TEXT NOT NULL PRIMARY KEY,
@@ -77,8 +66,6 @@ abstract class AppDatabase : RoomDatabase() {
                         synced_at           INTEGER NOT NULL DEFAULT 0
                     )
                 """.trimIndent())
-
-                // --- WeeklyReports FTS4 虛擬表 ---
                 db.execSQL("""
                     CREATE VIRTUAL TABLE IF NOT EXISTS weekly_reports_fts
                     USING fts4(
@@ -90,17 +77,9 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        /**
-         * Migration 2 -> 3
-         * 1. 新增 child_profile 的 allergies 欄位
-         * 2. 重建 weekly_reports 表以包含 FTS4 必需的 rowid 欄位
-         */
         val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                // 1. 處理 child_profile 的 allergies 欄位 (上一個修復的)
                 db.execSQL("ALTER TABLE child_profile ADD COLUMN allergies TEXT")
-
-                // 2. 建立包含 rowid 的新 weekly_reports 表
                 db.execSQL("""
                     CREATE TABLE IF NOT EXISTS weekly_reports_new (
                         id                  TEXT NOT NULL PRIMARY KEY,
@@ -119,24 +98,18 @@ abstract class AppDatabase : RoomDatabase() {
                         `rowid`             INTEGER NOT NULL
                     )
                 """.trimIndent())
-
-                // 3. 將原本的資料倒進新表
                 db.execSQL("""
                     INSERT INTO weekly_reports_new (
-                        id, child_id, week_start, week_end, ai_summary, medical_visit_ids, 
-                        snapshot_weight, snapshot_height, snapshot_head_circ, 
+                        id, child_id, week_start, week_end, ai_summary, medical_visit_ids,
+                        snapshot_weight, snapshot_height, snapshot_head_circ,
                         vaccine_due, search_keywords, drive_file_id, synced_at
                     )
-                    SELECT id, child_id, week_start, week_end, ai_summary, medical_visit_ids, 
-                           snapshot_weight, snapshot_height, snapshot_head_circ, 
-                           vaccine_due, search_keywords, drive_file_id, synced_at 
+                    SELECT id, child_id, week_start, week_end, ai_summary, medical_visit_ids,
+                           snapshot_weight, snapshot_height, snapshot_head_circ,
+                           vaccine_due, search_keywords, drive_file_id, synced_at
                     FROM weekly_reports
                 """.trimIndent())
-
-                // 4. 刪除舊表
                 db.execSQL("DROP TABLE weekly_reports")
-
-                // 5. 將新表改名為原名
                 db.execSQL("ALTER TABLE weekly_reports_new RENAME TO weekly_reports")
             }
         }
@@ -153,7 +126,6 @@ abstract class AppDatabase : RoomDatabase() {
                         createdAt INTEGER NOT NULL
                     )
                 """.trimIndent())
-
                 db.execSQL("""
                     CREATE TABLE IF NOT EXISTS memos (
                         id TEXT NOT NULL PRIMARY KEY,
@@ -170,8 +142,6 @@ abstract class AppDatabase : RoomDatabase() {
 
         val MIGRATION_4_5 = object : Migration(4, 5) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                // 1. 建立符合新 schema 的臨時表 (包含 is_urgent, 並將 camelCase 轉為 snake_case)
-                // 註：Room 預期 defaultValue='undefined'，故 CREATE TABLE 不寫 DEFAULT
                 db.execSQL("""
                     CREATE TABLE IF NOT EXISTS medical_visit_new (
                         id                  INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -191,28 +161,20 @@ abstract class AppDatabase : RoomDatabase() {
                         FOREIGN KEY(childId) REFERENCES child_profile(id) ON UPDATE NO ACTION ON DELETE CASCADE
                     )
                 """.trimIndent())
-
-                // 2. 轉移資料 (注意：舊表欄位名是 diagnosisSummary, careInstructions)
                 db.execSQL("""
                     INSERT INTO medical_visit_new (
                         id, childId, date, hospital, department, diagnosis, notes, attachments,
                         diagnosis_summary, prescriptions, care_instructions, is_urgent,
                         imageStoragePath, aiPending
                     )
-                    SELECT 
+                    SELECT
                         id, childId, date, hospital, department, diagnosis, notes, attachments,
                         diagnosisSummary, prescriptions, careInstructions, 0,
                         imageStoragePath, aiPending
                     FROM medical_visit
                 """.trimIndent())
-
-                // 3. 刪除舊表
                 db.execSQL("DROP TABLE medical_visit")
-
-                // 4. 重新命名新表
                 db.execSQL("ALTER TABLE medical_visit_new RENAME TO medical_visit")
-
-                // 5. 重新建立索引 (Room 會驗證索引名稱與欄位)
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_medical_visit_childId ON medical_visit(childId)")
             }
         }
@@ -254,12 +216,6 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        /**
-         * Migration 8 -> 9
-         * 重建 memos 表：id 改為 Long autoGenerate、childId 改為 Long、
-         * 新增 date 欄位（epoch day）、新增 reminderAt 欄位、
-         * 移除 tags 和 updatedAt 欄位
-         */
         val MIGRATION_8_9 = object : Migration(8, 9) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("""
@@ -300,18 +256,10 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        /**
-         * Migration 11 -> 12
-         * 1. 刪除舊 weekly_reports 表及 FTS 表
-         * 2. 建立 monthly_reports 主表及 FTS 表
-         * 3. 建立 system_reminders 表
-         * 4. child_profile 新增 default_ai_prompt 欄位
-         */
         val MIGRATION_11_12 = object : Migration(11, 12) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("DROP TABLE IF EXISTS weekly_reports_fts")
                 db.execSQL("DROP TABLE IF EXISTS weekly_reports")
-
                 db.execSQL("""
                     CREATE TABLE IF NOT EXISTS monthly_reports (
                         id                  TEXT NOT NULL PRIMARY KEY,
@@ -330,7 +278,6 @@ abstract class AppDatabase : RoomDatabase() {
                         synced_at           INTEGER NOT NULL DEFAULT 0
                     )
                 """.trimIndent())
-
                 db.execSQL("""
                     CREATE VIRTUAL TABLE IF NOT EXISTS monthly_reports_fts
                     USING fts4(
@@ -339,7 +286,6 @@ abstract class AppDatabase : RoomDatabase() {
                         search_keywords
                     )
                 """.trimIndent())
-
                 db.execSQL("""
                     CREATE TABLE IF NOT EXISTS system_reminders (
                         id TEXT NOT NULL PRIMARY KEY,
@@ -353,8 +299,32 @@ abstract class AppDatabase : RoomDatabase() {
                     )
                 """.trimIndent())
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_system_reminders_childId ON system_reminders(childId)")
-
                 db.execSQL("ALTER TABLE child_profile ADD COLUMN defaultAiPrompt TEXT")
+            }
+        }
+
+        /**
+         * Migration 12 -> 13
+         * 新增 fever_records 發燒紀錄表。
+         */
+        val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS fever_records (
+                        id                  INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        childId             INTEGER NOT NULL,
+                        temperatureCelsius  REAL NOT NULL,
+                        measuredAt          INTEGER NOT NULL,
+                        durationMinutes     INTEGER,
+                        symptoms            TEXT NOT NULL DEFAULT '',
+                        note                TEXT NOT NULL DEFAULT '',
+                        medicineGiven       TEXT NOT NULL DEFAULT '',
+                        linkedVisitId       INTEGER,
+                        FOREIGN KEY(childId) REFERENCES child_profile(id) ON DELETE CASCADE
+                    )
+                """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_fever_records_childId ON fever_records(childId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_fever_records_measuredAt ON fever_records(measuredAt)")
             }
         }
     }

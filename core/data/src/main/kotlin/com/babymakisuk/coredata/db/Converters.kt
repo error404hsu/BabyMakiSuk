@@ -1,4 +1,4 @@
-﻿package com.babymakisuk.coredata.db
+package com.babymakisuk.coredata.db
 
 import androidx.room.TypeConverter
 import java.time.LocalDate
