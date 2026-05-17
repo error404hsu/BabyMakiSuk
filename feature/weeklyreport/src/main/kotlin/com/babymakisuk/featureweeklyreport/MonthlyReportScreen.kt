@@ -19,6 +19,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.babymakisuk.coreai.AiSystemConstraints
 import com.babymakisuk.coremodel.MonthlyReport
 import com.babymakisuk.ui.theme.BabyMakiSukTheme
 
@@ -232,6 +233,7 @@ private fun MonthlyReportCard(
                 )
             }
 
+            // 收合時顯示摘要預覽（不加 disclaimer，此為預覽文字非完整內容）
             if (!expanded && report.aiSummary.isNotBlank()) {
                 Spacer(Modifier.height(8.dp))
                 Text(
@@ -254,6 +256,13 @@ private fun MonthlyReportCard(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         lineHeight = 22.sp
+                    )
+                    // ── [Step 3] REFERENCE_DISCLAIMER：展開且 aiSummary 非空時才顯示 ──
+                    Text(
+                        text = AiSystemConstraints.REFERENCE_DISCLAIMER,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp)
                     )
                 }
 
@@ -285,11 +294,11 @@ private fun MonthlyReportCardPreview() {
                 childId = 1L,
                 monthStart = "2026-05-01",
                 monthEnd = "2026-05-31",
-                aiSummary = "本月寶寶食慾良好，體重穩定成長。月中曾有一次輕微感冒已自行痊癒。建議多注意天氣變化適時添衣。",
+                aiSummary = "本月寶寶食欲良好，體重穩定成長。月中曾有一次輕微感冒已自行痊愈。建議多注意天氣變化適時添衣。",
                 growthSnapshot = null,
                 medicalCount = 1,
                 systemReminderCount = 0,
-                searchKeywords = listOf("食慾", "體重", "感冒"),
+                searchKeywords = listOf("食欲", "體重", "感冒"),
                 driveFileId = null,
                 syncedAt = System.currentTimeMillis()
             ),

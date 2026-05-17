@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import com.babymakisuk.coreai.AiSystemConstraints
 import com.babymakisuk.coremodel.ChildProfile
 import com.babymakisuk.coremodel.Gender
 import com.babymakisuk.coremodel.MedicalVisit
@@ -338,7 +339,6 @@ private fun MedicalVisitCard(
 ) {
     var expanded by remember { mutableStateOf(false) }
 
-    // 整張卡片可點擊切換展開
     Card(
         onClick = { expanded = !expanded },
         modifier = Modifier
@@ -382,7 +382,6 @@ private fun MedicalVisitCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                // 展開指示箭頭（替代原展開按鈕）
                 Icon(
                     imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                     contentDescription = if (expanded) "收合" else "展開",
@@ -473,6 +472,11 @@ private fun MedicalVisitCard(
                     Spacer(Modifier.height(8.dp))
                 }
 
+                // ── AI 結果卡片區：顯示完所有 AI 內容後，統一顯示一次 REFERENCE_DISCLAIMER
+                val hasAiContent = visit.diagnosisSummary.isNotBlank() ||
+                    visit.prescriptions.isNotBlank() ||
+                    visit.careInstructions.isNotBlank()
+
                 if (visit.diagnosisSummary.isNotBlank()) {
                     AiInfoCard(
                         icon = "📋",
@@ -501,6 +505,17 @@ private fun MedicalVisitCard(
                         color = accentColor
                     )
                     Spacer(Modifier.height(8.dp))
+                }
+
+                // ── [Step 3] REFERENCE_DISCLAIMER：僅在有 AI 內容時顯示，loading 期間不顯示 ──
+                if (hasAiContent) {
+                    Text(
+                        text = AiSystemConstraints.REFERENCE_DISCLAIMER,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                    Spacer(Modifier.height(4.dp))
                 }
 
                 if (visit.notes.isNotBlank()) {
