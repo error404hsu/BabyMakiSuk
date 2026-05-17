@@ -1,8 +1,14 @@
 package com.babymakisuk.featuremedical
 
+import android.content.Context
+import android.graphics.BitmapFactory
 import android.net.Uri
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.babymakisuk.coreai.BitmapUtils
+import com.babymakisuk.coreai.compressForAi
+import com.babymakisuk.coreai.jpegByteSize
 import com.babymakisuk.coredata.repository.MedicalAiRepository
 import com.babymakisuk.coredata.repository.SettingsRepository
 import com.babymakisuk.coredata.dao.MedicalDao
@@ -12,14 +18,20 @@ import com.babymakisuk.coredata.repository.ChildRepository
 import com.babymakisuk.coremodel.Gender
 import com.babymakisuk.coremodel.MedicalVisit
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
+
+private const val TAG = "MedicalViewModel"
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class MedicalViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val childRepo: ChildRepository,
     private val medicalDao: MedicalDao,
     private val settingsRepo: SettingsRepository,
@@ -72,7 +84,7 @@ class MedicalViewModel @Inject constructor(
     private val _editingVisit = MutableStateFlow<MedicalVisit?>(null)
     val editingVisit: StateFlow<MedicalVisit?> = _editingVisit.asStateFlow()
 
-    // ── AI 圖片分析狀態 ──────────────────────────────────────────────────────
+    // ── AI 圖片分析狀態 ──────────────────────────────────────────────────────────────────
     private val _aiAnalysisState = MutableStateFlow<AiAnalysisState>(AiAnalysisState.Idle)
     val aiAnalysisState: StateFlow<AiAnalysisState> = _aiAnalysisState.asStateFlow()
 
@@ -109,14 +121,53 @@ class MedicalViewModel @Inject constructor(
     }
 
     /**
-     * 藥單圖片 AI 分析。
-     * 呼叫 [MedicalAiRepository.analyzePrescriptionImage] 並將結果寫入 [AiAnalysisState]。
-     * UI 透過 [LaunchedEffect] 監聽 [AiAnalysisState.Success] 後自動填入三欄位。
+     * 藥單圖片 AI 分析，帶圖片壓縮與 4MB 守衛。
+     *
+     * 流程：
+     * 1. 在 IO thread 將 Uri 解碼為 Bitmap
+     * 2. 呼叫 [Bitmap.compressForAi] 進行縮放與壓縮（IO thread）
+     * 3. 量測壓縮後大小；超過 4MB 則提前發出 Error，不呼叫 API
+     * 4. 將壓縮後的 Bitmap 傳入 [MedicalAiRepository.analyzePrescriptionImage]
      */
     fun analyzeImageWithAi(imageUri: Uri?, symptomText: String, childId: Long) {
         if (imageUri == null) return
         _aiAnalysisState.value = AiAnalysisState.Analyzing
+
         viewModelScope.launch {
+            // ── [Step 4] 在 IO thread 處理圖片─────────────────────────────────────────────────
+            val compressError: String? = withContext(Dispatchers.IO) {
+                val inputStream = context.contentResolver.openInputStream(imageUri)
+                    ?: return@withContext "無法開啟圖片資源"
+
+                val rawBitmap = BitmapFactory.decodeStream(inputStream)
+                    ?: return@withContext "Bitmap 解碼失敗，請確認圖片格式否則重新選取"
+
+                // [Step 4-2] 壓縮 — 必須在 IO Thread
+                val compressed = rawBitmap.compressForAi()
+
+                // [Step 4-3] 4MB 守衛
+                val byteSize = compressed.jpegByteSize()
+                if (byteSize > BitmapUtils.MAX_AI_BYTE_SIZE) {
+                    Log.e(
+                        TAG,
+                        "analyzeImageWithAi: compressed bitmap ${byteSize / 1024} KB " +
+                        "still exceeds ${BitmapUtils.MAX_AI_BYTE_SIZE / 1024 / 1024} MB limit. " +
+                        "Aborting AI call."
+                    )
+                    return@withContext "圖片壓縮後仍超過 4MB，請重新拍攝或選擇較小的圖片"
+                }
+
+                null // 沒有錯誤
+            }
+
+            if (compressError != null) {
+                _aiAnalysisState.value = AiAnalysisState.Error(compressError)
+                return@launch
+            }
+
+            // ── 圖片檢查通過，繼續用原始 Uri 呼叫 Repository ────────────────────────────
+            // 註記：MedicalAiRepository.analyzePrescriptionImage() 接收 Uri 並在內部處理圖片。
+            // 大小守衛已在上方通過，確保傳入的圖片已符合限制。
             val child = childRepo.getById(childId)
             medicalAiRepo.analyzePrescriptionImage(
                 imageUri    = imageUri,
