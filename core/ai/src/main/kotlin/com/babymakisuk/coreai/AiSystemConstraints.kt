@@ -10,6 +10,18 @@ package com.babymakisuk.coreai
  * - 本層僅由 [AiPromptBuilder] 統一附加，feature 層不需感知。
  * - 新增限制只需修改 [GLOBAL_CONSTRAINTS]，所有角色自動套用。
  * - 分四類管理：語言、風格、安全、格式。
+ *
+ * [REFERENCE_DISCLAIMER] 供 UI 層在 AI 結果旁邊顯示，不應省略。
+ * 建議顯示為小字灰色文字，置於結果卡片底部。
+ *
+ * 範例（Compose）：
+ * ```kotlin
+ * Text(
+ *     text = AiSystemConstraints.REFERENCE_DISCLAIMER,
+ *     style = MaterialTheme.typography.labelSmall,
+ *     color = MaterialTheme.colorScheme.onSurfaceVariant
+ * )
+ * ```
  */
 object AiSystemConstraints {
 
@@ -39,4 +51,10 @@ object AiSystemConstraints {
         - 若需分段，使用「▌」作為段落標題前綴。
         - 禁止使用 Markdown 語法（** # ``` 等），因為輸出會顯示在純文字 UI 中。
     """.trimIndent()
+
+    /**
+     * UI 層在顯示 AI 生成結果時，必須在結果旁附上此聲明。
+     * 建議顯示為小字灰色文字，置於結果卡片底部。
+     */
+    const val REFERENCE_DISCLAIMER = "⚠️ AI 結果僅供參考，不構成醫療診斷建議，請諮詢專業兒科醫師。"
 }
