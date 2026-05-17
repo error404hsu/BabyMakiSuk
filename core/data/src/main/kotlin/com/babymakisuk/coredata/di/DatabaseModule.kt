@@ -1,4 +1,4 @@
-﻿package com.babymakisuk.coredata.di
+package com.babymakisuk.coredata.di
 
 import android.content.Context
 import androidx.room.Room
@@ -28,6 +28,7 @@ object DatabaseModule {
             .addMigrations(AppDatabase.MIGRATION_9_10)
             .addMigrations(AppDatabase.MIGRATION_10_11)
             .addMigrations(AppDatabase.MIGRATION_11_12)
+            .addMigrations(AppDatabase.MIGRATION_12_13)
             .build()
 
     @Provides fun provideChildDao(db: AppDatabase) = db.childDao()
@@ -42,4 +43,5 @@ object DatabaseModule {
     @Provides fun provideToiletDao(db: AppDatabase) = db.toiletDao()
     @Provides fun provideVaccineReminderDao(db: AppDatabase) = db.vaccineReminderDao()
     @Provides fun provideChatMessageDao(db: AppDatabase) = db.chatMessageDao()
+    @Provides fun provideFeverDao(db: AppDatabase) = db.feverDao()
 }
