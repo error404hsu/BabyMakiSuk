@@ -44,7 +44,7 @@ fun MedicalScreen(
     val canEditData by viewModel.canEditData.collectAsState()
     val canUseLocalAi by viewModel.canUseLocalAi.collectAsState()
 
-    var selectedTab by remember { mutableIntStateOf(0) }
+    var selectedTab by remember { mutableIntStateOf(1) }
     var showFeverDialog by remember { mutableStateOf(false) }
     val tabs = listOf("就診紀錄", "發燒日誌")
 

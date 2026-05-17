@@ -1,6 +1,5 @@
 package com.babymakisuk.coredata.repository
 
-import android.content.Context
 import android.net.Uri
 import android.util.Log
 import com.babymakisuk.coreai.AiDispatcher
@@ -10,12 +9,10 @@ import com.babymakisuk.coreai.AiTask
 import com.babymakisuk.coredata.PrescriptionImagePreprocessor
 import com.babymakisuk.coredata.ai.AiContextInjector
 import com.babymakisuk.coredata.dao.AiInsightDao
-import com.babymakisuk.coredata.dao.MedicalDao
 import com.babymakisuk.coredata.di.IoDispatcher
 import com.babymakisuk.coredata.entity.AiInsightEntity
 import com.babymakisuk.coremodel.MedicalSummaryResult
 import com.babymakisuk.coremodel.PrescriptionAnalysisResult
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
@@ -54,13 +51,11 @@ interface MedicalAiRepository {
 
 @Singleton
 class DefaultMedicalAiRepository @Inject constructor(
-    @ApplicationContext private val context: Context,
     private val aiDispatcher: AiDispatcher,
     private val aiContextInjector: AiContextInjector,
-    private val medicalDao: MedicalDao,
     private val aiInsightDao: AiInsightDao,
     private val preprocessor: PrescriptionImagePreprocessor,
-    @IoDispatcher private val ioDispatcher: CoroutineDispatcher
+    @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : MedicalAiRepository {
 
     companion object {
@@ -97,7 +92,7 @@ class DefaultMedicalAiRepository @Inject constructor(
                 task         = AiTask.MEDICAL_CONSULTATION,
                 systemPrompt = systemPrompt,
                 userPrompt   = userPrompt
-            )
+            ).getOrThrow()
             val result = try {
                 json.decodeFromString<MedicalSummaryResult>(raw)
             } catch (_: SerializationException) {
@@ -140,7 +135,7 @@ class DefaultMedicalAiRepository @Inject constructor(
                 task = AiTask.MEDICAL_OCR,
                 systemPrompt = systemPrompt,
                 userPrompt = rawText
-            )
+            ).getOrThrow()
         } catch (e: Exception) {
             Log.e(TAG, "analyzePrescription failed: ${e.message}")
             ""
@@ -177,7 +172,7 @@ class DefaultMedicalAiRepository @Inject constructor(
                 systemPrompt = systemPrompt,
                 userPrompt = "請辨識並分析這張處方箋圖片。",
                 image = bitmap
-            )
+            ).getOrThrow()
 
             val result = try {
                 val cleanJson = raw.substringAfter("```json")

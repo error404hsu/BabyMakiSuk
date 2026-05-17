@@ -228,7 +228,7 @@ class DefaultMonthlyReportRepository @Inject constructor(
                 task = AiTask.MONTHLY_REPORT,
                 systemPrompt = systemPrompt,
                 userPrompt = userPrompt
-            )
+            ).getOrElse { throw it }
             val result = try {
                 json.decodeFromString<MonthlySummaryResult>(raw)
             } catch (_: Exception) {

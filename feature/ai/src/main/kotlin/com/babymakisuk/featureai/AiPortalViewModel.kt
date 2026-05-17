@@ -160,7 +160,7 @@ class AiPortalViewModel @Inject constructor(
                 onFailure = { err ->
                     val errorMsg = when (err as? AiError) {
                         is AiError.RateLimited -> {
-                            val secs = (err as AiError.RateLimited).secondsRemaining
+                            val secs = (err as AiError.RateLimited).waitSeconds
                             "已達每分鐘上限，請 $secs 秒後再試"
                         }
                         is AiError.AllModelsFailed -> "所有模型均無法使用，請稍後再試"

@@ -14,7 +14,6 @@ import java.io.ByteArrayOutputStream
  * ⚠️ **所有函式必須在 IO Dispatcher 上呼叫，不得在 Main Thread 執行。**
  */
 object BitmapUtils {
-    private const val TAG = "BitmapUtils"
 
     /** 長邊上限 (px)：超出此値才進行縮放 */
     const val MAX_DIMENSION = 1280
@@ -24,6 +23,9 @@ object BitmapUtils {
 
     /** 傳給 AI 前的最大位元組數：4 MB */
     const val MAX_AI_BYTE_SIZE = 4 * 1024 * 1024
+
+    /** 內部日誌標籤 */
+    const val TAG = "BitmapUtils"
 }
 
 /**
@@ -43,7 +45,7 @@ fun Bitmap.compressForAi(): Bitmap {
     val longerSide = maxOf(originalW, originalH)
 
     if (longerSide <= BitmapUtils.MAX_DIMENSION) {
-        Log.d(BitmapUtils.TAG, "compressForAi: within bounds (${originalW}x${originalH}), skip resize")
+        Log.d(BitmapUtils.TAG, "compressForAi: within bounds (${originalW}x$originalH), skip resize")
         return this
     }
 
@@ -51,7 +53,7 @@ fun Bitmap.compressForAi(): Bitmap {
     val targetW = (originalW * scale).toInt()
     val targetH = (originalH * scale).toInt()
 
-    Log.d(BitmapUtils.TAG, "compressForAi: resizing ${originalW}x${originalH} → ${targetW}x${targetH}")
+    Log.d(BitmapUtils.TAG, "compressForAi: resizing ${originalW}x$originalH → ${targetW}x$targetH")
 
     val scaled = Bitmap.createScaledBitmap(this, targetW, targetH, true)
 

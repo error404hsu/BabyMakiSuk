@@ -119,9 +119,13 @@ class MedicalEditViewModel @Inject constructor(
             ).onSuccess { (result, imagePath) ->
                 _aiAnalysisState.value = AiAnalysisState.Reviewing(
                     rawText = result.diagnosisSummary,
-                    diagnosisSummary = result.diagnosisSummary,
-                    prescriptions = result.prescriptions.joinToString("・"),
-                    careInstructions = result.careInstructions.joinToString("・"),
+                    diagnosisSummary = result.diagnosisSummary.ifBlank { "（AI 未辨識到診斷資訊）" },
+                    prescriptions = result.prescriptions
+                        .joinToString("・")
+                        .ifBlank { "（AI 未辨識到處方資訊）" },
+                    careInstructions = result.careInstructions
+                        .joinToString("・")
+                        .ifBlank { "（AI 未辨識到照護建議）" },
                     confidence = result.confidence ?: 85,
                     imagePath = imagePath
                 )
@@ -133,12 +137,15 @@ class MedicalEditViewModel @Inject constructor(
 
     fun confirmAnalysis() {
         val reviewing = _aiAnalysisState.value as? AiAnalysisState.Reviewing ?: return
-        _uiState.update {
-            it.copy(
-                diagnosisSummary = reviewing.diagnosisSummary,
-                prescriptions = reviewing.prescriptions,
-                careInstructions = reviewing.careInstructions,
-                imageStoragePath = reviewing.imagePath
+        _uiState.update { current ->
+            current.copy(
+                diagnosisSummary = reviewing.diagnosisSummary
+                    .takeIf { it.isNotBlank() } ?: current.diagnosisSummary,
+                prescriptions = reviewing.prescriptions
+                    .takeIf { it.isNotBlank() } ?: current.prescriptions,
+                careInstructions = reviewing.careInstructions
+                    .takeIf { it.isNotBlank() } ?: current.careInstructions,
+                imageStoragePath = reviewing.imagePath ?: current.imageStoragePath
             )
         }
         _aiAnalysisState.value = AiAnalysisState.Success(
