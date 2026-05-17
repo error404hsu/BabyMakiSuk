@@ -25,7 +25,7 @@ import com.babymakisuk.ui.theme.BabyMakiSukTheme
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MonthlyReportScreen(
-    childId: String = "",
+    childId: Long = 0L,
     onBack: () -> Unit = {},
     viewModel: MonthlyReportViewModel = hiltViewModel()
 ) {
@@ -282,7 +282,7 @@ private fun MonthlyReportCardPreview() {
         MonthlyReportCard(
             report = MonthlyReport(
                 id = "1_2026-M05",
-                childId = "1",
+                childId = 1L,
                 monthStart = "2026-05-01",
                 monthEnd = "2026-05-31",
                 aiSummary = "本月寶寶食慾良好，體重穩定成長。月中曾有一次輕微感冒已自行痊癒。建議多注意天氣變化適時添衣。",
@@ -303,7 +303,7 @@ private fun MonthlyReportCardPreview() {
 private fun MonthlyReportScreenPreview() {
     BabyMakiSukTheme {
         MonthlyReportScreen(
-            childId = "1",
+            childId = 1L,
             onBack = {}
         )
     }

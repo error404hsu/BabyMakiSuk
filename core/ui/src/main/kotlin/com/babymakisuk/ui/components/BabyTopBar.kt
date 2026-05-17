@@ -16,7 +16,10 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+
+internal val TopBarIconSize: Dp = 28.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -32,6 +35,8 @@ fun BabyTopBar(
     extraActions: @Composable RowScope.() -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val primaryColor = MaterialTheme.colorScheme.primary
+
     CenterAlignedTopAppBar(
         title = title,
         modifier = modifier,
@@ -39,8 +44,8 @@ fun BabyTopBar(
             IconButton(onClick = onMenuClick) {
                 Icon(
                     imageVector = Icons.Default.Menu,
-                    contentDescription = "選單",
-                    modifier = Modifier.size(28.dp)
+                    contentDescription = "選單", // TODO: move to strings.xml
+                    modifier = Modifier.size(TopBarIconSize)
                 )
             }
         },
@@ -50,8 +55,8 @@ fun BabyTopBar(
                 IconButton(onClick = onSearchClick) {
                     Icon(
                         imageVector = Icons.Default.Search,
-                        contentDescription = "搜尋",
-                        modifier = Modifier.size(28.dp)
+                        contentDescription = "搜尋", // TODO: move to strings.xml
+                        modifier = Modifier.size(TopBarIconSize)
                     )
                 }
             }
@@ -59,9 +64,9 @@ fun BabyTopBar(
                 IconButton(onClick = onAiClick) {
                     Icon(
                         imageVector = Icons.Default.AutoAwesome,
-                        contentDescription = "AI",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(28.dp)
+                        contentDescription = "AI", // TODO: move to strings.xml
+                        tint = primaryColor,
+                        modifier = Modifier.size(TopBarIconSize)
                     )
                 }
             }
@@ -69,14 +74,15 @@ fun BabyTopBar(
                 IconButton(onClick = onAddClick) {
                     Icon(
                         imageVector = Icons.Default.AddCircle,
-                        contentDescription = "新增",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(28.dp)
+                        contentDescription = "新增", // TODO: move to strings.xml
+                        tint = primaryColor,
+                        modifier = Modifier.size(TopBarIconSize)
                     )
                 }
             }
         },
         colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+            // Transparent so parent scaffold/gradient bleeds through the bar.
             containerColor = Color.Transparent
         )
     )

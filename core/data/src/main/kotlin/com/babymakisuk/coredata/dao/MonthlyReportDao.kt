@@ -29,7 +29,7 @@ interface MonthlyReportDao {
           AND id LIKE :childId || '_' || :year || '-%'
         ORDER BY month_start DESC
     """)
-    fun getByYear(childId: String, year: String): Flow<List<MonthlyReportEntity>>
+    fun getByYear(childId: Long, year: String): Flow<List<MonthlyReportEntity>>
 
     @Query("""
         SELECT * FROM monthly_reports
@@ -39,7 +39,7 @@ interface MonthlyReportDao {
           AND child_id = :childId
         ORDER BY month_start DESC
     """)
-    fun searchByKeyword(childId: String, keyword: String): Flow<List<MonthlyReportEntity>>
+    fun searchByKeyword(childId: Long, keyword: String): Flow<List<MonthlyReportEntity>>
 
     @Query("SELECT * FROM monthly_reports WHERE id = :id LIMIT 1")
     suspend fun getById(id: String): MonthlyReportEntity?
@@ -50,7 +50,7 @@ interface MonthlyReportDao {
         ORDER BY month_start DESC
         LIMIT :limit
     """)
-    fun getRecentReports(childId: String, limit: Int = 20): Flow<List<MonthlyReportEntity>>
+    fun getRecentReports(childId: Long, limit: Int = 20): Flow<List<MonthlyReportEntity>>
 
     @Delete
     suspend fun delete(report: MonthlyReportEntity)

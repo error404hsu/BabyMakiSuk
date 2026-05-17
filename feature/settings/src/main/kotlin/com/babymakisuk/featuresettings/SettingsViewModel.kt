@@ -5,7 +5,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.babymakisuk.coredata.DarkModeOption
-import com.babymakisuk.coredata.SettingsRepository
+import com.babymakisuk.coredata.repository.SettingsRepository
 import com.babymakisuk.coredata.repository.MonthlyReportRepository
 import com.babymakisuk.coremodel.UserRole
 import dagger.hilt.android.lifecycle.HiltViewModel

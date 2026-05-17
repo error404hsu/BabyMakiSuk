@@ -28,10 +28,9 @@ fun FeverSymptom.displayName() = when (this) {
  *
  * @param temperatureCelsius 攝氏體溫，例如 38.5
  * @param measuredAt         量測時間（epoch millis）
- * @param durationMinutes    本次發燒持續分鐘（可選，由計時器或手動填入）
  * @param symptoms           多選症狀列表
  * @param note               備註
- * @param medicineGiven      用藥記錄（藥名 / 劑量）
+ * @param isMedicineTaken    是否已服用退燒藥
  * @param linkedVisitId      關聯就醫紀錄 ID（就醫後可回填，null 表示尚未就醫）
  */
 data class FeverRecord(
@@ -39,9 +38,8 @@ data class FeverRecord(
     val childId: Long,
     val temperatureCelsius: Float,
     val measuredAt: Long = System.currentTimeMillis(),
-    val durationMinutes: Int? = null,
     val symptoms: List<FeverSymptom> = emptyList(),
     val note: String = "",
-    val medicineGiven: String = "",
+    val isMedicineTaken: Boolean = false,
     val linkedVisitId: Long? = null
 )

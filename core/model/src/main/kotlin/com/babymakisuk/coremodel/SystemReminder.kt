@@ -2,7 +2,7 @@ package com.babymakisuk.coremodel
 
 data class SystemReminder(
     val id: String,
-    val childId: Long,
+    val childId: Long?, // Changed from Long to Long? (null = global/merged)
     val type: SystemReminderType,
     val title: String,
     val content: String,

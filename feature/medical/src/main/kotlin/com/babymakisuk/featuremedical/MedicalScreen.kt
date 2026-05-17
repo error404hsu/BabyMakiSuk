@@ -23,6 +23,7 @@ import androidx.navigation.NavController
 import com.babymakisuk.coremodel.ChildProfile
 import com.babymakisuk.coremodel.Gender
 import com.babymakisuk.coremodel.MedicalVisit
+import com.babymakisuk.featuremedical.fever.FeverScreen
 import com.babymakisuk.ui.components.BabyTopBar
 import com.babymakisuk.ui.components.LocalDrawerState
 import kotlinx.coroutines.launch
@@ -41,6 +42,10 @@ fun MedicalScreen(
     val uiState by viewModel.uiState.collectAsState()
     val canEditData by viewModel.canEditData.collectAsState()
     val canUseLocalAi by viewModel.canUseLocalAi.collectAsState()
+
+    var selectedTab by remember { mutableIntStateOf(0) }
+    var showFeverDialog by remember { mutableStateOf(false) }
+    val tabs = listOf("就診紀錄", "發燒日誌")
 
     val drawerState = LocalDrawerState.current
     val drawerScope = rememberCoroutineScope()
@@ -72,7 +77,11 @@ fun MedicalScreen(
                 onMenuClick = { drawerScope.launch { drawerState.open() } },
                 onAddClick = {
                     val childId = (uiState as? MedicalUiState.Success)?.selectedChildId ?: 1L
-                    navController.navigate("medical/edit?visitId=-1&childId=$childId")
+                    if (selectedTab == 0) {
+                        navController.navigate("medical/edit?visitId=-1&childId=$childId")
+                    } else {
+                        showFeverDialog = true
+                    }
                 }
             )
         }
@@ -82,87 +91,138 @@ fun MedicalScreen(
                 .padding(top = innerPadding.calculateTopPadding())
                 .fillMaxSize()
         ) {
-            when (val state = uiState) {
-                is MedicalUiState.Loading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
-                is MedicalUiState.Error -> Text("錯誤：${state.message}", Modifier.align(Alignment.Center))
-                is MedicalUiState.Success -> {
-                    Column(Modifier.fillMaxSize()) {
-                        state.visits.firstOrNull()?.let { latest ->
-                            Spacer(Modifier.height(12.dp))
-                            LatestMedicalHero(latest, selectedChildColor)
-                        } ?: Box(Modifier.height(16.dp))
+            Column(Modifier.fillMaxSize()) {
+                SecondaryTabRow(
+                    selectedTabIndex = selectedTab,
+                    containerColor = Color.Transparent,
+                    divider = {}
+                ) {
+                    tabs.forEachIndexed { index, title ->
+                        Tab(
+                            selected = selectedTab == index,
+                            onClick = { selectedTab = index },
+                            text = {
+                                Text(
+                                    text = title,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Normal
+                                )
+                            }
+                        )
+                    }
+                }
 
-                        Surface(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxWidth(),
-                            shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
-                            shadowElevation = 8.dp,
-                            color = MaterialTheme.colorScheme.surface,
-                            tonalElevation = 2.dp
+                when (selectedTab) {
+                    0 -> MedicalVisitList(
+                        uiState = uiState,
+                        selectedChildColor = selectedChildColor,
+                        canEditData = canEditData,
+                        canUseLocalAi = canUseLocalAi,
+                        navController = navController,
+                        viewModel = viewModel
+                    )
+                    1 -> FeverScreen(
+                        childId = selectedChildId ?: -1L,
+                        showAddDialog = showFeverDialog,
+                        onDialogDismiss = { showFeverDialog = false }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MedicalVisitList(
+    uiState: MedicalUiState,
+    selectedChildColor: Color,
+    canEditData: Boolean,
+    canUseLocalAi: Boolean,
+    navController: NavController,
+    viewModel: MedicalViewModel
+) {
+    Column(Modifier.fillMaxSize()) {
+        when (uiState) {
+            is MedicalUiState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+            is MedicalUiState.Error -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("錯誤：${uiState.message}")
+            }
+            is MedicalUiState.Success -> {
+                uiState.visits.firstOrNull()?.let { latest ->
+                    Spacer(Modifier.height(12.dp))
+                    LatestMedicalHero(latest, selectedChildColor)
+                } ?: Box(Modifier.height(16.dp))
+
+                Surface(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
+                    shadowElevation = 8.dp,
+                    color = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 2.dp
+                ) {
+                    if (uiState.visits.isEmpty()) {
+                        Box(
+                            Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
                         ) {
-                            if (state.visits.isEmpty()) {
-                                Box(
-                                    Modifier.fillMaxSize(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Icon(
-                                            Icons.Default.MedicalServices,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(72.dp),
-                                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
-                                        )
-                                        Spacer(Modifier.height(16.dp))
-                                        Text(
-                                            "尚無就診紀錄",
-                                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
-                                        )
-                                        Spacer(Modifier.height(8.dp))
-                                        Text(
-                                            "記錄寶寶的每一次就醫，方便追蹤健康狀況",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                        if (canEditData) {
-                                            Spacer(Modifier.height(24.dp))
-                                            Button(
-                                                onClick = {
-                                                    val childId = (uiState as? MedicalUiState.Success)?.selectedChildId ?: 1L
-                                                    navController.navigate("medical/edit?visitId=-1&childId=$childId")
-                                                },
-                                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary),
-                                                shape = RoundedCornerShape(12.dp)
-                                            ) {
-                                                Icon(Icons.Default.Add, contentDescription = null)
-                                                Spacer(Modifier.width(8.dp))
-                                                Text("新增就診")
-                                            }
-                                        }
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    Icons.Default.MedicalServices,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(72.dp),
+                                    tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+                                )
+                                Spacer(Modifier.height(16.dp))
+                                Text(
+                                    "尚無就診紀錄",
+                                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    "記錄寶寶的每一次就醫，方便追蹤健康狀況",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                if (canEditData) {
+                                    Spacer(Modifier.height(24.dp))
+                                    Button(
+                                        onClick = {
+                                            navController.navigate("medical/edit?visitId=-1&childId=${uiState.selectedChildId}")
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Icon(Icons.Default.Add, contentDescription = null)
+                                        Spacer(Modifier.width(8.dp))
+                                        Text("新增就診")
                                     }
                                 }
-                            } else {
-                                LazyColumn(
-                                    contentPadding = PaddingValues(16.dp),
-                                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    items(state.visits, key = { it.id }) { visit ->
-                                        MedicalVisitCard(
-                                            visit = visit,
-                                            accentColor = selectedChildColor,
-                                            canEdit = canEditData,
-                                            canUseLocalAi = canUseLocalAi,
-                                            onEdit = {
-                                                navController.navigate("medical/edit?visitId=${visit.id}&childId=${visit.childId}")
-                                            },
-                                            onDelete = { viewModel.deleteVisit(visit) },
-                                            onTriggerAi = { viewModel.triggerAiSummary(visit) },
-                                            onUpdateAiFields = { id, diagnosisSummary, prescriptions, careInstructions, isUrgent ->
-                                                viewModel.updateAiFields(id, diagnosisSummary, prescriptions, careInstructions, isUrgent)
-                                            }
-                                        )
+                            }
+                        }
+                    } else {
+                        LazyColumn(
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(uiState.visits, key = { it.id }) { visit ->
+                                MedicalVisitCard(
+                                    visit = visit,
+                                    accentColor = selectedChildColor,
+                                    canEdit = canEditData,
+                                    canUseLocalAi = canUseLocalAi,
+                                    onEdit = {
+                                        navController.navigate("medical/edit?visitId=${visit.id}&childId=${visit.childId}")
+                                    },
+                                    onDelete = { viewModel.deleteVisit(visit) },
+                                    onTriggerAi = { viewModel.triggerAiSummary(visit) },
+                                    onUpdateAiFields = { id, diagnosisSummary, prescriptions, careInstructions, isUrgent ->
+                                        viewModel.updateAiFields(id, diagnosisSummary, prescriptions, careInstructions, isUrgent)
                                     }
-                                }
+                                )
                             }
                         }
                     }

@@ -75,7 +75,7 @@ data class BackupDto(
 )
 
 @Serializable data class MonthlyReportBackup(
-    val id: String, val rowId: Long, val childId: String,
+    val id: String, val childId: Long,
     val monthStart: String, val monthEnd: String, val aiSummary: String,
     val snapshotWeight: Double?, val snapshotHeight: Double?,
     val snapshotHeadCirc: Double?, val medicalCount: Int,
@@ -95,11 +95,11 @@ data class BackupDto(
 )
 
 @Serializable data class ToiletRecordBackup(
-    val id: Int, val childId: Long, val timestamp: Long
+    val id: Long, val childId: Long, val timestamp: Long
 )
 
 @Serializable data class VaccineReminderBackup(
-    val id: Int, val childId: Long, val name: String,
+    val id: Long, val childId: Long, val name: String,
     val scheduledDate: Long, val isCompleted: Boolean, val note: String
 )
 
@@ -236,7 +236,7 @@ class BackupManager @Inject constructor(
     )
 
     private fun MonthlyReportEntity.toBackup() = MonthlyReportBackup(
-        id = id, rowId = rowId, childId = childId,
+        id = id, childId = childId,
         monthStart = monthStart, monthEnd = monthEnd, aiSummary = aiSummary,
         snapshotWeight = snapshotWeight, snapshotHeight = snapshotHeight,
         snapshotHeadCirc = snapshotHeadCirc, medicalCount = medicalCount,
@@ -303,7 +303,7 @@ class BackupManager @Inject constructor(
     )
 
     private fun MonthlyReportBackup.toEntity() = MonthlyReportEntity(
-        id = id, rowId = rowId, childId = childId,
+        id = id, childId = childId,
         monthStart = monthStart, monthEnd = monthEnd, aiSummary = aiSummary,
         snapshotWeight = snapshotWeight, snapshotHeight = snapshotHeight,
         snapshotHeadCirc = snapshotHeadCirc, medicalCount = medicalCount,

@@ -25,7 +25,7 @@ import com.babymakisuk.coredata.entity.MonthlyReportEntity
 @Composable
 fun MonthlyReportSearchScreen(
     navController: NavController,
-    childId: String = "",
+    childId: Long = 0L,
     viewModel: MonthlyReportSearchViewModel = hiltViewModel()
 ) {
     LaunchedEffect(childId) {

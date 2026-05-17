@@ -72,7 +72,7 @@ private fun GrowthRecordCard(
                 }
             }
 
-            if (r.aiSuggestion.isNotBlank()) {
+            if (!r.aiSuggestion.isNullOrBlank()) {
                 Spacer(Modifier.height(8.dp))
                 Surface(
                     color = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.5f),
@@ -82,7 +82,7 @@ private fun GrowthRecordCard(
                         Text("🤖", style = MaterialTheme.typography.bodySmall)
                         Spacer(Modifier.width(6.dp))
                         Text(
-                            r.aiSuggestion,
+                            r.aiSuggestion ?: "",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onTertiaryContainer
                         )

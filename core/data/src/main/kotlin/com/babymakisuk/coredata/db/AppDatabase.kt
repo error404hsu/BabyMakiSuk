@@ -25,7 +25,7 @@ import com.babymakisuk.coredata.entity.*
         ChatMessageEntity::class,
         FeverRecordEntity::class
     ],
-    version = 13,
+    version = 14,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -315,14 +315,118 @@ abstract class AppDatabase : RoomDatabase() {
                         childId             INTEGER NOT NULL,
                         temperatureCelsius  REAL NOT NULL,
                         measuredAt          INTEGER NOT NULL,
-                        durationMinutes     INTEGER,
                         symptoms            TEXT NOT NULL DEFAULT '',
                         note                TEXT NOT NULL DEFAULT '',
-                        medicineGiven       TEXT NOT NULL DEFAULT '',
+                        isMedicineTaken     INTEGER NOT NULL DEFAULT 0,
                         linkedVisitId       INTEGER,
                         FOREIGN KEY(childId) REFERENCES child_profile(id) ON DELETE CASCADE
                     )
                 """.trimIndent())
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_fever_records_childId ON fever_records(childId)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_fever_records_measuredAt ON fever_records(measuredAt)")
+            }
+        }
+
+        /**
+         * Migration 13 -> 14
+         * 1. MonthlyReport.child_id conversion: TEXT -> INTEGER.
+         * 2. GrowthRecord.aiSuggestion conversion: NOT NULL -> NULLABLE.
+         * Safe multi-step approach using temporary tables.
+         */
+        val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // --- MonthlyReport conversion (Remove explicit rowid) ---
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS monthly_reports_new (
+                        id                  TEXT NOT NULL PRIMARY KEY,
+                        child_id            INTEGER NOT NULL,
+                        month_start         TEXT NOT NULL,
+                        month_end           TEXT NOT NULL,
+                        ai_summary          TEXT NOT NULL,
+                        snapshot_weight     REAL,
+                        snapshot_height     REAL,
+                        snapshot_head_circ  REAL,
+                        medical_count       INTEGER NOT NULL DEFAULT 0,
+                        system_reminder_count INTEGER NOT NULL DEFAULT 0,
+                        search_keywords     TEXT NOT NULL DEFAULT '',
+                        drive_file_id       TEXT,
+                        synced_at           INTEGER NOT NULL DEFAULT 0
+                    )
+                """.trimIndent())
+                db.execSQL("""
+                    INSERT INTO monthly_reports_new (
+                        id, child_id, month_start, month_end, ai_summary,
+                        snapshot_weight, snapshot_height, snapshot_head_circ,
+                        medical_count, system_reminder_count, search_keywords,
+                        drive_file_id, synced_at
+                    )
+                    SELECT
+                        id, CAST(child_id AS INTEGER), month_start, month_end, ai_summary,
+                        snapshot_weight, snapshot_height, snapshot_head_circ,
+                        medical_count, system_reminder_count, search_keywords,
+                        drive_file_id, synced_at
+                    FROM monthly_reports
+                """.trimIndent())
+                db.execSQL("DROP TABLE IF EXISTS monthly_reports_fts")
+                db.execSQL("DROP TABLE monthly_reports")
+                db.execSQL("ALTER TABLE monthly_reports_new RENAME TO monthly_reports")
+                
+                // Recreate FTS table
+                db.execSQL("""
+                    CREATE VIRTUAL TABLE IF NOT EXISTS monthly_reports_fts
+                    USING fts4(
+                        content=`monthly_reports`,
+                        ai_summary,
+                        search_keywords
+                    )
+                """.trimIndent())
+
+                // --- GrowthRecord conversion (making aiSuggestion nullable) ---
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS growth_record_new (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        childId INTEGER NOT NULL,
+                        date TEXT NOT NULL,
+                        heightCm REAL NOT NULL,
+                        weightKg REAL NOT NULL,
+                        headCircumferenceCm REAL,
+                        note TEXT NOT NULL,
+                        aiSuggestion TEXT,
+                        FOREIGN KEY(childId) REFERENCES child_profile(id) ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                """.trimIndent())
+                db.execSQL("""
+                    INSERT INTO growth_record_new (id, childId, date, heightCm, weightKg, headCircumferenceCm, note, aiSuggestion)
+                    SELECT id, childId, date, heightCm, weightKg, headCircumferenceCm, note, aiSuggestion FROM growth_record
+                """.trimIndent())
+                db.execSQL("DROP TABLE growth_record")
+                db.execSQL("ALTER TABLE growth_record_new RENAME TO growth_record")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_growth_record_childId ON growth_record(childId)")
+
+                // --- FeverRecord fix (Fixing broken MIGRATION_12_13) ---
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS fever_records_new (
+                        id                  INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        childId             INTEGER NOT NULL,
+                        temperatureCelsius  REAL NOT NULL,
+                        measuredAt          INTEGER NOT NULL,
+                        symptoms            TEXT NOT NULL DEFAULT '',
+                        note                TEXT NOT NULL DEFAULT '',
+                        isMedicineTaken     INTEGER NOT NULL DEFAULT 0,
+                        linkedVisitId       INTEGER,
+                        FOREIGN KEY(childId) REFERENCES child_profile(id) ON DELETE CASCADE
+                    )
+                """.trimIndent())
+                
+                // 嘗試搬移舊資料 (若舊資料表欄位名稱不符則略過該欄位)
+                // 註：symptoms 在舊表是 'TEXT NOT NULL DEFAULT \'\''，在 Entity 也是 String
+                db.execSQL("""
+                    INSERT INTO fever_records_new (id, childId, temperatureCelsius, measuredAt, symptoms, note, linkedVisitId)
+                    SELECT id, childId, temperatureCelsius, measuredAt, symptoms, note, linkedVisitId FROM fever_records
+                """.trimIndent())
+                
+                db.execSQL("DROP TABLE fever_records")
+                db.execSQL("ALTER TABLE fever_records_new RENAME TO fever_records")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_fever_records_childId ON fever_records(childId)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_fever_records_measuredAt ON fever_records(measuredAt)")
             }

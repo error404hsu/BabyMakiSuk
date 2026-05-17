@@ -20,7 +20,7 @@ data class GrowthRecordEntity(
     val weightKg: Float,
     val headCircumferenceCm: Float? = null,
     val note: String = "",
-    val aiSuggestion: String = ""
+    val aiSuggestion: String? = null // Changed from String = "" to String? = null
 )
 
 fun GrowthRecordEntity.toDomain() = GrowthRecord(id, childId, date, heightCm, weightKg, headCircumferenceCm, note, aiSuggestion)

@@ -16,17 +16,17 @@ class MonthlyReportViewModel @Inject constructor(
     private val monthlyReportRepository: MonthlyReportRepository
 ) : ViewModel() {
 
-    private val _childId = MutableStateFlow("")
+    private val _childId = MutableStateFlow(0L)
 
-    fun setChildId(id: String) {
+    fun setChildId(id: Long) {
         _childId.value = id
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val reports: StateFlow<List<MonthlyReport>> = _childId
         .flatMapLatest { childId ->
-            // 不分孩子，一律顯示合併月報 (使用 "merged" 作為標記)
-            monthlyReportRepository.getRecentReports("merged", limit = 50)
+            // 不分孩子，一律顯示合併月報 (使用 0L 作為標記)
+            monthlyReportRepository.getRecentReports(0L, limit = 50)
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 

@@ -204,13 +204,12 @@ fun BabyMakiSukNavHost() {
                         route = "monthly_report_search?childId={childId}",
                         arguments = listOf(
                             navArgument("childId") {
-                                type = NavType.StringType
-                                nullable = true
-                                defaultValue = ""
+                                type = NavType.LongType
+                                defaultValue = 0L
                             }
                         )
                     ) { backStackEntry ->
-                        val childId = backStackEntry.arguments?.getString("childId") ?: ""
+                        val childId = backStackEntry.arguments?.getLong("childId") ?: 0L
                         MonthlyReportSearchScreen(
                             navController = navController,
                             childId = childId
@@ -220,13 +219,12 @@ fun BabyMakiSukNavHost() {
                         route = "monthly_report?childId={childId}",
                         arguments = listOf(
                             navArgument("childId") {
-                                type = NavType.StringType
-                                nullable = true
-                                defaultValue = ""
+                                type = NavType.LongType
+                                defaultValue = 0L
                             }
                         )
                     ) { backStackEntry ->
-                        val childId = backStackEntry.arguments?.getString("childId") ?: ""
+                        val childId = backStackEntry.arguments?.getLong("childId") ?: 0L
                         MonthlyReportScreen(
                             childId = childId,
                             onBack = { navController.popBackStack() }

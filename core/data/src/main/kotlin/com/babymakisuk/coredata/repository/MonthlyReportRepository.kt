@@ -3,31 +3,55 @@ package com.babymakisuk.coredata.repository
 import android.util.Log
 import com.babymakisuk.coredata.ai.AiContextInjector
 import com.babymakisuk.coreai.AiDispatcher
-import com.babymakisuk.coreai.AiPromptBuilder
 import com.babymakisuk.coreai.AiSystemConstraints
 import com.babymakisuk.coreai.AiTask
 import com.babymakisuk.coredata.dao.AiInsightDao
 import com.babymakisuk.coredata.dao.DailyLogDao
-import com.babymakisuk.coredata.dao.GrowthDao
 import com.babymakisuk.coredata.dao.MedicalDao
 import com.babymakisuk.coredata.dao.MonthlyReportDao
 import com.babymakisuk.coredata.dao.SystemReminderDao
-import com.babymakisuk.coredata.entity.AiInsightEntity
+import com.babymakisuk.coredata.di.IoDispatcher
 import com.babymakisuk.coredata.entity.toDomain
 import com.babymakisuk.coredata.entity.toEntity
-import com.babymakisuk.coremodel.GrowthSnapshot
 import com.babymakisuk.coremodel.MonthlyReport
 import com.babymakisuk.coremodel.MonthlySummaryResult
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/*
+ * REFACTOR PLAN:
+ * Step 1 [NOW]    — Wrap all suspend funs with withContext(ioDispatcher).
+ *                   Add flowOn(ioDispatcher) to all Flow pipelines.
+ * Step 2 [NEXT]   — Extract aggregation logic into a MonthlyReportAggregator use-case.
+ *                   Repository should only perform CRUD; aggregation belongs in domain layer.
+ * Step 3 [FUTURE] — Replace multiple DAO calls per month with a single @Transaction JOIN query
+ *                   to eliminate N+1 reads. Requires DB migration if schema changes.
+ * Step 4 [FUTURE] — Add Paging3 for report list if data exceeds 12 months.
+ */
+
+// TODO [PERF] MonthlyReportRepository Step 2: extract aggregation to use-case layer
+// TODO [PERF] MonthlyReportRepository Step 3: replace N+1 with @Transaction JOIN query
+// TODO [TEST] All DefaultXxxRepository: add fake implementation of interface for unit testing
+
+interface MonthlyReportRepository {
+    suspend fun checkAndCreateMonthlyReportReminder(force: Boolean = false)
+    fun observeByYear(childId: Long, year: String): Flow<List<MonthlyReport>>
+    fun getRecentReports(childId: Long, limit: Int = 50): Flow<List<MonthlyReport>>
+    fun searchByKeyword(childId: Long, keyword: String): Flow<List<MonthlyReport>>
+    suspend fun deleteReport(reportId: String)
+    suspend fun generateMonthlyReport(yearMonth: YearMonth): MonthlyReport
+}
+
 @Singleton
-class MonthlyReportRepository @Inject constructor(
+class DefaultMonthlyReportRepository @Inject constructor(
     private val monthlyReportDao: MonthlyReportDao,
     private val medicalDao: MedicalDao,
     private val dailyLogDao: DailyLogDao,
@@ -35,8 +59,9 @@ class MonthlyReportRepository @Inject constructor(
     private val childRepository: ChildRepository,
     private val aiDispatcher: AiDispatcher,
     private val aiContextInjector: AiContextInjector,
-    private val aiInsightDao: AiInsightDao
-) {
+    private val aiInsightDao: AiInsightDao,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher
+) : MonthlyReportRepository {
 
     companion object {
         private const val TAG = "MonthlyReportRepository"
@@ -46,7 +71,7 @@ class MonthlyReportRepository @Inject constructor(
     private val json = Json { ignoreUnknownKeys = true }
 
     /** 檢查並建立月底提醒 (於每月最後 7 天觸發) */
-    suspend fun checkAndCreateMonthlyReportReminder(force: Boolean = false) {
+    override suspend fun checkAndCreateMonthlyReportReminder(force: Boolean) = withContext(ioDispatcher) {
         val today = java.time.LocalDate.now()
         val lastDayOfMonth = today.with(java.time.temporal.TemporalAdjusters.lastDayOfMonth())
         val isLastWeek = today.isAfter(lastDayOfMonth.minusDays(7)) || today.isEqual(lastDayOfMonth)
@@ -60,7 +85,7 @@ class MonthlyReportRepository @Inject constructor(
             if (existing == null) {
                 // 取得第一個孩子作為關聯 ID (由於 DB 限制 childId 為 Long 且有 FK 限制，無法使用 0 或 null)
                 val children = childRepository.getChildren()
-                val targetChildId = children.firstOrNull()?.id ?: return
+                val targetChildId = children.firstOrNull()?.id ?: return@withContext
 
                 val reminder = com.babymakisuk.coredata.entity.SystemReminderEntity(
                     id = reminderId,
@@ -82,22 +107,28 @@ class MonthlyReportRepository @Inject constructor(
         }
     }
 
-    fun observeByYear(childId: String, year: String): Flow<List<MonthlyReport>> =
-        monthlyReportDao.getByYear(childId, year).map { list -> list.map { it.toDomain() } }
+    override fun observeByYear(childId: Long, year: String): Flow<List<MonthlyReport>> =
+        monthlyReportDao.getByYear(childId, year)
+            .map { list -> list.map { it.toDomain() } }
+            .flowOn(ioDispatcher)
 
-    fun getRecentReports(childId: String, limit: Int = 50): Flow<List<MonthlyReport>> =
-        monthlyReportDao.getRecentReports(childId, limit).map { list -> list.map { it.toDomain() } }
+    override fun getRecentReports(childId: Long, limit: Int): Flow<List<MonthlyReport>> =
+        monthlyReportDao.getRecentReports(childId, limit)
+            .map { list -> list.map { it.toDomain() } }
+            .flowOn(ioDispatcher)
 
-    fun searchByKeyword(childId: String, keyword: String): Flow<List<MonthlyReport>> =
-        monthlyReportDao.searchByKeyword(childId, keyword).map { list -> list.map { it.toDomain() } }
+    override fun searchByKeyword(childId: Long, keyword: String): Flow<List<MonthlyReport>> =
+        monthlyReportDao.searchByKeyword(childId, keyword)
+            .map { list -> list.map { it.toDomain() } }
+            .flowOn(ioDispatcher)
 
-    suspend fun deleteReport(reportId: String) {
+    override suspend fun deleteReport(reportId: String) = withContext(ioDispatcher) {
         monthlyReportDao.getById(reportId)?.let { entity ->
             monthlyReportDao.delete(entity)
-        }
+        } ?: Unit
     }
 
-    suspend fun generateMonthlyReport(yearMonth: YearMonth): MonthlyReport {
+    override suspend fun generateMonthlyReport(yearMonth: YearMonth): MonthlyReport = withContext(ioDispatcher) {
         val monthStart = yearMonth.atDay(1)
         val monthEnd = yearMonth.atEndOfMonth()
         val monthStartStr = monthStart.format(dateFmt)
@@ -235,7 +266,7 @@ class MonthlyReportRepository @Inject constructor(
 
         val report = MonthlyReport(
             id = reportId,
-            childId = "merged",
+            childId = 0L,
             monthStart = monthStartStr,
             monthEnd = monthEndStr,
             aiSummary = aiSummary,
@@ -253,6 +284,6 @@ class MonthlyReportRepository @Inject constructor(
         val reminderId = "monthly_remind_${yearValue}_${monthValue}"
         systemReminderDao.markResolved(reminderId, System.currentTimeMillis())
 
-        return report
+        report
     }
 }

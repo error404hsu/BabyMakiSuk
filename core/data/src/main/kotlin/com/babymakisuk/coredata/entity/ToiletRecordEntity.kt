@@ -12,7 +12,7 @@ import com.babymakisuk.coremodel.ToiletRecord
     indices = [Index("childId")]
 )
 data class ToiletRecordEntity(
-    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    @PrimaryKey(autoGenerate = true) val id: Long = 0, // Changed from Int to Long
     val childId: Long,
     val timestamp: Long
 )

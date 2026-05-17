@@ -6,7 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.babymakisuk.coreai.AiDispatcher
 import com.babymakisuk.coreai.AiPreset
 import com.babymakisuk.coreai.AiPromptBuilder
-import com.babymakisuk.coredata.SettingsRepository
+import com.babymakisuk.coredata.repository.SettingsRepository
 import com.babymakisuk.coredata.repository.ChildRepository
 import com.babymakisuk.coremodel.ChildProfile
 import com.babymakisuk.coremodel.Gender

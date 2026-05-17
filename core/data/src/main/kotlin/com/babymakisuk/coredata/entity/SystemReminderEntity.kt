@@ -14,6 +14,11 @@ import com.babymakisuk.coremodel.SystemReminderType
 )
 data class SystemReminderEntity(
     @PrimaryKey val id: String,
+    /**
+     * childId: 0L in DB corresponds to global reminder (mapped to null in domain).
+     * TODO: In a future MIGRATION_14_15, make this column NULLABLE in SQLite
+     * and remove the 0L sentinel value convention.
+     */
     val childId: Long,
     val type: String,
     val title: String,
@@ -24,7 +29,8 @@ data class SystemReminderEntity(
 
 fun SystemReminderEntity.toDomain() = SystemReminder(
     id = id,
-    childId = childId,
+    // childId == 0L in DB → map to null in domain
+    childId = if (childId == 0L) null else childId,
     type = try { SystemReminderType.valueOf(type) } catch (_: Exception) { SystemReminderType.LONG_NO_BM },
     title = title,
     content = content,
@@ -34,7 +40,8 @@ fun SystemReminderEntity.toDomain() = SystemReminder(
 
 fun SystemReminder.toEntity() = SystemReminderEntity(
     id = id,
-    childId = childId,
+    // null in domain → store as 0L in DB
+    childId = childId ?: 0L,
     type = type.name,
     title = title,
     content = content,

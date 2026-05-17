@@ -15,6 +15,6 @@ class MonthlyShelfViewModel @Inject constructor(
     private val monthlyReportDao: MonthlyReportDao
 ) : ViewModel() {
 
-    val reports: StateFlow<List<MonthlyReportEntity>> = monthlyReportDao.getRecentReports("merged", 20)
+    val reports: StateFlow<List<MonthlyReportEntity>> = monthlyReportDao.getRecentReports(0L, 20)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 }

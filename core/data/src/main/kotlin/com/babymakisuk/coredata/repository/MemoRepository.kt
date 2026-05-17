@@ -6,58 +6,84 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.babymakisuk.coredata.dao.MemoDao
+import com.babymakisuk.coredata.di.IoDispatcher
 import com.babymakisuk.coredata.entity.toDomain
 import com.babymakisuk.coredata.entity.toEntity
 import com.babymakisuk.coremodel.Memo
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
+// TODO [PERF] MemoRepository: add Paging3 for memo list if user has > 100 memos
+// TODO [TEST] All DefaultXxxRepository: add fake implementation of interface for unit testing
+
+interface MemoRepository {
+    fun observeAll(): Flow<List<Memo>>
+    fun observeByChildId(childId: Long): Flow<List<Memo>>
+    fun observeByChildIdAndDate(childId: Long, date: Long): Flow<List<Memo>>
+    suspend fun getByDate(date: Long): List<Memo>
+    suspend fun getByChildIdAndDate(childId: Long, date: Long): List<Memo>
+    suspend fun save(memo: Memo): Long
+    suspend fun update(memo: Memo)
+    suspend fun deleteById(id: Long)
+    suspend fun getLatestByChildId(childId: Long): Memo?
+}
+
 @Singleton
-class MemoRepository @Inject constructor(
+class DefaultMemoRepository @Inject constructor(
     private val dao: MemoDao,
-    @param:ApplicationContext private val context: Context
-) {
+    @ApplicationContext private val context: Context,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher
+) : MemoRepository {
 
-    fun observeAll(): Flow<List<Memo>> =
-        dao.observeAll().map { list -> list.map { it.toDomain() } }
+    override fun observeAll(): Flow<List<Memo>> =
+        dao.observeAll()
+            .map { list -> list.map { it.toDomain() } }
+            .flowOn(ioDispatcher)
 
-    fun observeByChildId(childId: Long): Flow<List<Memo>> =
-        dao.observeByChildId(childId).map { list -> list.map { it.toDomain() } }
+    override fun observeByChildId(childId: Long): Flow<List<Memo>> =
+        dao.observeByChildId(childId)
+            .map { list -> list.map { it.toDomain() } }
+            .flowOn(ioDispatcher)
 
-    @Suppress("unused")
-    fun observeByChildIdAndDate(childId: Long, date: Long): Flow<List<Memo>> =
-        dao.observeByChildIdAndDate(childId, date).map { list -> list.map { it.toDomain() } }
+    override fun observeByChildIdAndDate(childId: Long, date: Long): Flow<List<Memo>> =
+        dao.observeByChildIdAndDate(childId, date)
+            .map { list -> list.map { it.toDomain() } }
+            .flowOn(ioDispatcher)
 
-    suspend fun getByDate(date: Long): List<Memo> =
+    override suspend fun getByDate(date: Long): List<Memo> = withContext(ioDispatcher) {
         dao.getByDate(date).map { it.toDomain() }
-
-    @Suppress("unused")
-    suspend fun getByChildIdAndDate(childId: Long, date: Long): List<Memo> =
-        dao.getByChildIdAndDate(childId, date).map { it.toDomain() }
-
-    suspend fun save(memo: Memo): Long {
-        val id = dao.insert(memo.toEntity())
-        scheduleReminder(id, memo.title, memo.content, memo.reminderAt)
-        return id
     }
 
-    suspend fun update(memo: Memo) {
+    override suspend fun getByChildIdAndDate(childId: Long, date: Long): List<Memo> = withContext(ioDispatcher) {
+        dao.getByChildIdAndDate(childId, date).map { it.toDomain() }
+    }
+
+    override suspend fun save(memo: Memo): Long = withContext(ioDispatcher) {
+        val id = dao.insert(memo.toEntity())
+        scheduleReminder(id, memo.title, memo.content, memo.reminderAt)
+        id
+    }
+
+    override suspend fun update(memo: Memo) = withContext(ioDispatcher) {
         dao.update(memo.toEntity())
         scheduleReminder(memo.id, memo.title, memo.content, memo.reminderAt)
     }
 
-    suspend fun deleteById(id: Long) {
+    override suspend fun deleteById(id: Long) = withContext(ioDispatcher) {
         cancelReminder(id)
         dao.deleteById(id)
     }
 
-    @Suppress("unused")
-    suspend fun getLatestByChildId(childId: Long): Memo? =
+    override suspend fun getLatestByChildId(childId: Long): Memo? = withContext(ioDispatcher) {
         dao.getLatestByChildId(childId)?.toDomain()
+    }
 
     private fun scheduleReminder(memoId: Long, title: String, content: String, reminderAt: Long?) {
         cancelReminder(memoId)

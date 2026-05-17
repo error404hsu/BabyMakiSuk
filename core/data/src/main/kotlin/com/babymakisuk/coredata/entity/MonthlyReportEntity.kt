@@ -11,11 +11,8 @@ data class MonthlyReportEntity(
     @PrimaryKey
     val id: String,
 
-    @ColumnInfo(name = "rowid")
-    val rowId: Long = 0,
-
     @ColumnInfo(name = "child_id")
-    val childId: String,
+    val childId: Long, // Changed from String to Long
 
     @ColumnInfo(name = "month_start")
     val monthStart: String,

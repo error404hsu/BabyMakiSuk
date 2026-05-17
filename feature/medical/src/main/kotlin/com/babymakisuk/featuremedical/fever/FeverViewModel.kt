@@ -5,21 +5,18 @@ import androidx.lifecycle.viewModelScope
 import com.babymakisuk.coredata.dao.FeverDao
 import com.babymakisuk.coredata.entity.toDomain
 import com.babymakisuk.coredata.entity.toEntity
-import com.babymakisuk.coredata.repository.ChildRepository
 import com.babymakisuk.coremodel.FeverRecord
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
 class FeverViewModel @Inject constructor(
-    private val feverDao: FeverDao,
-    private val childRepository: ChildRepository
+    private val feverDao: FeverDao
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<FeverUiState>(FeverUiState.Loading)
@@ -28,20 +25,53 @@ class FeverViewModel @Inject constructor(
     fun init(childId: Long) {
         viewModelScope.launch {
             feverDao.observeByChildId(childId).collectLatest { entities ->
-                val records = entities.map { it.toDomain() }
-                val current = _uiState.value
+                val records = entities.map { it.toDomain() }.sortedBy { it.measuredAt }
+                val episodes = groupRecordsIntoEpisodes(records)
                 _uiState.value = FeverUiState.Success(
-                    records = records,
-                    currentChildId = childId,
-                    timerRunning = (current as? FeverUiState.Success)?.timerRunning ?: false,
-                    timerStartMs = (current as? FeverUiState.Success)?.timerStartMs
+                    episodes = episodes.reversed(), // 最新病程在前
+                    currentChildId = childId
                 )
             }
         }
     }
 
+    private fun groupRecordsIntoEpisodes(records: List<FeverRecord>): List<FeverEpisode> {
+        if (records.isEmpty()) return emptyList()
+
+        val episodes = mutableListOf<FeverEpisode>()
+        var currentBatch = mutableListOf<FeverRecord>()
+
+        for (record in records) {
+            if (currentBatch.isEmpty()) {
+                currentBatch.add(record)
+            } else {
+                val lastTime = currentBatch.last().measuredAt
+                // 如果兩筆記錄相隔超過 48 小時，則開啟新病程
+                if (record.measuredAt - lastTime > 48 * 60 * 60 * 1000L) {
+                    episodes.add(createEpisode(currentBatch))
+                    currentBatch = mutableListOf(record)
+                } else {
+                    currentBatch.add(record)
+                }
+            }
+        }
+        if (currentBatch.isNotEmpty()) {
+            episodes.add(createEpisode(currentBatch))
+        }
+        return episodes
+    }
+
+    private fun createEpisode(records: List<FeverRecord>): FeverEpisode {
+        return FeverEpisode(
+            id = records.first().id.toString(),
+            records = records,
+            startTime = records.first().measuredAt,
+            endTime = records.last().measuredAt
+        )
+    }
+
     fun addRecord(record: FeverRecord) {
-        val childId = ((_uiState.value) as? FeverUiState.Success)?.currentChildId ?: return
+        val childId = (uiState.value as? FeverUiState.Success)?.currentChildId ?: return
         viewModelScope.launch {
             feverDao.insert(record.copy(childId = childId).toEntity())
         }
@@ -51,24 +81,5 @@ class FeverViewModel @Inject constructor(
         viewModelScope.launch {
             feverDao.deleteById(record.id)
         }
-    }
-
-    /** 開始發燒計時器 */
-    fun startTimer() {
-        _uiState.update {
-            if (it is FeverUiState.Success)
-                it.copy(timerRunning = true, timerStartMs = System.currentTimeMillis())
-            else it
-        }
-    }
-
-    /** 停止計時器，回傳經過分鐘數供 Dialog 預填 */
-    fun stopTimer(): Int {
-        val state = _uiState.value as? FeverUiState.Success ?: return 0
-        val elapsed = state.timerStartMs?.let {
-            ((System.currentTimeMillis() - it) / 60_000).toInt().coerceAtLeast(1)
-        } ?: 0
-        _uiState.update { (it as? FeverUiState.Success)?.copy(timerRunning = false, timerStartMs = null) ?: it }
-        return elapsed
     }
 }

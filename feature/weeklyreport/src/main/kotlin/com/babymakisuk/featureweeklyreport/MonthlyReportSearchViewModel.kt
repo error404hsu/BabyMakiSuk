@@ -15,7 +15,7 @@ class MonthlyReportSearchViewModel @Inject constructor(
     private val dao: MonthlyReportDao
 ) : ViewModel() {
 
-    var currentChildId: String = ""
+    var currentChildId: Long = 0L
 
     val searchQuery: MutableStateFlow<String> = MutableStateFlow("")
 
@@ -26,8 +26,8 @@ class MonthlyReportSearchViewModel @Inject constructor(
             if (query.isBlank()) {
                 flowOf(emptyList())
             } else {
-                // 月報目前採合併制，固定使用 "merged" 作為 childId 搜尋
-                dao.searchByKeyword("merged", query)
+                // 月報目前採合併制，固定使用 0L 作為 childId 搜尋
+                dao.searchByKeyword(0L, query)
             }
         }
         .stateIn(

@@ -3,8 +3,8 @@ package com.babymakisuk.featuremedical
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.babymakisuk.coredata.MedicalAiRepository
-import com.babymakisuk.coredata.SettingsRepository
+import com.babymakisuk.coredata.repository.MedicalAiRepository
+import com.babymakisuk.coredata.repository.SettingsRepository
 import com.babymakisuk.coredata.dao.MedicalDao
 import com.babymakisuk.coredata.entity.toDomain
 import com.babymakisuk.coredata.entity.toEntity

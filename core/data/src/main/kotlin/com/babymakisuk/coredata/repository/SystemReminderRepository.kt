@@ -1,45 +1,64 @@
 package com.babymakisuk.coredata.repository
 
 import com.babymakisuk.coredata.dao.SystemReminderDao
-import com.babymakisuk.coredata.entity.SystemReminderEntity
+import com.babymakisuk.coredata.di.IoDispatcher
 import com.babymakisuk.coredata.entity.toDomain
 import com.babymakisuk.coredata.entity.toEntity
 import com.babymakisuk.coremodel.SystemReminder
 import com.babymakisuk.coremodel.SystemReminderType
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
-import java.util.UUID
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
+// TODO [TEST] All DefaultXxxRepository: add fake implementation of interface for unit testing
+
+interface SystemReminderRepository {
+    fun getByChildId(childId: Long): Flow<List<SystemReminder>>
+    fun getUnresolvedByType(childId: Long, type: SystemReminderType): Flow<List<SystemReminder>>
+    suspend fun upsert(reminder: SystemReminder)
+    suspend fun markResolved(id: String, resolvedAt: Long = System.currentTimeMillis())
+    suspend fun markAllResolvedByType(childId: Long, type: SystemReminderType, resolvedAt: Long = System.currentTimeMillis())
+    suspend fun deleteById(id: String)
+    suspend fun createLongNoBmReminder(childId: Long, hoursSince: Int)
+}
+
 @Singleton
-class SystemReminderRepository @Inject constructor(
-    private val dao: SystemReminderDao
-) {
+class DefaultSystemReminderRepository @Inject constructor(
+    private val dao: SystemReminderDao,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher
+) : SystemReminderRepository {
 
-    fun getByChildId(childId: Long): Flow<List<SystemReminder>> =
-        dao.getByChildIdIncludingGlobal(childId).map { list -> list.map { it.toDomain() } }
+    override fun getByChildId(childId: Long): Flow<List<SystemReminder>> =
+        dao.getByChildIdIncludingGlobal(childId)
+            .map { list -> list.map { it.toDomain() } }
+            .flowOn(ioDispatcher)
 
-    fun getUnresolvedByType(childId: Long, type: SystemReminderType): Flow<List<SystemReminder>> =
-        dao.getUnresolvedByType(childId, type.name).map { list -> list.map { it.toDomain() } }
+    override fun getUnresolvedByType(childId: Long, type: SystemReminderType): Flow<List<SystemReminder>> =
+        dao.getUnresolvedByType(childId, type.name)
+            .map { list -> list.map { it.toDomain() } }
+            .flowOn(ioDispatcher)
 
-    suspend fun upsert(reminder: SystemReminder) {
+    override suspend fun upsert(reminder: SystemReminder) = withContext(ioDispatcher) {
         dao.insert(reminder.toEntity())
     }
 
-    suspend fun markResolved(id: String, resolvedAt: Long = System.currentTimeMillis()) {
+    override suspend fun markResolved(id: String, resolvedAt: Long) = withContext(ioDispatcher) {
         dao.markResolved(id, resolvedAt)
     }
 
-    suspend fun markAllResolvedByType(childId: Long, type: SystemReminderType, resolvedAt: Long = System.currentTimeMillis()) {
+    override suspend fun markAllResolvedByType(childId: Long, type: SystemReminderType, resolvedAt: Long) = withContext(ioDispatcher) {
         dao.markAllResolvedByType(childId, type.name, resolvedAt)
     }
 
-    suspend fun deleteById(id: String) {
+    override suspend fun deleteById(id: String) = withContext(ioDispatcher) {
         dao.deleteById(id)
     }
 
-    suspend fun createLongNoBmReminder(childId: Long, hoursSince: Int) {
+    override suspend fun createLongNoBmReminder(childId: Long, hoursSince: Int) = withContext(ioDispatcher) {
         val id = "nobm_${childId}_${System.currentTimeMillis()}"
         val reminder = SystemReminder(
             id = id,

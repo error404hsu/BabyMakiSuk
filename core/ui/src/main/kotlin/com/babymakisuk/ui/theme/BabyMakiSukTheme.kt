@@ -11,13 +11,17 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 
@@ -54,7 +58,7 @@ private val DarkColors = darkColorScheme(
     onSurface        = Color(0xFFE0E0E0)
 )
 
-// ── 字型定義 ──────────────────────────────────────────
+// ── 字型與形狀 ──────────────────────────────────────────
 // 基於 ui-ux-pro-max 推薦：Lora（標題）+ Raleway（內文）
 // 安裝實際字型：下載 .ttf 放入 res/font/，即可替換 FontFamily.Default
 
@@ -75,6 +79,25 @@ private val BabyMakiTypography = Typography(
     labelMedium    = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Medium,   fontSize = 12.sp, lineHeight = 16.sp),
     labelSmall     = TextStyle(fontFamily = FontFamily.Default, fontWeight = FontWeight.Medium,   fontSize = 10.sp, lineHeight = 14.sp),
 )
+
+private val BabyMakiShapes = Shapes()
+
+// ── 設計權標 (Design Tokens) ──────────────────────────────────
+
+data class BabySpacing(
+    val xxs: Dp = 4.dp,
+    val xs:  Dp = 8.dp,
+    val sm:  Dp = 12.dp,
+    val md:  Dp = 16.dp,
+    val lg:  Dp = 24.dp,
+    val xl:  Dp = 32.dp,
+    val xxl: Dp = 48.dp,
+)
+
+val LocalBabySpacing = staticCompositionLocalOf { BabySpacing() }
+
+val spacing: BabySpacing
+    @Composable get() = LocalBabySpacing.current
 
 /**
  * App 全局主題。
@@ -105,20 +128,20 @@ fun BabyMakiSukTheme(
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
-            val window = (view.context as? Activity)?.window
-            if (window != null) {
-                WindowCompat.getInsetsController(window, view).apply {
-                    isAppearanceLightStatusBars = !darkTheme
-                    isAppearanceLightNavigationBars = !darkTheme
-                }
+            val window = (view.context as? Activity)?.window ?: return@SideEffect
+            WindowCompat.getInsetsController(window, view).apply {
+                isAppearanceLightStatusBars = !darkTheme
+                isAppearanceLightNavigationBars = !darkTheme
             }
         }
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = BabyMakiTypography,
-        shapes = Shapes(),
-        content = content
-    )
+    CompositionLocalProvider(LocalBabySpacing provides BabySpacing()) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = BabyMakiTypography,
+            shapes = BabyMakiShapes,
+            content = content
+        )
+    }
 }

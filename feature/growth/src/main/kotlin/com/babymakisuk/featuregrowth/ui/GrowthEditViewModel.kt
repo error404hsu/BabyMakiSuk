@@ -63,7 +63,7 @@ class GrowthEditViewModel @Inject constructor(
                             weightKg = record.weightKg.toString(),
                             headCircumferenceCm = record.headCircumferenceCm?.toString() ?: "",
                             note = record.note,
-                            aiSuggestion = record.aiSuggestion,
+                            aiSuggestion = record.aiSuggestion ?: "",
                             date = record.date,
                             dateStr = record.date.format(DateTimeFormatter.ofPattern("yyyy / MM / dd"))
                         )
