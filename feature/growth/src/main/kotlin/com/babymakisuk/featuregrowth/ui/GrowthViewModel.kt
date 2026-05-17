@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.babymakisuk.coreai.AiDispatcher
+import com.babymakisuk.coreai.AiError
 import com.babymakisuk.coreai.AiPreset
 import com.babymakisuk.coreai.AiPromptBuilder
 import com.babymakisuk.coredata.repository.SettingsRepository
@@ -31,6 +32,10 @@ sealed interface GrowthUiState {
         val selectedChildId: Long,
         val records: List<GrowthRecordWithPercentile>,
         val aiAnalysisText: String = "",
+        // AI 呼叫進行中
+        val isAiLoading: Boolean = false,
+        // AI 語意錯誤（Result.onFailure 時寫入）
+        val aiError: String? = null,
         val isAnalyzing: Boolean = false
     ) : GrowthUiState
     data class Error(val message: String) : GrowthUiState
@@ -50,8 +55,9 @@ class GrowthViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _selectedChildId = MutableStateFlow<Long?>(savedStateHandle["childId"])
-
-    private val _isAnalyzing = MutableStateFlow(false)
+    private val _isAnalyzing    = MutableStateFlow(false)
+    private val _isAiLoading    = MutableStateFlow(false)
+    private val _aiError        = MutableStateFlow<String?>(null)
 
     val canEditData: StateFlow<Boolean> = settingsRepo.userRoleFlow
         .map { it.canEditData }
@@ -65,9 +71,19 @@ class GrowthViewModel @Inject constructor(
             insights.filter { it.id.startsWith("growth_analysis_") }
                 .associate { (it.childId.toLongOrNull() ?: 0L) to it.content }
         },
-        _isAnalyzing
-    ) { children, selectedId, aiMap, isAnalyzing ->
-        DataSnapshot(children, selectedId, aiMap, isAnalyzing)
+        _isAnalyzing,
+        _isAiLoading,
+        _aiError
+    ) { array ->
+        @Suppress("UNCHECKED_CAST")
+        DataSnapshot(
+            children   = array[0] as List<ChildProfile>,
+            selectedId = array[1] as Long?,
+            aiMap      = array[2] as Map<Long, String>,
+            isAnalyzing = array[3] as Boolean,
+            isAiLoading = array[4] as Boolean,
+            aiError     = array[5] as String?
+        )
     }.flatMapLatest { snapshot ->
         val children = snapshot.children
         if (children.isEmpty()) {
@@ -85,11 +101,13 @@ class GrowthViewModel @Inject constructor(
 
         observeGrowth(effectiveId).map<List<GrowthRecordWithPercentile>, GrowthUiState> { records ->
             GrowthUiState.Success(
-                children = children,
+                children        = children,
                 selectedChildId = effectiveId,
-                records = records,
-                aiAnalysisText = snapshot.aiMap[effectiveId] ?: "",
-                isAnalyzing = snapshot.isAnalyzing
+                records         = records,
+                aiAnalysisText  = snapshot.aiMap[effectiveId] ?: "",
+                isAiLoading     = snapshot.isAiLoading,
+                aiError         = snapshot.aiError,
+                isAnalyzing     = snapshot.isAnalyzing
             )
         }
     }.catch { emit(GrowthUiState.Error(it.message ?: "Unknown error")) }
@@ -99,7 +117,9 @@ class GrowthViewModel @Inject constructor(
         val children: List<ChildProfile>,
         val selectedId: Long?,
         val aiMap: Map<Long, String>,
-        val isAnalyzing: Boolean
+        val isAnalyzing: Boolean,
+        val isAiLoading: Boolean,
+        val aiError: String?
     )
 
     private val _showForm = MutableStateFlow(false)
@@ -137,13 +157,13 @@ class GrowthViewModel @Inject constructor(
         viewModelScope.launch {
             saveGrowth(
                 GrowthRecord(
-                    id = existingId,
-                    childId = selectedId,
-                    date = date,
-                    heightCm = heightCm,
-                    weightKg = weightKg,
+                    id                  = existingId,
+                    childId             = selectedId,
+                    date                = date,
+                    heightCm            = heightCm,
+                    weightKg            = weightKg,
                     headCircumferenceCm = headCircCm,
-                    note = note
+                    note                = note
                 )
             )
             _showForm.value = false
@@ -161,51 +181,64 @@ class GrowthViewModel @Inject constructor(
         if (records.isEmpty()) return
 
         _isAnalyzing.value = true
+        _isAiLoading.value = true
+        _aiError.value = null
 
         viewModelScope.launch {
-            try {
-                val child = childRepo.getById(currentState.selectedChildId)
-                val systemPrompt = AiPromptBuilder.buildSystemPrompt(
-                    preset = AiPreset.GROWTH_ANALYST,
-                    ageMonths = child?.ageMonths ?: 0,
-                    gender = child?.gender?.name ?: "未知",
-                    allergies = child?.allergies
-                )
+            val child = childRepo.getById(currentState.selectedChildId)
+            val systemPrompt = AiPromptBuilder.buildSystemPrompt(
+                preset    = AiPreset.GROWTH_ANALYST,
+                ageMonths = child?.ageMonths ?: 0,
+                gender    = child?.gender?.name ?: "未知",
+                allergies = child?.allergies
+            )
 
-                val dataPrompt = buildString {
-                    appendLine("請分析以下幼兒的完整生長紀錄趨勢：")
-                    appendLine("小孩：${child?.name ?: "寶寶"}，月齡：${child?.ageMonths ?: 0}個月")
-                    appendLine()
-                    appendLine("【全部生長數據（由舊到新）】")
-                    records.forEach { item ->
-                        val r = item.record
-                        val dateStr = r.date.toString()
-                        appendLine("$dateStr 身高：${r.heightCm}cm(P${item.heightPercentile}) 體重：${r.weightKg}kg(P${item.weightPercentile}) 頭圍：${r.headCircumferenceCm ?: "-"}(P${item.headCircPercentile ?: "-"})")
-                    }
-                    appendLine()
-                    appendLine("請分析生長趨勢、百分位變化、並給予建議。回答以繁體中文呈現，控制在 300 字以內。")
+            val dataPrompt = buildString {
+                appendLine("請分析以下幼兒的完整生長紀錄趨勢：")
+                appendLine("小孩：${child?.name ?: "寶寶"}，月齡：${child?.ageMonths ?: 0}個月")
+                appendLine()
+                appendLine("【全部生長數據（由舊到新）】")
+                records.forEach { item ->
+                    val r = item.record
+                    appendLine("${r.date} 身高：${r.heightCm}cm(P${item.heightPercentile}) 體重：${r.weightKg}kg(P${item.weightPercentile}) 頭圍：${r.headCircumferenceCm ?: "-"}(P${item.headCircPercentile ?: "-"})")
                 }
-
-                val response = aiDispatcher.executeWithSystemPrompt(
-                    task = AiPreset.GROWTH_ANALYST.task,
-                    systemPrompt = systemPrompt,
-                    userPrompt = dataPrompt
-                )
-
-                val insight = AiInsightEntity(
-                    id = "growth_analysis_${currentState.selectedChildId}",
-                    childId = currentState.selectedChildId.toString(),
-                    title = "生長分析",
-                    content = response,
-                    sourceDate = System.currentTimeMillis(),
-                    createdAt = System.currentTimeMillis()
-                )
-                aiInsightDao.insert(insight)
-            } catch (_: Exception) {
-                // 如果失敗不更新，或可以考慮更新一個錯誤訊息到資料庫
-            } finally {
-                _isAnalyzing.value = false
+                appendLine()
+                appendLine("請分析生長趨勢、百分位變化、並給予建議。回答以繁體中文呈現，控制在 300 字以內。")
             }
+
+            val result = aiDispatcher.executeWithSystemPrompt(
+                task         = AiPreset.GROWTH_ANALYST.task,
+                systemPrompt = systemPrompt,
+                userPrompt   = dataPrompt
+            )
+
+            _isAiLoading.value = false
+
+            result.fold(
+                onSuccess = { response ->
+                    val insight = AiInsightEntity(
+                        id         = "growth_analysis_${currentState.selectedChildId}",
+                        childId    = currentState.selectedChildId.toString(),
+                        title      = "生長分析",
+                        content    = response,
+                        sourceDate = System.currentTimeMillis(),
+                        createdAt  = System.currentTimeMillis()
+                    )
+                    aiInsightDao.insert(insight)
+                },
+                onFailure = { err ->
+                    val errorMsg = when (err as? AiError) {
+                        is AiError.RateLimited     -> "已達每分鐘上限，請稍後再試"
+                        is AiError.AllModelsFailed -> "所有模型均無法使用"
+                        is AiError.InvalidConfig   -> "AI 設定錯誤"
+                        is AiError.Cancelled       -> "請求已取消"
+                        else -> err.message ?: "AI 分析失敗"
+                    }
+                    _aiError.value = errorMsg
+                }
+            )
+
+            _isAnalyzing.value = false
         }
     }
 }

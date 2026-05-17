@@ -35,6 +35,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.babymakisuk.coreai.AiPreset
+import com.babymakisuk.coreai.AiSystemConstraints
 import com.babymakisuk.coreai.GeminiModel
 import com.babymakisuk.coremodel.Gender
 import com.babymakisuk.ui.theme.BabyMakiSukTheme
@@ -52,11 +53,14 @@ fun AiPortalScreen(
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // 處理錯誤訊息顯示
+    // 顯示一般 UI 訊息（儲存成功、新對話等）
     LaunchedEffect(uiState.errorMessage) {
-        uiState.errorMessage?.let {
-            snackbarHostState.showSnackbar(it)
-        }
+        uiState.errorMessage?.let { snackbarHostState.showSnackbar(it) }
+    }
+
+    // 顯示 AI 錯誤訊息
+    LaunchedEffect(uiState.aiError) {
+        uiState.aiError?.let { snackbarHostState.showSnackbar(it) }
     }
 
     AiPortalScreenContent(
@@ -99,9 +103,8 @@ fun AiPortalScreenContent(
     LaunchedEffect(uiState.messages.size, uiState.isGenerating) {
         if (uiState.messages.isNotEmpty()) {
             val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()
-            val isNearBottom = lastVisibleItem != null && 
+            val isNearBottom = lastVisibleItem != null &&
                                lastVisibleItem.index >= uiState.messages.size - 2
-            
             if (isNearBottom || uiState.isGenerating) {
                 listState.animateScrollToItem(
                     if (uiState.isGenerating) uiState.messages.size else uiState.messages.size - 1
@@ -117,7 +120,6 @@ fun AiPortalScreenContent(
                 title = {
                     Column {
                         Text("AI 助手")
-                        // TopBar 副標題顯示有效模型，並以文字區分建議/強制狀態
                         val modelLabel = if (uiState.isModelOverridden)
                             "${uiState.effectiveModel.displayName} ★強制"
                         else
@@ -138,7 +140,6 @@ fun AiPortalScreenContent(
                     }
                 },
                 actions = {
-                    // 新對話
                     if (uiState.messages.isNotEmpty()) {
                         IconButton(onClick = { showNewConvDialog = true }) {
                             Icon(
@@ -149,12 +150,9 @@ fun AiPortalScreenContent(
                         }
                     }
 
-                    // 整理為知識庫
                     if (uiState.isSummarizing) {
                         CircularProgressIndicator(
-                            modifier = Modifier
-                                .padding(12.dp)
-                                .size(24.dp),
+                            modifier = Modifier.padding(12.dp).size(24.dp),
                             strokeWidth = 2.5.dp
                         )
                     } else {
@@ -164,7 +162,6 @@ fun AiPortalScreenContent(
                     }
 
                     if (isTestingMode) {
-                        // 強制 override 時顯示「重置為建議」按鈕
                         if (uiState.isModelOverridden) {
                             IconButton(onClick = onClearModelOverride) {
                                 Icon(
@@ -175,7 +172,6 @@ fun AiPortalScreenContent(
                             }
                         }
 
-                        // 模型選單：從 GeminiModel.entries 動態產生，標示建議/強制狀態
                         Box {
                             IconButton(onClick = { showModelMenu = true }) {
                                 Icon(Icons.Default.MoreVert, contentDescription = "選擇模型")
@@ -187,7 +183,6 @@ fun AiPortalScreenContent(
                                 GeminiModel.entries.forEach { model ->
                                     val isRecommended = model == uiState.selectedPreset.preferredModel
                                     val isActive      = model == uiState.effectiveModel
-
                                     DropdownMenuItem(
                                         text = {
                                             Row(
@@ -195,11 +190,10 @@ fun AiPortalScreenContent(
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
                                                 Text(model.displayName)
-                                                // 角色建議模型標示
                                                 if (isRecommended) {
-                                                    Badge(
-                                                        containerColor = MaterialTheme.colorScheme.secondaryContainer
-                                                    ) { Text("建議") }
+                                                    Badge(containerColor = MaterialTheme.colorScheme.secondaryContainer) {
+                                                        Text("建議")
+                                                    }
                                                 }
                                                 Badge { Text(model.badge) }
                                             }
@@ -208,15 +202,13 @@ fun AiPortalScreenContent(
                                             onOverrideModel(model)
                                             showModelMenu = false
                                         },
-                                        trailingIcon = if (isActive) {
-                                            {
-                                                Icon(
-                                                    Icons.Default.Check,
-                                                    contentDescription = "使用中",
-                                                    modifier = Modifier.size(16.dp)
-                                                )
-                                            }
-                                        } else null
+                                        trailingIcon = if (isActive) {{
+                                            Icon(
+                                                Icons.Default.Check,
+                                                contentDescription = "使用中",
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }} else null
                                     )
                                 }
                             }
@@ -232,47 +224,36 @@ fun AiPortalScreenContent(
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
         ) {
-            // 角色選擇列（Preset Selector）
+            // 角色選擇列
             LazyRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(uiState.sortedPresets) { preset ->
                     val roleIcon = when (preset.name) {
-                        "PEDIATRIC_DOCTOR" -> "👨‍⚕️"
-                        "PHARMACIST" -> "💊"
-                        "NUTRITIONIST" -> "🥗"
-                        "GROWTH_ANALYST" -> "📊"
-                        else -> "💬"
+                        "PEDIATRIC_DOCTOR" -> "👨\u200d⚕️"
+                        "PHARMACIST"       -> "💊"
+                        "NUTRITIONIST"     -> "🥗"
+                        "GROWTH_ANALYST"   -> "📊"
+                        else               -> "💬"
                     }
                     FilterChip(
                         selected = uiState.selectedPreset == preset,
                         onClick  = { onSwitchPreset(preset) },
                         label    = { Text(roleIcon + " " + preset.displayName) },
-                        leadingIcon = if (uiState.selectedPreset == preset) {
-                            {
-                                Icon(
-                                    Icons.Default.Check,
-                                    contentDescription = "已選擇",
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                        } else null
+                        leadingIcon = if (uiState.selectedPreset == preset) {{
+                            Icon(Icons.Default.Check, contentDescription = "已選擇", modifier = Modifier.size(16.dp))
+                        }} else null
                     )
                 }
             }
 
             // 小孩選擇器
             LazyRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // 不指定 (雙胞胎) 選項
                 item {
                     val isSelected = uiState.selectedChildId == -1L
                     FilterChip(
@@ -296,7 +277,6 @@ fun AiPortalScreenContent(
                 items(uiState.children) { child ->
                     val isSelected = child.id == uiState.selectedChildId
                     val genderColor = if (child.gender == Gender.MALE) Color(0xFF4A90D9) else Color(0xFFE07BBD)
-
                     FilterChip(
                         selected = isSelected,
                         onClick = {
@@ -308,9 +288,7 @@ fun AiPortalScreenContent(
                             }
                         },
                         label = {
-                            Text(
-                                "${if (child.gender == Gender.MALE) "👦" else "👧"} ${child.name}"
-                            )
+                            Text("${if (child.gender == Gender.MALE) "👦" else "👧"} ${child.name}")
                         },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = genderColor.copy(alpha = 0.2f),
@@ -325,6 +303,14 @@ fun AiPortalScreenContent(
                 color = MaterialTheme.colorScheme.surfaceVariant
             )
 
+            // ── AI 呼叫 Loading 橫幅 ──────────────────────────────────────────
+            if (uiState.isAiLoading) {
+                LinearProgressIndicator(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+
             // 聊天對話區
             LazyColumn(
                 state = listState,
@@ -333,7 +319,6 @@ fun AiPortalScreenContent(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(uiState.messages, key = { it.id }) { message ->
-                    // 修正：AI 正在生成時，若內容為空則不顯示氣泡 (避免空泡泡)
                     if (message.text.isNotEmpty() || message.role == Role.USER) {
                         ChatBubble(
                             message = message,
@@ -343,20 +328,15 @@ fun AiPortalScreenContent(
                     }
                 }
 
-                // AI 正在輸入中的提示 (僅保留這一個指示器)
                 if (uiState.isGenerating) {
-                    item(key = "typing_indicator") {
-                        ThinkingIndicator()
-                    }
+                    item(key = "typing_indicator") { ThinkingIndicator() }
                 }
             }
 
-            // 預設問題（僅在初始狀態且沒有對話時顯示）
+            // 預設問題（初始空對話時顯示）
             if (uiState.isAwaitingInput && uiState.messages.isEmpty()) {
                 LazyRow(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     val presetQuestions = listOf(
@@ -369,11 +349,7 @@ fun AiPortalScreenContent(
                             onClick = { onSendMessage(question) },
                             label   = { Text(question) },
                             leadingIcon = {
-                                Icon(
-                                    Icons.Default.Lightbulb,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp)
-                                )
+                                Icon(Icons.Default.Lightbulb, contentDescription = null, modifier = Modifier.size(16.dp))
                             }
                         )
                     }
@@ -382,7 +358,7 @@ fun AiPortalScreenContent(
 
             ChatInputBar(
                 onSend       = onSendMessage,
-                isGenerating = uiState.isGenerating
+                isGenerating = uiState.isGenerating || uiState.isAiLoading
             )
         }
     }
@@ -396,14 +372,10 @@ fun AiPortalScreenContent(
                 TextButton(onClick = {
                     showSwitchChildDialog = false
                     pendingChildId?.let { onSelectChild(it) }
-                }) {
-                    Text("確定切換")
-                }
+                }) { Text("確定切換") }
             },
             dismissButton = {
-                TextButton(onClick = { showSwitchChildDialog = false }) {
-                    Text("取消")
-                }
+                TextButton(onClick = { showSwitchChildDialog = false }) { Text("取消") }
             }
         )
     }
@@ -417,14 +389,10 @@ fun AiPortalScreenContent(
                 TextButton(onClick = {
                     showNewConvDialog = false
                     onNewConversation()
-                }) {
-                    Text("確定")
-                }
+                }) { Text("確定") }
             },
             dismissButton = {
-                TextButton(onClick = { showNewConvDialog = false }) {
-                    Text("取消")
-                }
+                TextButton(onClick = { showNewConvDialog = false }) { Text("取消") }
             }
         )
     }
@@ -442,10 +410,10 @@ private fun ChatBubble(
 
     val roleIcon = when {
         isUser -> "👤"
-        aiPresetHint == "PEDIATRIC_DOCTOR" -> "👨‍⚕️"
-        aiPresetHint == "PHARMACIST" -> "💊"
-        aiPresetHint == "NUTRITIONIST" -> "🥗"
-        aiPresetHint == "GROWTH_ANALYST" -> "📊"
+        aiPresetHint == "PEDIATRIC_DOCTOR" -> "👨\u200d⚕️"
+        aiPresetHint == "PHARMACIST"       -> "💊"
+        aiPresetHint == "NUTRITIONIST"     -> "🥗"
+        aiPresetHint == "GROWTH_ANALYST"   -> "📊"
         else -> "🤖"
     }
 
@@ -458,8 +426,8 @@ private fun ChatBubble(
         // Role label
         Row(
             modifier = Modifier.padding(
-                start = if (isUser) 0.dp else 8.dp,
-                end = if (isUser) 8.dp else 0.dp,
+                start  = if (isUser) 0.dp else 8.dp,
+                end    = if (isUser) 8.dp else 0.dp,
                 bottom = 4.dp
             ),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -470,7 +438,7 @@ private fun ChatBubble(
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.SemiBold,
                 color = if (isUser) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.onSurfaceVariant
+                        else MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
                 text = timeString,
@@ -487,27 +455,36 @@ private fun ChatBubble(
         ) {
             Surface(
                 color = if (isUser) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.surfaceVariant,
+                        else MaterialTheme.colorScheme.surfaceVariant,
                 shape = RoundedCornerShape(
-                    topStart = 20.dp,
-                    topEnd = 20.dp,
+                    topStart    = 20.dp,
+                    topEnd      = 20.dp,
                     bottomStart = if (isUser) 20.dp else 4.dp,
-                    bottomEnd = if (isUser) 4.dp else 20.dp
+                    bottomEnd   = if (isUser) 4.dp else 20.dp
                 ),
                 modifier = Modifier.widthIn(max = 280.dp),
                 shadowElevation = if (isUser) 0.dp else 2.dp,
-                tonalElevation = if (isUser) 0.dp else 1.dp
+                tonalElevation  = if (isUser) 0.dp else 1.dp
             ) {
                 Text(
                     text = message.text,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                     color = if (isUser) MaterialTheme.colorScheme.onPrimary
-                    else MaterialTheme.colorScheme.onSurface,
-                    style = MaterialTheme.typography.bodyLarge.copy(
-                        lineHeight = 24.sp
-                    )
+                            else MaterialTheme.colorScheme.onSurface,
+                    style = MaterialTheme.typography.bodyLarge.copy(lineHeight = 24.sp)
                 )
             }
+        }
+
+        // ── REFERENCE_DISCLAIMER（僅 AI 訊息，有內容時顯示）──────────────────
+        if (!isUser && message.text.isNotBlank()) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text     = AiSystemConstraints.REFERENCE_DISCLAIMER,
+                style    = MaterialTheme.typography.labelSmall,
+                color    = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 2.dp)
+            )
         }
     }
 }
@@ -515,9 +492,7 @@ private fun ChatBubble(
 @Composable
 private fun ThinkingIndicator() {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         horizontalArrangement = Arrangement.Start,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -525,7 +500,7 @@ private fun ThinkingIndicator() {
             color = MaterialTheme.colorScheme.surfaceVariant,
             shape = RoundedCornerShape(20.dp, 20.dp, 20.dp, 4.dp),
             shadowElevation = 2.dp,
-            tonalElevation = 1.dp
+            tonalElevation  = 1.dp
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
@@ -538,7 +513,7 @@ private fun ThinkingIndicator() {
                     color = MaterialTheme.colorScheme.primary
                 )
                 Text(
-                    text = "正在回覆...",
+                    text  = "正在回覆...",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -555,9 +530,7 @@ private fun ChatInputBar(
     var text by remember { mutableStateOf("") }
 
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
+        modifier = Modifier.fillMaxWidth().padding(16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -571,21 +544,13 @@ private fun ChatInputBar(
             maxLines      = 3,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
             keyboardActions = KeyboardActions(onSend = {
-                if (text.isNotBlank()) {
-                    onSend(text)
-                    text = ""
-                }
+                if (text.isNotBlank()) { onSend(text); text = "" }
             })
         )
 
         IconButton(
-            onClick = {
-                if (text.isNotBlank()) {
-                    onSend(text)
-                    text = ""
-                }
-            },
-            enabled = text.isNotBlank() && !isGenerating,
+            onClick  = { if (text.isNotBlank()) { onSend(text); text = "" } },
+            enabled  = text.isNotBlank() && !isGenerating,
             modifier = Modifier
                 .size(48.dp)
                 .background(
@@ -607,7 +572,7 @@ private fun ChatInputBar(
                     imageVector = Icons.AutoMirrored.Filled.Send,
                     contentDescription = "發送",
                     tint = if (text.isNotBlank()) MaterialTheme.colorScheme.onTertiary
-                    else MaterialTheme.colorScheme.onSurfaceVariant
+                           else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -626,7 +591,6 @@ fun AiPortalScreenPreview() {
         isGenerating = false,
         selectedPreset = AiPreset.default
     )
-
     BabyMakiSukTheme {
         AiPortalScreenContent(
             uiState = sampleUiState,

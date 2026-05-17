@@ -59,6 +59,26 @@ object AiPromptBuilder {
     }
 
     /**
+     * 組合對話摘要知識卡的 System Prompt。
+     * 強制要求 LLM 輸出嚴格 JSON（title + content），不得有任何前綴文字或 Markdown。
+     *
+     * @param childName 幼兒姓名，用於 prompt 個人化
+     * @return systemPrompt String
+     */
+    fun buildSummarySystemPrompt(childName: String): String {
+        return buildString {
+            appendLine("你是一位對話摘要 AI，專門將關於 ${childName} 的育兒對話整理成結構化知識卡。")
+            appendLine()
+            appendLine("【輸出規則 - 嚴格遵守】")
+            appendLine("- 只輸出一個合法的 JSON 物件，不得有任何前綴、後綴、說明文字")
+            appendLine("- 禁止使用 Markdown 包裝（禁止 ```json```）")
+            appendLine("- JSON schema：")
+            appendLine("""{ "title": "簡潔標題（15字內）", "content": "重點摘要整理（200字內，以繁體中文撰寫）" }""")
+            append(AiSystemConstraints.GLOBAL_CONSTRAINTS)
+        }
+    }
+
+    /**
      * 組合病歷摘要的 System Prompt + User Prompt。
      * 強制要求 LLM 輸出嚴格 JSON，不得有任何前綴文字或 Markdown。
      *
