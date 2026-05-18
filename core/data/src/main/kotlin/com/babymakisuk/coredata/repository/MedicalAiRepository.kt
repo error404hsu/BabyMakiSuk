@@ -60,18 +60,6 @@ class DefaultMedicalAiRepository @Inject constructor(
 
     companion object {
         private const val TAG = "MedicalAiRepository"
-
-        /** OCR 專屬輸出規範，與 AiPreset.PHARMACIST.systemPrompt 分離管理 */
-        private val OCR_OUTPUT_SPEC = """
-            
-            【OCR 輸出規範 - 嚴格遵守】
-            
-            ▌請先辨識圖片中的藥名、劑量、用法等文字資訊。
-            ▌接著以藥師角度分析以下三項，並嚴格以 JSON 格式回傳：
-            { "diagnosisSummary": "診斷摘要（50字內）", "prescriptions": ["藥名 劑量 用法", ...], "careInstructions": ["居家照護建議", ...], "confidence": 0-100 }
-            ▌confidence 為你對此分析結果的信心分數（0-100），請據實評估。
-            ▌只輸出 JSON 物件，不得有任何前綴、後綴、Markdown 包裝或說明文字。
-        """.trimIndent()
     }
 
     private val json = Json { ignoreUnknownKeys = true }
@@ -126,11 +114,10 @@ class DefaultMedicalAiRepository @Inject constructor(
     override suspend fun analyzePrescription(childId: Long, rawText: String): String = withContext(ioDispatcher) {
         try {
             val contextBlock = aiContextInjector.buildContext(childId)
-            val systemPrompt = buildString {
-                appendLine(AiPreset.PHARMACIST.systemPrompt)
-                appendLine()
-                append(contextBlock)
-            }
+            val systemPrompt = AiPromptBuilder.buildSystemPromptWithContext(
+                preset = AiPreset.PHARMACIST,
+                contextBlock = contextBlock
+            )
             aiDispatcher.executeWithSystemPrompt(
                 task = AiTask.MEDICAL_OCR,
                 systemPrompt = systemPrompt,
@@ -156,16 +143,12 @@ class DefaultMedicalAiRepository @Inject constructor(
             val savedFile = preprocessor.saveToInternal(bitmap)
             val imagePath = savedFile.absolutePath
 
-            val systemPrompt = buildString {
-                appendLine(AiPreset.PHARMACIST.systemPrompt)
-                appendLine()
-                appendLine("【個案資訊】")
-                appendLine("年齡：${ageMonths}個月")
-                appendLine("性別：$gender")
-                appendLine("過敏史：${allergies ?: "無"}")
-                appendLine("使用者描述症狀：$symptomHint")
-                append(OCR_OUTPUT_SPEC)
-            }
+            val systemPrompt = AiPromptBuilder.buildPrescriptionImagePrompt(
+                ageMonths = ageMonths,
+                gender = gender,
+                allergies = allergies,
+                symptomHint = symptomHint
+            )
 
             val raw = aiDispatcher.executeWithImage(
                 task = AiTask.MEDICAL_OCR,

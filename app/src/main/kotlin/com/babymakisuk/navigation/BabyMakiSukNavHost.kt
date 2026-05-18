@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.activity.compose.BackHandler
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
@@ -82,6 +83,11 @@ fun BabyMakiSukNavHost() {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
+    // 當側邊欄（書庫）開啟時，攔截返回鍵操作，優先收起書庫
+    BackHandler(enabled = drawerState.isOpen) {
+        scope.launch { drawerState.close() }
+    }
+
     CompositionLocalProvider(LocalDrawerState provides drawerState) {
         ModalNavigationDrawer(
             drawerState = drawerState,
@@ -118,7 +124,13 @@ fun BabyMakiSukNavHost() {
                         navController = navController,
                         onNavigateToAi = { hint ->
                             scope.launch { drawerState.close() }
-                            navController.navigate("ai_portal?presetHint=$hint")
+                            navController.navigate("ai_portal?presetHint=$hint") {
+                                launchSingleTop = true
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                restoreState = true
+                            }
                         }
                     )
                 }

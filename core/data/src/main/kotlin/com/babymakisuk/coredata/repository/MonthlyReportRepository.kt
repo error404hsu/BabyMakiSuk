@@ -2,7 +2,9 @@ package com.babymakisuk.coredata.repository
 
 import android.util.Log
 import com.babymakisuk.coredata.ai.AiContextInjector
+import com.babymakisuk.coreai.AiConfig
 import com.babymakisuk.coreai.AiDispatcher
+import com.babymakisuk.coreai.AiPromptBuilder
 import com.babymakisuk.coreai.AiSystemConstraints
 import com.babymakisuk.coreai.AiTask
 import com.babymakisuk.coredata.dao.AiInsightDao
@@ -184,44 +186,12 @@ class DefaultMonthlyReportRepository @Inject constructor(
             }
         }
 
-        val (systemPrompt, userPrompt) = buildString {
-            appendLine("你是一位幼兒成長月報 AI 撰稿員，專門為家長生成溫馨且具體的每月成長總結。")
-            appendLine("本月報為合併報告，可能包含多位孩子（雙胞胎）的資料，請在總結中均衡提到他們的狀況。")
-            appendLine()
-            appendLine("【輸出規則】")
-            appendLine("- 只輸出一個合法的 JSON 物件，不得有任何前綴、後綴、說明文字")
-            appendLine("- 禁止 Markdown 包裝")
-            appendLine("- JSON schema：")
-            appendLine(
-                """
-{
-  "monthSummary": "string（整月總結，200字以內，溫馨語氣）",
-  "highlights": ["string（本月亮點，3條以內）"],
-  "parentTips": ["string（給家長的具體建議，2條）"],
-  "searchKeywords": ["string（3-5個關鍵字，供 FTS 搜尋）"]
-}
-                """.trimIndent()
-            )
-            appendLine(AiSystemConstraints.GLOBAL_CONSTRAINTS)
-        }.let { system ->
-            val user = buildString {
-                appendLine("請根據以下資料，為孩子們生成 ${monthLabel} 的成長月報：")
-                appendLine()
-                appendLine("【本月日誌】")
-                appendLine(dailyLogsBlock)
-                if (!recentMedical.isNullOrBlank()) {
-                    appendLine()
-                    appendLine("【本月就診紀錄】")
-                    append(recentMedical)
-                }
-                if (!systemReminderBlock.isNullOrBlank()) {
-                    appendLine()
-                    appendLine("【本月系統提醒】")
-                    append(systemReminderBlock)
-                }
-            }
-            Pair(system, user)
-        }
+        val (systemPrompt, userPrompt) = AiPromptBuilder.buildMonthlyLogSummaryPrompt(
+            monthLabel = monthLabel,
+            dailyLogsBlock = dailyLogsBlock,
+            recentMedical = recentMedical,
+            systemReminderBlock = systemReminderBlock
+        )
 
         val (aiSummary, searchKeywords) = try {
             val raw = aiDispatcher.executeWithSystemPrompt(

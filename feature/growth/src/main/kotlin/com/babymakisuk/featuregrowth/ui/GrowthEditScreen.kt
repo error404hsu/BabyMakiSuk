@@ -15,8 +15,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import java.time.Instant
+import java.time.LocalDate
 import java.time.ZoneId
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -27,21 +29,80 @@ fun GrowthEditScreen(
     childId: Long = -1L,
     viewModel: GrowthEditViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     LaunchedEffect(recordId, childId) {
         viewModel.initialize(recordId, childId)
     }
 
     LaunchedEffect(Unit) {
-        viewModel.savedEvent.collect {
-            navController.popBackStack()
+        viewModel.events.collect { event ->
+            when (event) {
+                is GrowthEditUiEvent.Saved -> navController.popBackStack()
+                is GrowthEditUiEvent.ValidationError -> {
+                    // future: showSnackbar with event.message
+                }
+            }
         }
     }
 
+    when (uiState) {
+        is GrowthEditUiState.Loading -> {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        }
+        is GrowthEditUiState.Ready -> {
+            EditFormContent(
+                state = uiState as GrowthEditUiState.Ready,
+                isSaving = false,
+                recordId = recordId,
+                onBack = { navController.popBackStack() },
+                onUpdateHeight = viewModel::updateHeight,
+                onUpdateWeight = viewModel::updateWeight,
+                onUpdateHeadCircumference = viewModel::updateHeadCircumference,
+                onUpdateNote = viewModel::updateNote,
+                onUpdateAiSuggestion = viewModel::updateAiSuggestion,
+                onUpdateDate = viewModel::updateDate,
+                onSave = viewModel::save
+            )
+        }
+        is GrowthEditUiState.Saving -> {
+            EditFormContent(
+                state = (uiState as GrowthEditUiState.Saving).form,
+                isSaving = true,
+                recordId = recordId,
+                onBack = { navController.popBackStack() },
+                onUpdateHeight = viewModel::updateHeight,
+                onUpdateWeight = viewModel::updateWeight,
+                onUpdateHeadCircumference = viewModel::updateHeadCircumference,
+                onUpdateNote = viewModel::updateNote,
+                onUpdateAiSuggestion = viewModel::updateAiSuggestion,
+                onUpdateDate = viewModel::updateDate,
+                onSave = viewModel::save
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EditFormContent(
+    state: GrowthEditUiState.Ready,
+    isSaving: Boolean,
+    recordId: Long,
+    onBack: () -> Unit,
+    onUpdateHeight: (String) -> Unit,
+    onUpdateWeight: (String) -> Unit,
+    onUpdateHeadCircumference: (String) -> Unit,
+    onUpdateNote: (String) -> Unit,
+    onUpdateAiSuggestion: (String) -> Unit,
+    onUpdateDate: (LocalDate) -> Unit,
+    onSave: () -> Unit
+) {
     var showDatePicker by remember { mutableStateOf(false) }
     val datePickerState = rememberDatePickerState(
-        initialSelectedDateMillis = uiState.date
+        initialSelectedDateMillis = state.date
             .atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
     )
 
@@ -51,7 +112,7 @@ fun GrowthEditScreen(
             confirmButton = {
                 TextButton(onClick = {
                     datePickerState.selectedDateMillis?.let { millis ->
-                        viewModel.updateDate(
+                        onUpdateDate(
                             Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate()
                         )
                     }
@@ -69,13 +130,13 @@ fun GrowthEditScreen(
             TopAppBar(
                 title = { Text(if (recordId > 0L) "編輯成長紀錄" else "新增成長紀錄") },
                 navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
+                    IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
                     }
                 },
                 actions = {
-                    TextButton(onClick = { viewModel.save() }) {
-                        Text("儲存")
+                    TextButton(onClick = onSave, enabled = !isSaving) {
+                        Text(if (isSaving) "儲存中..." else "儲存")
                     }
                 }
             )
@@ -91,10 +152,11 @@ fun GrowthEditScreen(
         ) {
             Box(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
-                    value = uiState.dateStr,
+                    value = state.dateStr,
                     onValueChange = {},
                     label = { Text("記錄日期") },
                     readOnly = true,
+                    enabled = !isSaving,
                     trailingIcon = {
                         Icon(Icons.Default.CalendarToday, contentDescription = "選擇日期")
                     },
@@ -103,53 +165,58 @@ fun GrowthEditScreen(
                 Box(
                     modifier = Modifier
                         .matchParentSize()
-                        .clickable { showDatePicker = true }
+                        .clickable(enabled = !isSaving) { showDatePicker = true }
                 )
             }
 
             OutlinedTextField(
-                value = uiState.heightCm,
-                onValueChange = viewModel::updateHeight,
+                value = state.heightCm,
+                onValueChange = onUpdateHeight,
                 label = { Text("身高 (cm)") },
-                isError = uiState.heightError,
-                supportingText = if (uiState.heightError) {{ Text("請輸入有效的身高") }} else null,
+                isError = state.heightError,
+                enabled = !isSaving,
+                supportingText = if (state.heightError) {{ Text("請輸入有效的身高") }} else null,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
 
             OutlinedTextField(
-                value = uiState.weightKg,
-                onValueChange = viewModel::updateWeight,
+                value = state.weightKg,
+                onValueChange = onUpdateWeight,
                 label = { Text("體重 (kg)") },
-                isError = uiState.weightError,
-                supportingText = if (uiState.weightError) {{ Text("請輸入有效的體重") }} else null,
+                isError = state.weightError,
+                enabled = !isSaving,
+                supportingText = if (state.weightError) {{ Text("請輸入有效的體重") }} else null,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
 
             OutlinedTextField(
-                value = uiState.headCircumferenceCm,
-                onValueChange = viewModel::updateHeadCircumference,
+                value = state.headCircumferenceCm,
+                onValueChange = onUpdateHeadCircumference,
                 label = { Text("頭圍 (cm，可選)") },
+                enabled = !isSaving,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
 
             OutlinedTextField(
-                value = uiState.note,
-                onValueChange = viewModel::updateNote,
+                value = state.note,
+                onValueChange = onUpdateNote,
                 label = { Text("備註") },
+                enabled = !isSaving,
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
 
             OutlinedTextField(
-                value = uiState.aiSuggestion,
-                onValueChange = viewModel::updateAiSuggestion,
+                value = state.aiSuggestion,
+                onValueChange = onUpdateAiSuggestion,
                 label = { Text("AI 建議") },
+                enabled = !isSaving,
                 placeholder = { Text("由 AI 分析後自動填入，亦可手動編輯") },
                 modifier = Modifier.fillMaxWidth(),
                 minLines = 2,
@@ -159,10 +226,19 @@ fun GrowthEditScreen(
             Spacer(Modifier.height(8.dp))
 
             Button(
-                onClick = { viewModel.save() },
+                onClick = onSave,
+                enabled = !isSaving,
                 modifier = Modifier.fillMaxWidth(),
                 shape = MaterialTheme.shapes.medium
             ) {
+                if (isSaving) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                    Spacer(Modifier.width(8.dp))
+                }
                 Text("儲存")
             }
         }

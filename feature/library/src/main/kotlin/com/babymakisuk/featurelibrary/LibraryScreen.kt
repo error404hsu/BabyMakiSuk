@@ -35,6 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import com.babymakisuk.ui.components.LocalDrawerState
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -111,7 +112,16 @@ fun LibraryScreen(
                     lastUpdated = lastUpdated,
                     onClick = {
                         scope.launch { drawerState.close() }
-                        navController.navigate("${shelf.route}?childId=$selectedChildId")
+                        navController.navigate("${shelf.route}?childId=$selectedChildId") {
+                            // 1. 如果目標頁面已在頂部，則不重複建立
+                            launchSingleTop = true
+                            // 2. 彈回首頁（起始點），確保書庫分頁不會無限堆疊
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            // 3. 恢復之前的狀態（如果有的話）
+                            restoreState = true
+                        }
                     }
                 )
             }

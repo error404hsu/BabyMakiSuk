@@ -1,8 +1,6 @@
-﻿package com.babymakisuk.featuregrowth.ui
+package com.babymakisuk.featuregrowth.ui
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
@@ -18,30 +16,7 @@ import com.babymakisuk.featuregrowth.domain.GrowthRecordWithPercentile
 import java.time.format.DateTimeFormatter
 
 @Composable
-fun GrowthListScreen(
-    records: List<GrowthRecordWithPercentile>,
-    onEdit: (GrowthRecordWithPercentile) -> Unit,
-    onDelete: (GrowthRecordWithPercentile) -> Unit
-) {
-    if (records.isEmpty()) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("尚無成長紀錄，點擊 + 新增")
-        }
-        return
-    }
-    LazyColumn(contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        items(records, key = { it.record.id }) { item ->
-            GrowthRecordCard(
-                item = item,
-                onEdit = { onEdit(item) },
-                onDelete = { onDelete(item) }
-            )
-        }
-    }
-}
-
-@Composable
-private fun GrowthRecordCard(
+fun GrowthRecordCard(
     item: GrowthRecordWithPercentile,
     onEdit: () -> Unit,
     onDelete: () -> Unit
@@ -79,7 +54,7 @@ private fun GrowthRecordCard(
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Row(modifier = Modifier.padding(10.dp)) {
-                        Text("🤖", style = MaterialTheme.typography.bodySmall)
+                        Text("\uD83E\uDD16", style = MaterialTheme.typography.bodySmall)
                         Spacer(Modifier.width(6.dp))
                         Text(
                             r.aiSuggestion ?: "",

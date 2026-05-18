@@ -13,6 +13,9 @@ interface ChatMessageDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(entity: ChatMessageEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(entities: List<ChatMessageEntity>)
+
     @Query("SELECT * FROM chat_messages ORDER BY timestampMs ASC")
     suspend fun getAllOnce(): List<ChatMessageEntity>
 

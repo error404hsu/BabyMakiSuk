@@ -14,15 +14,24 @@ interface FeverDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(entity: FeverRecordEntity): Long
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(entities: List<FeverRecordEntity>)
+
     @Update
     suspend fun update(entity: FeverRecordEntity)
 
     @Query("DELETE FROM fever_records WHERE id = :id")
     suspend fun deleteById(id: Long)
 
+    @Query("DELETE FROM fever_records")
+    suspend fun deleteAll()
+
     /** 觀察某孩子的所有發燒紀錄，依量測時間倒序。 */
     @Query("SELECT * FROM fever_records WHERE childId = :childId ORDER BY measuredAt DESC")
     fun observeByChildId(childId: Long): Flow<List<FeverRecordEntity>>
+
+    @Query("SELECT * FROM fever_records ORDER BY measuredAt DESC")
+    suspend fun getAllOnce(): List<FeverRecordEntity>
 
     /** 查詢某孩子特定時間區間內的紀錄（用於就醫時帶入摘要）。 */
     @Query("""

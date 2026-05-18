@@ -23,7 +23,7 @@ import javax.inject.Singleton
 
 @Serializable
 data class BackupDto(
-    val version: Int = 3,
+    val version: Int = 4,
     val exportedAt: String = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
     val children: List<ChildProfileBackup> = emptyList(),
     val growthRecords: List<GrowthRecordBackup> = emptyList(),
@@ -35,19 +35,24 @@ data class BackupDto(
     val memos: List<MemoBackup> = emptyList(),
     val toiletRecords: List<ToiletRecordBackup> = emptyList(),
     val vaccineReminders: List<VaccineReminderBackup> = emptyList(),
+    val systemReminders: List<SystemReminderBackup> = emptyList(),
+    val chatMessages: List<ChatMessageBackup> = emptyList(),
+    val feverRecords: List<FeverRecordBackup> = emptyList(),
 )
 
 @Serializable data class ChildProfileBackup(
     val id: Long, val name: String, val gender: String,
     val birthday: String, val bloodType: String? = null,
     val allergies: String? = null, val note: String = "",
-    val photoUri: String? = null
+    val photoUri: String? = null,
+    val defaultAiPrompt: String? = null
 )
 
 @Serializable data class GrowthRecordBackup(
     val id: Long, val childId: Long, val date: String,
     val heightCm: Float, val weightKg: Float,
-    val headCircumferenceCm: Float? = null, val note: String = ""
+    val headCircumferenceCm: Float? = null, val note: String = "",
+    val aiSuggestion: String? = null
 )
 
 @Serializable data class MedicalVisitBackup(
@@ -103,6 +108,22 @@ data class BackupDto(
     val scheduledDate: Long, val isCompleted: Boolean, val note: String
 )
 
+@Serializable data class SystemReminderBackup(
+    val id: String, val childId: Long, val type: String,
+    val title: String, val content: String, val createdAt: Long,
+    val resolvedAt: Long?
+)
+
+@Serializable data class ChatMessageBackup(
+    val id: String, val role: String, val text: String, val timestampMs: Long
+)
+
+@Serializable data class FeverRecordBackup(
+    val id: Long, val childId: Long, val temperatureCelsius: Float,
+    val measuredAt: Long, val symptoms: String, val note: String,
+    val isMedicineTaken: Boolean, val linkedVisitId: Long?
+)
+
 // ── BackupManager ──────────────────────────────────────────
 
 @Singleton
@@ -126,7 +147,10 @@ class BackupManager @Inject constructor(
             aiInsights       = db.aiInsightDao().getAllOnce().map { it.toBackup() },
             memos            = db.memoDao().getAllOnce().map { it.toBackup() },
             toiletRecords    = db.toiletDao().getAllOnce().map { it.toBackup() },
-            vaccineReminders = db.vaccineReminderDao().getAllOnce().map { it.toBackup() }
+            vaccineReminders = db.vaccineReminderDao().getAllOnce().map { it.toBackup() },
+            systemReminders  = db.systemReminderDao().getAllOnce().map { it.toBackup() },
+            chatMessages     = db.chatMessageDao().getAllOnce().map { it.toBackup() },
+            feverRecords     = db.feverDao().getAllOnce().map { it.toBackup() }
         )
         json.encodeToString(dto)
     }
@@ -182,6 +206,9 @@ class BackupManager @Inject constructor(
                     db.memoDao().deleteAll()
                     db.toiletDao().deleteAll()
                     db.vaccineReminderDao().deleteAll()
+                    db.systemReminderDao().deleteAll()
+                    db.chatMessageDao().deleteAll()
+                    db.feverDao().deleteAll()
                 }
                 db.childDao().upsertAll(dto.children.map { it.toEntity() })
                 db.growthDao().upsertAll(dto.growthRecords.map { it.toEntity() })
@@ -193,6 +220,9 @@ class BackupManager @Inject constructor(
                 db.memoDao().upsertAll(dto.memos.map { it.toEntity() })
                 db.toiletDao().upsertAll(dto.toiletRecords.map { it.toEntity() })
                 db.vaccineReminderDao().upsertAll(dto.vaccineReminders.map { it.toEntity() })
+                db.systemReminderDao().upsertAll(dto.systemReminders.map { it.toEntity() })
+                db.chatMessageDao().upsertAll(dto.chatMessages.map { it.toEntity() })
+                db.feverDao().upsertAll(dto.feverRecords.map { it.toEntity() })
             }
         }
     }
@@ -202,13 +232,15 @@ class BackupManager @Inject constructor(
     private fun ChildProfileEntity.toBackup() = ChildProfileBackup(
         id = id, name = name, gender = gender,
         birthday = birthday.toString(), bloodType = bloodType,
-        allergies = allergies, note = note, photoUri = photoUri
+        allergies = allergies, note = note, photoUri = photoUri,
+        defaultAiPrompt = defaultAiPrompt
     )
 
     private fun GrowthRecordEntity.toBackup() = GrowthRecordBackup(
         id = id, childId = childId, date = date.toString(),
         heightCm = heightCm, weightKg = weightKg,
-        headCircumferenceCm = headCircumferenceCm, note = note
+        headCircumferenceCm = headCircumferenceCm, note = note,
+        aiSuggestion = aiSuggestion
     )
 
     private fun MedicalVisitEntity.toBackup() = MedicalVisitBackup(
@@ -264,18 +296,35 @@ class BackupManager @Inject constructor(
         scheduledDate = scheduledDate, isCompleted = isCompleted, note = note
     )
 
+    private fun SystemReminderEntity.toBackup() = SystemReminderBackup(
+        id = id, childId = childId, type = type, title = title,
+        content = content, createdAt = createdAt, resolvedAt = resolvedAt
+    )
+
+    private fun ChatMessageEntity.toBackup() = ChatMessageBackup(
+        id = id, role = role, text = text, timestampMs = timestampMs
+    )
+
+    private fun FeverRecordEntity.toBackup() = FeverRecordBackup(
+        id = id, childId = childId, temperatureCelsius = temperatureCelsius,
+        measuredAt = measuredAt, symptoms = symptoms, note = note,
+        isMedicineTaken = isMedicineTaken, linkedVisitId = linkedVisitId
+    )
+
     // ── Backup DTO → Entity 映射 ───────────────────────────
 
     private fun ChildProfileBackup.toEntity() = ChildProfileEntity(
         id = id, name = name, gender = gender,
         birthday = LocalDate.parse(birthday), bloodType = bloodType,
-        allergies = allergies, note = note, photoUri = photoUri
+        allergies = allergies, note = note, photoUri = photoUri,
+        defaultAiPrompt = defaultAiPrompt
     )
 
     private fun GrowthRecordBackup.toEntity() = GrowthRecordEntity(
         id = id, childId = childId, date = LocalDate.parse(date),
         heightCm = heightCm, weightKg = weightKg,
-        headCircumferenceCm = headCircumferenceCm, note = note
+        headCircumferenceCm = headCircumferenceCm, note = note,
+        aiSuggestion = aiSuggestion
     )
 
     private fun MedicalVisitBackup.toEntity() = MedicalVisitEntity(
@@ -329,5 +378,20 @@ class BackupManager @Inject constructor(
     private fun VaccineReminderBackup.toEntity() = VaccineReminderEntity(
         id = id, childId = childId, name = name,
         scheduledDate = scheduledDate, isCompleted = isCompleted, note = note
+    )
+
+    private fun SystemReminderBackup.toEntity() = SystemReminderEntity(
+        id = id, childId = childId, type = type, title = title,
+        content = content, createdAt = createdAt, resolvedAt = resolvedAt
+    )
+
+    private fun ChatMessageBackup.toEntity() = ChatMessageEntity(
+        id = id, role = role, text = text, timestampMs = timestampMs
+    )
+
+    private fun FeverRecordBackup.toEntity() = FeverRecordEntity(
+        id = id, childId = childId, temperatureCelsius = temperatureCelsius,
+        measuredAt = measuredAt, symptoms = symptoms, note = note,
+        isMedicineTaken = isMedicineTaken, linkedVisitId = linkedVisitId
     )
 }

@@ -298,37 +298,39 @@ class AiPortalViewModel @Inject constructor(
         allergies: String?,
         childId: Long
     ): String {
-        val basePrompt = if (childId == -1L) {
-            val children = childRepository.getChildren()
-            val twinsAgeInfo = if (children.isNotEmpty())
-                "目前月齡約為 ${children.first().ageMonths} 個月" else ""
-            """
-            你是一位專業的育兒專家。目前對話對象是一對男女雙胞胎的家長。
-            $twinsAgeInfo
-            請以同時照顧兩位不同性別寶寶的觀點出發，提供平衡且具備雙胞胎家庭特性的建議。
-            
-            ${preset.systemPrompt}
-            """.trimIndent()
-        } else {
-            AiPromptBuilder.buildSystemPrompt(preset, ageMonths, gender, allergies)
+        val contextBlock = buildString {
+            if (childId == -1L) {
+                val children = childRepository.getChildren()
+                val twinsAgeInfo = if (children.isNotEmpty())
+                    "目前月齡約為 ${children.first().ageMonths} 個月" else ""
+                appendLine("【雙胞胎背景】")
+                appendLine("對話對象是一對男女雙胞胎的家長。$twinsAgeInfo")
+                appendLine("請以同時照顧兩位不同性別寶寶的觀點出發，提供平衡且具備雙胞胎家庭特性的建議。")
+            } else {
+                appendLine("【當前個案資訊】")
+                appendLine("當前月齡：$ageMonths 個月")
+                appendLine("性別：$gender")
+                appendLine("過敏史：${allergies ?: "無"}")
+                
+                val child = childRepository.getById(childId)
+                val defaultPrompt = child?.defaultAiPrompt
+                if (!defaultPrompt.isNullOrBlank()) {
+                    appendLine("小孩特質：$defaultPrompt")
+                }
+            }
+
+            if (childId > 0) {
+                try {
+                    val injected = aiContextInjector.buildContext(childId)
+                    if (injected.isNotBlank()) {
+                        appendLine()
+                        append(injected)
+                    }
+                } catch (_: Exception) { }
+            }
         }
 
-        val child = if (childId > 0) childRepository.getById(childId) else null
-        val defaultPrompt = child?.defaultAiPrompt
-        val injectedContext = if (childId > 0) {
-            try { aiContextInjector.buildContext(childId) } catch (_: Exception) { null }
-        } else null
-
-        return buildString {
-            append(basePrompt)
-            if (!defaultPrompt.isNullOrBlank()) {
-                append("\n\n【小孩預設狀態與特質】\n")
-                append(defaultPrompt)
-            }
-            if (!injectedContext.isNullOrBlank()) {
-                append("\n\n$injectedContext")
-            }
-        }
+        return AiPromptBuilder.buildSystemPromptWithContext(preset, contextBlock)
     }
 
     private fun buildContextualizedPrompt(currentPrompt: String): String {

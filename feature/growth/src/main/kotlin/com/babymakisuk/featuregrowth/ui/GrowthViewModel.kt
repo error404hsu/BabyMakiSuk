@@ -9,6 +9,8 @@ import com.babymakisuk.coreai.AiPreset
 import com.babymakisuk.coreai.AiPromptBuilder
 import com.babymakisuk.coredata.repository.SettingsRepository
 import com.babymakisuk.coredata.repository.ChildRepository
+import com.babymakisuk.coredata.dao.AiInsightDao
+import com.babymakisuk.coredata.entity.AiInsightEntity
 import com.babymakisuk.coremodel.ChildProfile
 import com.babymakisuk.coremodel.Gender
 import com.babymakisuk.coremodel.GrowthRecord
@@ -16,29 +18,30 @@ import com.babymakisuk.featuregrowth.domain.DeleteGrowthRecord
 import com.babymakisuk.featuregrowth.domain.GrowthRecordWithPercentile
 import com.babymakisuk.featuregrowth.domain.ObserveGrowthWithPercentile
 import com.babymakisuk.featuregrowth.domain.SaveGrowthRecord
-import com.babymakisuk.coredata.dao.AiInsightDao
-import com.babymakisuk.coredata.entity.AiInsightEntity
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import java.time.LocalDate
 import javax.inject.Inject
 
-sealed interface GrowthUiState {
-    data object Loading : GrowthUiState
+sealed interface GrowthListUiEvent {
+    data class NavigateToEdit(val recordId: Long, val childId: Long) : GrowthListUiEvent
+    data object RecordDeleted : GrowthListUiEvent
+    data class ShowToast(val message: String) : GrowthListUiEvent
+}
+
+sealed interface GrowthListUiState {
+    data object Loading : GrowthListUiState
     data class Success(
         val children: List<ChildProfile>,
         val selectedChildId: Long,
         val records: List<GrowthRecordWithPercentile>,
         val aiAnalysisText: String = "",
-        // AI 呼叫進行中
         val isAiLoading: Boolean = false,
-        // AI 語意錯誤（Result.onFailure 時寫入）
         val aiError: String? = null,
         val isAnalyzing: Boolean = false
-    ) : GrowthUiState
-    data class Error(val message: String) : GrowthUiState
+    ) : GrowthListUiState
+    data class Error(val message: String) : GrowthListUiState
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -64,7 +67,7 @@ class GrowthViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val uiState: StateFlow<GrowthUiState> = combine(
+    val uiState: StateFlow<GrowthListUiState> = combine(
         childRepo.observeAll(),
         _selectedChildId,
         aiInsightDao.getAllFlow().map { insights ->
@@ -88,7 +91,7 @@ class GrowthViewModel @Inject constructor(
         val children = snapshot.children
         if (children.isEmpty()) {
             return@flatMapLatest flowOf(
-                GrowthUiState.Success(
+                GrowthListUiState.Success(
                     children = emptyList(),
                     selectedChildId = -1L,
                     records = emptyList()
@@ -99,8 +102,8 @@ class GrowthViewModel @Inject constructor(
             ?: children.firstOrNull { it.gender == Gender.MALE }?.id
             ?: children.first().id
 
-        observeGrowth(effectiveId).map<List<GrowthRecordWithPercentile>, GrowthUiState> { records ->
-            GrowthUiState.Success(
+        observeGrowth(effectiveId).map<List<GrowthRecordWithPercentile>, GrowthListUiState> { records ->
+            GrowthListUiState.Success(
                 children        = children,
                 selectedChildId = effectiveId,
                 records         = records,
@@ -110,8 +113,11 @@ class GrowthViewModel @Inject constructor(
                 isAnalyzing     = snapshot.isAnalyzing
             )
         }
-    }.catch { emit(GrowthUiState.Error(it.message ?: "Unknown error")) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), GrowthUiState.Loading)
+    }.catch { emit(GrowthListUiState.Error(it.message ?: "Unknown error")) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), GrowthListUiState.Loading)
+
+    private val _events = MutableSharedFlow<GrowthListUiEvent>()
+    val events: SharedFlow<GrowthListUiEvent> = _events.asSharedFlow()
 
     private data class DataSnapshot(
         val children: List<ChildProfile>,
@@ -122,61 +128,33 @@ class GrowthViewModel @Inject constructor(
         val aiError: String?
     )
 
-    private val _showForm = MutableStateFlow(false)
-    val showForm: StateFlow<Boolean> = _showForm.asStateFlow()
-
-    private val _editingRecord = MutableStateFlow<GrowthRecordWithPercentile?>(null)
-    val editingRecord: StateFlow<GrowthRecordWithPercentile?> = _editingRecord.asStateFlow()
-
     fun selectChild(childId: Long) { _selectedChildId.value = childId }
 
-    fun openForm() {
-        _editingRecord.value = null
-        _showForm.value = true
+    fun onAddRecord() {
+        val childId = (uiState.value as? GrowthListUiState.Success)?.selectedChildId ?: return
+        viewModelScope.launch { _events.emit(GrowthListUiEvent.NavigateToEdit(recordId = -1L, childId = childId)) }
     }
 
-    fun editRecord(record: GrowthRecordWithPercentile) {
-        _editingRecord.value = record
-        _showForm.value = true
-    }
-
-    fun closeForm() {
-        _showForm.value = false
-        _editingRecord.value = null
-    }
-
-    fun saveRecord(
-        heightCm: Float,
-        weightKg: Float,
-        headCircCm: Float?,
-        date: LocalDate,
-        note: String
-    ) {
-        val selectedId = (uiState.value as? GrowthUiState.Success)?.selectedChildId ?: return
-        val existingId = _editingRecord.value?.record?.id ?: 0L
+    fun onEditRecord(record: GrowthRecordWithPercentile) {
         viewModelScope.launch {
-            saveGrowth(
-                GrowthRecord(
-                    id                  = existingId,
-                    childId             = selectedId,
-                    date                = date,
-                    heightCm            = heightCm,
-                    weightKg            = weightKg,
-                    headCircumferenceCm = headCircCm,
-                    note                = note
+            _events.emit(
+                GrowthListUiEvent.NavigateToEdit(
+                    recordId = record.record.id,
+                    childId = record.record.childId
                 )
             )
-            _showForm.value = false
-            _editingRecord.value = null
         }
     }
 
     fun deleteRecord(record: GrowthRecord) {
-        viewModelScope.launch { deleteGrowth(record) }
+        viewModelScope.launch {
+            deleteGrowth(record)
+            _events.emit(GrowthListUiEvent.RecordDeleted)
+        }
     }
 
     fun refreshAiAnalysis() {
-        val currentState = uiState.value as? GrowthUiState.Success ?: return
+        val currentState = uiState.value as? GrowthListUiState.Success ?: return
         val records = currentState.records
         if (records.isEmpty()) return
 
