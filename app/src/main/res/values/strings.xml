@@ -1,4 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">BabyMakiSuk</string>
+    <!--
+        Google Sign-In Web Client ID
+        取得方式：Firebase Console → Authentication → Sign-in method → Google
+                  → Web SDK configuration → Web client ID
+        請將下方 YOUR_WEB_CLIENT_ID 替換為實際值，不可留空否則 Google 登入將拋出 DEVELOPER_ERROR
+    -->
+    <string name="default_web_client_id">YOUR_WEB_CLIENT_ID</string>
 </resources>
