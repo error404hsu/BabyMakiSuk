@@ -10,7 +10,7 @@ import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import com.babymakisuk.coredata.dao.MedicalDao
+import com.babymakisuk.coredata.repository.MedicalRepository
 import com.babymakisuk.coremodel.ImageStoragePath
 import com.babymakisuk.corefirebase.storage.StorageRepository
 import dagger.assisted.Assisted
@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit
 class StorageCleanupWorker @AssistedInject constructor(
     @Assisted ctx: Context,
     @Assisted params: WorkerParameters,
-    private val medicalDao: MedicalDao,
+    private val medicalRepo: MedicalRepository,
     private val storageRepository: StorageRepository,
 ) : CoroutineWorker(ctx, params) {
 
@@ -50,7 +50,7 @@ class StorageCleanupWorker @AssistedInject constructor(
     override suspend fun doWork(): Result {
         return try {
             val cutoff = LocalDate.now().minusYears(1)
-            val visits = medicalDao.getAllOnce()
+            val visits = medicalRepo.getAllOnce()
             val oldPaths = visits
                 .filter { it.date.isBefore(cutoff) }
                 .mapNotNull { visit ->

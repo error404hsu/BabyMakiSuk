@@ -10,10 +10,8 @@ import com.babymakisuk.coreai.BitmapUtils
 import com.babymakisuk.coreai.compressForAi
 import com.babymakisuk.coreai.jpegByteSize
 import com.babymakisuk.coredata.repository.MedicalAiRepository
+import com.babymakisuk.coredata.repository.MedicalRepository
 import com.babymakisuk.coredata.repository.SettingsRepository
-import com.babymakisuk.coredata.dao.MedicalDao
-import com.babymakisuk.coredata.entity.toDomain
-import com.babymakisuk.coredata.entity.toEntity
 import com.babymakisuk.coredata.repository.ChildRepository
 import com.babymakisuk.coremodel.Gender
 import com.babymakisuk.coremodel.MedicalVisit
@@ -34,7 +32,7 @@ private const val TAG = "MedicalViewModel"
 class MedicalViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val childRepo: ChildRepository,
-    private val medicalDao: MedicalDao,
+    private val medicalRepo: MedicalRepository,
     private val settingsRepo: SettingsRepository,
     private val medicalAiRepo: MedicalAiRepository,
     private val firestoreMedicalRepo: FirestoreMedicalRepository
@@ -69,11 +67,11 @@ class MedicalViewModel @Inject constructor(
             val effectiveId = selectedId
                 ?: children.firstOrNull { it.gender == Gender.MALE }?.id
                 ?: children.first().id
-            medicalDao.observeByChild(effectiveId).map { entities ->
+            medicalRepo.observeByChild(effectiveId).map { visits ->
                 MedicalUiState.Success(
                     children = children,
                     selectedChildId = effectiveId,
-                    visits = entities.map { it.toDomain() }
+                    visits = visits
                 )
             }
         }
@@ -111,7 +109,7 @@ class MedicalViewModel @Inject constructor(
 
     fun saveVisit(visit: MedicalVisit) {
         viewModelScope.launch {
-            medicalDao.upsert(visit.toEntity())
+            medicalRepo.upsert(visit)
             // 同步上傳 Firestore
             runCatching { firestoreMedicalRepo.upsertVisit(visit) }
                 .onFailure { Log.w(TAG, "saveVisit: Firestore upsert failed: ${it.message}") }
@@ -131,7 +129,7 @@ class MedicalViewModel @Inject constructor(
             runCatching { firestoreMedicalRepo.deleteVisit(visit.id) }
                 .onFailure { Log.w(TAG, "deleteVisit: Firestore delete failed: ${it.message}") }
             // ② 再刪除本機 Room
-            medicalDao.delete(visit.toEntity())
+            medicalRepo.delete(visit)
         }
     }
 
@@ -204,7 +202,7 @@ class MedicalViewModel @Inject constructor(
                 gender    = child.gender.name,
                 allergies = child.allergies
             ).onSuccess { result ->
-                medicalDao.updateAiFields(
+                medicalRepo.updateAiFields(
                     id               = visit.id,
                     diagnosisSummary = result.diagnosisSummary,
                     prescriptions    = result.prescriptions.joinToString("\u30fb"),
@@ -223,7 +221,7 @@ class MedicalViewModel @Inject constructor(
         isUrgent: Boolean
     ) {
         viewModelScope.launch {
-            medicalDao.updateAiFields(
+            medicalRepo.updateAiFields(
                 id               = id,
                 diagnosisSummary = diagnosisSummary,
                 prescriptions    = prescriptions,

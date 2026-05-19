@@ -14,7 +14,7 @@ import com.babymakisuk.coredata.DarkModeOption
 import com.babymakisuk.coredata.dao.AiInsightDao
 import com.babymakisuk.coredata.dao.DailyLogDao
 import com.babymakisuk.coredata.dao.GrowthDao
-import com.babymakisuk.coredata.dao.MedicalDao
+import com.babymakisuk.coredata.repository.MedicalRepository
 import com.babymakisuk.coredata.dao.MemoDao
 import com.babymakisuk.coredata.dao.MonthlyReportDao
 import com.babymakisuk.coredata.dao.SystemReminderDao
@@ -54,7 +54,7 @@ class SettingsViewModel @Inject constructor(
     private val authRepository: FirebaseAuthRepository,
     private val storageRepository: StorageRepository,
     private val growthDao: GrowthDao,
-    private val medicalDao: MedicalDao,
+    private val medicalRepo: MedicalRepository,
     private val memoDao: MemoDao,
     private val aiInsightDao: AiInsightDao,
     private val vaccineReminderDao: VaccineReminderDao,
@@ -286,10 +286,11 @@ class SettingsViewModel @Inject constructor(
     fun getDbRowCountSnapshot(onResult: (String) -> Unit) {
         viewModelScope.launch {
             runCatching {
+                val medCount = medicalRepo.count()
                 buildString {
                     appendLine("📦 Room 資料庫快照")
                     appendLine("GrowthRecord：${growthDao.count()} 筆")
-                    appendLine("MedicalVisit：${medicalDao.count()} 筆")
+                    appendLine("MedicalVisit：${medCount} 筆")
                     appendLine("Memo：${memoDao.count()} 筆")
                     appendLine("AiInsight：${aiInsightDao.count()} 筆")
                     appendLine("VaccineReminder：${vaccineReminderDao.count()} 筆")

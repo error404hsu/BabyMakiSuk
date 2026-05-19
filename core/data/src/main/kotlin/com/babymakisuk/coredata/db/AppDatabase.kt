@@ -25,7 +25,7 @@ import com.babymakisuk.coredata.entity.*
         ChatMessageEntity::class,
         FeverRecordEntity::class
     ],
-    version = 15,
+    version = 17,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -45,21 +45,41 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun feverDao(): FeverDao
 
     companion object {
+        /**
+         * Migration 16 -> 17
+         * Drop the manually-created FTS triggers from MIGRATION_15_16.
+         *
+         * Room's @Fts4(contentEntity = MonthlyReportEntity::class) annotation
+         * already auto-generates these triggers (monthly_reports_ai, monthly_reports_ad,
+         * monthly_reports_au). Having both the manual triggers and Room's auto-generated
+         * triggers causes duplicate trigger execution on INSERT/UPDATE/DELETE, leading to
+         * "SQL logic error" when upserting or deleting monthly reports.
+         */
+        val MIGRATION_16_17 = object : Migration(16, 17) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DROP TRIGGER IF EXISTS monthly_reports_ai")
+                db.execSQL("DROP TRIGGER IF EXISTS monthly_reports_ad")
+                db.execSQL("DROP TRIGGER IF EXISTS monthly_reports_au")
+                // Rebuild FTS index to ensure consistency (Room will manage it from now on)
+                db.execSQL("INSERT INTO monthly_reports_fts(monthly_reports_fts) VALUES('rebuild')")
+            }
+        }
+
         val MIGRATION_14_15 = object : Migration(14, 15) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                // Fix medical_visit table (imageStoragePath was marked as NOT NULL in schema 14, 
+                // Fix medical_visit table (imageStoragePath was marked as NOT NULL in schema 14,
                 // but Entity uses a converter that can return null, and migration 4_5 didn't specify NOT NULL correctly for some paths)
-                // Actually, schema 14 says imageStoragePath is NOT NULL. 
+                // Actually, schema 14 says imageStoragePath is NOT NULL.
                 // Let's check the error: found identity hash 8c496bdfc87a1ee60305310ac151d954.
                 // This hash usually means something in the current code (Entities) differs from schema 14.
-                
+
                 // One common discrepancy is 'imageStoragePath' being NOT NULL in schema but potentially NULL in code or vice-versa.
                 // In MedicalVisitEntity, imageStoragePath is NOT NULL (val imageStoragePath: ImageStoragePath = ImageStoragePath.None).
                 // However, the TypeConverter returns null for ImageStoragePath.None.
                 // Room treats @TypeConverter return type nullability as the column nullability.
                 // Since fromImageStoragePath returns String?, the column should be nullable.
                 // But schema 14.json says it's NOT NULL.
-                
+
                 db.execSQL("""
                     CREATE TABLE IF NOT EXISTS medical_visit_new (
                         id                  INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -422,7 +442,7 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("DROP TABLE IF EXISTS monthly_reports_fts")
                 db.execSQL("DROP TABLE monthly_reports")
                 db.execSQL("ALTER TABLE monthly_reports_new RENAME TO monthly_reports")
-                
+
                 // Recreate FTS table
                 db.execSQL("""
                     CREATE VIRTUAL TABLE IF NOT EXISTS monthly_reports_fts
@@ -469,18 +489,44 @@ abstract class AppDatabase : RoomDatabase() {
                         FOREIGN KEY(childId) REFERENCES child_profile(id) ON DELETE CASCADE
                     )
                 """.trimIndent())
-                
+
                 // 嘗試搬移舊資料 (若舊資料表欄位名稱不符則略過該欄位)
                 // 註：symptoms 在舊表是 'TEXT NOT NULL DEFAULT \'\''，在 Entity 也是 String
                 db.execSQL("""
                     INSERT INTO fever_records_new (id, childId, temperatureCelsius, measuredAt, symptoms, note, linkedVisitId)
                     SELECT id, childId, temperatureCelsius, measuredAt, symptoms, note, linkedVisitId FROM fever_records
                 """.trimIndent())
-                
+
                 db.execSQL("DROP TABLE fever_records")
                 db.execSQL("ALTER TABLE fever_records_new RENAME TO fever_records")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_fever_records_childId ON fever_records(childId)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS index_fever_records_measuredAt ON fever_records(measuredAt)")
+            }
+        }
+
+        val MIGRATION_15_16 = object : Migration(15, 16) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TRIGGER IF NOT EXISTS monthly_reports_ai AFTER INSERT ON monthly_reports BEGIN
+                        INSERT INTO monthly_reports_fts(docid, ai_summary, search_keywords)
+                        VALUES (new.rowid, new.ai_summary, new.search_keywords);
+                    END
+                """.trimIndent())
+                db.execSQL("""
+                    CREATE TRIGGER IF NOT EXISTS monthly_reports_ad AFTER DELETE ON monthly_reports BEGIN
+                        INSERT INTO monthly_reports_fts(monthly_reports_fts, docid, ai_summary, search_keywords)
+                        VALUES ('delete', old.rowid, old.ai_summary, old.search_keywords);
+                    END
+                """.trimIndent())
+                db.execSQL("""
+                    CREATE TRIGGER IF NOT EXISTS monthly_reports_au AFTER UPDATE ON monthly_reports BEGIN
+                        INSERT INTO monthly_reports_fts(monthly_reports_fts, docid, ai_summary, search_keywords)
+                        VALUES ('delete', old.rowid, old.ai_summary, old.search_keywords);
+                        INSERT INTO monthly_reports_fts(docid, ai_summary, search_keywords)
+                        VALUES (new.rowid, new.ai_summary, new.search_keywords);
+                    END
+                """.trimIndent())
+                db.execSQL("INSERT INTO monthly_reports_fts(monthly_reports_fts) VALUES('rebuild')")
             }
         }
     }

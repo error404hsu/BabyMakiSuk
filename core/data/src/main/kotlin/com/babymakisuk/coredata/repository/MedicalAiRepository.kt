@@ -38,7 +38,7 @@ interface MedicalAiRepository {
         allergies: String?
     ): Result<MedicalSummaryResult>
 
-    suspend fun analyzePrescription(childId: Long, rawText: String): String
+    suspend fun analyzePrescription(childId: Long, rawText: String): Result<String>
 
     suspend fun analyzePrescriptionImage(
         imageUri: Uri,
@@ -111,8 +111,8 @@ class DefaultMedicalAiRepository @Inject constructor(
         }
     }
 
-    override suspend fun analyzePrescription(childId: Long, rawText: String): String = withContext(ioDispatcher) {
-        try {
+    override suspend fun analyzePrescription(childId: Long, rawText: String): Result<String> = withContext(ioDispatcher) {
+        runCatching {
             val contextBlock = aiContextInjector.buildContext(childId)
             val systemPrompt = AiPromptBuilder.buildSystemPromptWithContext(
                 preset = AiPreset.PHARMACIST,
@@ -123,9 +123,6 @@ class DefaultMedicalAiRepository @Inject constructor(
                 systemPrompt = systemPrompt,
                 userPrompt = rawText
             ).getOrThrow()
-        } catch (e: Exception) {
-            Log.e(TAG, "analyzePrescription failed: ${e.message}")
-            ""
         }
     }
 

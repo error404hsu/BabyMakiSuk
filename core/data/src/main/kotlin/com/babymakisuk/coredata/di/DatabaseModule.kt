@@ -31,6 +31,8 @@ object DatabaseModule {
             .addMigrations(AppDatabase.MIGRATION_12_13)
             .addMigrations(AppDatabase.MIGRATION_13_14)
             .addMigrations(AppDatabase.MIGRATION_14_15)
+            .addMigrations(AppDatabase.MIGRATION_15_16)
+            .addMigrations(AppDatabase.MIGRATION_16_17)
             .build()
 
     @Provides fun provideChildDao(db: AppDatabase) = db.childDao()

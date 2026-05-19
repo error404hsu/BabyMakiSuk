@@ -39,7 +39,7 @@ class MonthlyReportViewModel @Inject constructor(
     @OptIn(ExperimentalCoroutinesApi::class)
     val reports: StateFlow<List<MonthlyReport>> = _childId
         .flatMapLatest { childId ->
-            monthlyReportRepository.getRecentReports(0L, limit = 50)
+            monthlyReportRepository.getRecentReports(childId, limit = 50)
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 

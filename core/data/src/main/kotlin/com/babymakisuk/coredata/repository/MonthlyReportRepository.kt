@@ -30,6 +30,11 @@ import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 import javax.inject.Singleton
 
+private fun String.escapeFts(): String {
+    val special = setOf('*', '"', '-', '+', '(', ')')
+    return filter { it !in special }
+}
+
 /*
  * REFACTOR PLAN:
  * Step 1 [NOW]    — Wrap all suspend funs with withContext(ioDispatcher).
@@ -120,7 +125,7 @@ class DefaultMonthlyReportRepository @Inject constructor(
             .flowOn(ioDispatcher)
 
     override fun searchByKeyword(childId: Long, keyword: String): Flow<List<MonthlyReport>> =
-        monthlyReportDao.searchByKeyword(childId, keyword)
+        monthlyReportDao.searchByKeyword(childId, keyword.escapeFts())
             .map { list -> list.map { it.toDomain() } }
             .flowOn(ioDispatcher)
 
@@ -238,7 +243,7 @@ class DefaultMonthlyReportRepository @Inject constructor(
 
         val report = MonthlyReport(
             id = reportId,
-            childId = 0L,
+            childId = children.firstOrNull()?.id ?: 0L,
             monthStart = monthStartStr,
             monthEnd = monthEndStr,
             aiSummary = aiSummary,

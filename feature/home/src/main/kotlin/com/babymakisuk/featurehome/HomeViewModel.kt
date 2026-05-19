@@ -2,8 +2,7 @@ package com.babymakisuk.featurehome
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.babymakisuk.coredata.dao.MedicalDao
-import com.babymakisuk.coredata.entity.toDomain
+import com.babymakisuk.coredata.repository.MedicalRepository
 import com.babymakisuk.coredata.repository.ChildRepository
 import com.babymakisuk.coredata.repository.GrowthRepository
 import com.babymakisuk.coredata.repository.MemoRepository
@@ -28,7 +27,7 @@ class HomeViewModel @Inject constructor(
     private val toiletRepository: ToiletRepository,
     private val vaccineReminderRepository: VaccineReminderRepository,
     private val memoRepository: MemoRepository,
-    private val medicalDao: MedicalDao,
+    private val medicalRepo: MedicalRepository,
     private val systemReminderRepository: SystemReminderRepository,
     private val monthlyReportRepository: MonthlyReportRepository,
 ) : ViewModel() {
@@ -127,9 +126,9 @@ class HomeViewModel @Inject constructor(
                     val girlToiletFlow = girl?.let { toiletRepository.getToiletRecords(it.id) }
                         ?: flowOf(emptyList())
 
-                    val boyMedicalFlow = boy?.let { medicalDao.observeByChild(it.id) }
+                    val boyMedicalFlow = boy?.let { medicalRepo.observeByChild(it.id) }
                         ?: flowOf(emptyList())
-                    val girlMedicalFlow = girl?.let { medicalDao.observeByChild(it.id) }
+                    val girlMedicalFlow = girl?.let { medicalRepo.observeByChild(it.id) }
                         ?: flowOf(emptyList())
 
                     val todayDate = LocalDate.now().toEpochDay()
@@ -144,22 +143,24 @@ class HomeViewModel @Inject constructor(
                     }
 
                     combine(
-                        boyToiletFlow,
-                        girlToiletFlow,
-                        boyMedicalFlow,
-                        girlMedicalFlow,
-                        todayMemosFlow,
+                        combine(
+                            boyToiletFlow,
+                            girlToiletFlow,
+                            boyMedicalFlow,
+                            girlMedicalFlow,
+                            todayMemosFlow,
+                            ::HomeCoreSnapshot
+                        ),
                         remindersFlow
-                    ) { args: Array<Any?> ->
-                        @Suppress("UNCHECKED_CAST")
+                    ) { core, reminders ->
                         DataTuple(
                             children = children,
-                            boyToilet = args[0] as List<ToiletRecord>,
-                            girlToilet = args[1] as List<ToiletRecord>,
-                            boyMedical = args[2] as List<com.babymakisuk.coredata.entity.MedicalVisitEntity>,
-                            girlMedical = args[3] as List<com.babymakisuk.coredata.entity.MedicalVisitEntity>,
-                            todayMemos = args[4] as List<com.babymakisuk.coremodel.Memo>,
-                            reminders = args[5] as List<com.babymakisuk.coremodel.SystemReminder>
+                            boyToilet = core.boyToilet,
+                            girlToilet = core.girlToilet,
+                            boyMedical = core.boyMedical,
+                            girlMedical = core.girlMedical,
+                            todayMemos = core.todayMemos,
+                            reminders = reminders
                         )
                     }
                 }
@@ -195,8 +196,8 @@ class HomeViewModel @Inject constructor(
                             girlToiletRecords = girlToilet,
                             boyNextVaccine = boyNextVaccine,
                             girlNextVaccine = girlNextVaccine,
-                            boyLatestMedical = boyMedical.firstOrNull()?.toDomain(),
-                            girlLatestMedical = girlMedical.firstOrNull()?.toDomain(),
+                            boyLatestMedical = boyMedical.firstOrNull(),
+                            girlLatestMedical = girlMedical.firstOrNull(),
                             todayMemos = todayMemosByChild,
                             systemReminders = reminders,
                             isLoading = false
@@ -206,12 +207,20 @@ class HomeViewModel @Inject constructor(
         }
     }
 
+    private data class HomeCoreSnapshot(
+        val boyToilet: List<ToiletRecord>,
+        val girlToilet: List<ToiletRecord>,
+        val boyMedical: List<com.babymakisuk.coremodel.MedicalVisit>,
+        val girlMedical: List<com.babymakisuk.coremodel.MedicalVisit>,
+        val todayMemos: List<com.babymakisuk.coremodel.Memo>
+    )
+
     private data class DataTuple(
         val children: List<ChildProfile>,
         val boyToilet: List<ToiletRecord>,
         val girlToilet: List<ToiletRecord>,
-        val boyMedical: List<com.babymakisuk.coredata.entity.MedicalVisitEntity>,
-        val girlMedical: List<com.babymakisuk.coredata.entity.MedicalVisitEntity>,
+        val boyMedical: List<com.babymakisuk.coremodel.MedicalVisit>,
+        val girlMedical: List<com.babymakisuk.coremodel.MedicalVisit>,
         val todayMemos: List<com.babymakisuk.coremodel.Memo>,
         val reminders: List<com.babymakisuk.coremodel.SystemReminder>
     )

@@ -45,4 +45,7 @@ interface MedicalDao {
 
     @Query("SELECT COUNT(*) FROM medical_visit")
     suspend fun count(): Int
+
+    @Query("SELECT * FROM medical_visit WHERE aiPending = 1")
+    fun observeAiPending(): Flow<List<MedicalVisitEntity>>
 }

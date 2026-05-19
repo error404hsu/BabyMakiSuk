@@ -68,24 +68,26 @@ class GrowthViewModel @Inject constructor(
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val uiState: StateFlow<GrowthListUiState> = combine(
-        childRepo.observeAll(),
-        _selectedChildId,
-        aiInsightDao.getAllFlow().map { insights ->
-            insights.filter { it.id.startsWith("growth_analysis_") }
-                .associate { (it.childId.toLongOrNull() ?: 0L) to it.content }
-        },
-        _isAnalyzing,
-        _isAiLoading,
+        combine(
+            childRepo.observeAll(),
+            _selectedChildId,
+            aiInsightDao.getAllFlow().map { insights ->
+                insights.filter { it.id.startsWith("growth_analysis_") }
+                    .associate { (it.childId.toLongOrNull() ?: 0L) to it.content }
+            },
+            _isAnalyzing,
+            _isAiLoading,
+            ::GrowthCoreSnapshot
+        ),
         _aiError
-    ) { array ->
-        @Suppress("UNCHECKED_CAST")
+    ) { core, aiError ->
         DataSnapshot(
-            children   = array[0] as List<ChildProfile>,
-            selectedId = array[1] as Long?,
-            aiMap      = array[2] as Map<Long, String>,
-            isAnalyzing = array[3] as Boolean,
-            isAiLoading = array[4] as Boolean,
-            aiError     = array[5] as String?
+            children    = core.children,
+            selectedId  = core.selectedId,
+            aiMap       = core.aiMap,
+            isAnalyzing = core.isAnalyzing,
+            isAiLoading = core.isAiLoading,
+            aiError     = aiError
         )
     }.flatMapLatest { snapshot ->
         val children = snapshot.children
@@ -118,6 +120,14 @@ class GrowthViewModel @Inject constructor(
 
     private val _events = MutableSharedFlow<GrowthListUiEvent>()
     val events: SharedFlow<GrowthListUiEvent> = _events.asSharedFlow()
+
+    private data class GrowthCoreSnapshot(
+        val children: List<ChildProfile>,
+        val selectedId: Long?,
+        val aiMap: Map<Long, String>,
+        val isAnalyzing: Boolean,
+        val isAiLoading: Boolean
+    )
 
     private data class DataSnapshot(
         val children: List<ChildProfile>,

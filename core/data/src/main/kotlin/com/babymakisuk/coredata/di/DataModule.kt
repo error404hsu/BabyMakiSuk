@@ -45,5 +45,9 @@ abstract class DataModule {
 
     @Binds
     @Singleton
+    abstract fun bindMedicalRepository(impl: DefaultMedicalRepository): MedicalRepository
+
+    @Binds
+    @Singleton
     abstract fun bindSettingsRepository(impl: DefaultSettingsRepository): SettingsRepository
 }

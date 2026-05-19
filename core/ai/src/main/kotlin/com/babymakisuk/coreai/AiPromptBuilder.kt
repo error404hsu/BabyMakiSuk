@@ -117,7 +117,7 @@ object AiPromptBuilder {
             appendLine("  urgent    = 需立即就醫（如過敏反應、呼吸困難等描述）")
             append(AiSystemConstraints.GLOBAL_CONSTRAINTS)
         }
-        val user = "請摘要以下就診備註：\n$rawNote"
+        val user = "請摘要以下就診備註：\n---BEGIN_CONTENT---\n$rawNote\n---END_CONTENT---"
         return Pair(system, user)
     }
 
@@ -160,6 +160,7 @@ object AiPromptBuilder {
         val user = buildString {
             appendLine("請根據以下資料，為 ${childName}（${ageMonths}個月）生成 ${weekLabel} 的成長週報：")
             appendLine()
+            appendLine("---BEGIN_CONTENT---")
             appendLine("【本週日誌】")
             appendLine(dailyLogsBlock)
             if (!recentMedical.isNullOrBlank()) {
@@ -167,6 +168,7 @@ object AiPromptBuilder {
                 appendLine("【同期就診紀錄】")
                 append(recentMedical)
             }
+            appendLine("---END_CONTENT---")
         }
         return Pair(system, user)
     }
@@ -209,6 +211,7 @@ object AiPromptBuilder {
         val user = buildString {
             appendLine("請根據以下資料，為孩子們生成 ${monthLabel} 的成長月報：")
             appendLine()
+            appendLine("---BEGIN_CONTENT---")
             appendLine("【本月日誌】")
             appendLine(dailyLogsBlock)
             if (!recentMedical.isNullOrBlank()) {
@@ -221,6 +224,7 @@ object AiPromptBuilder {
                 appendLine("【本月系統提醒】")
                 append(systemReminderBlock)
             }
+            appendLine("---END_CONTENT---")
         }
         return Pair(system, user)
     }
@@ -239,7 +243,7 @@ object AiPromptBuilder {
             appendLine()
             appendLine("【個案資訊】")
             appendLine("年齡：${ageMonths}個月 | 性別：$gender | 過敏史：${allergies ?: "無"}")
-            appendLine("使用者描述：$symptomHint")
+            appendLine("使用者描述：---BEGIN_CONTENT---${symptomHint}---END_CONTENT---")
             appendLine()
             appendLine("【OCR 輸出規範 - 嚴格遵守】")
             appendLine("1. 請先辨識圖片中的藥名、劑量、用法等文字資訊。")

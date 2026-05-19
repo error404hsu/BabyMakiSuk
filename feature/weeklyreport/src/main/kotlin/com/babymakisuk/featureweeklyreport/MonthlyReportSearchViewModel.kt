@@ -27,7 +27,8 @@ class MonthlyReportSearchViewModel @Inject constructor(
                 flowOf(emptyList())
             } else {
                 // 月報目前採合併制，固定使用 0L 作為 childId 搜尋
-                dao.searchByKeyword(0L, query)
+                val safeQuery = query.filter { it !in setOf('*', '"', '-', '+', '(', ')') }
+                dao.searchByKeyword(0L, safeQuery)
             }
         }
         .stateIn(

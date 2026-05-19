@@ -4,9 +4,9 @@ import android.util.Log
 import com.babymakisuk.coreai.AiDispatcher
 import com.babymakisuk.coreai.AiPromptBuilder
 import com.babymakisuk.coreai.AiTask
-import com.babymakisuk.coredata.dao.MedicalDao
+import com.babymakisuk.coredata.repository.MedicalRepository
+import com.babymakisuk.coredata.repository.ChildRepository
 import com.babymakisuk.coredata.di.ApplicationScope
-import com.babymakisuk.coredata.entity.toDomain
 import com.babymakisuk.coremodel.ImageStoragePath
 import com.babymakisuk.coremodel.MedicalVisit
 import com.google.firebase.firestore.FirebaseFirestore
@@ -14,18 +14,18 @@ import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import org.json.JSONObject
 import java.time.LocalDate
-import java.time.Period
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class DefaultFirestoreMedicalRepository @Inject constructor(
     private val firestore: FirebaseFirestore,
-    private val medicalDao: MedicalDao,
+    private val medicalRepo: MedicalRepository,
+    private val childRepository: ChildRepository,
     private val aiDispatcher: AiDispatcher,
     @ApplicationScope private val appScope: CoroutineScope,
 ) : FirestoreMedicalRepository {
@@ -72,7 +72,7 @@ class DefaultFirestoreMedicalRepository @Inject constructor(
      * 若 Room 已刪除（查無 childId），則 skip 並記錄 warning。
      */
     override suspend fun deleteVisit(visitId: Long) {
-        val entity = medicalDao.getById(visitId)
+        val entity = medicalRepo.getById(visitId)
         if (entity == null) {
             Log.w(TAG, "deleteVisit: visitId=$visitId not found in Room, skipping Firestore delete")
             return
@@ -90,12 +90,10 @@ class DefaultFirestoreMedicalRepository @Inject constructor(
     }
 
     override fun observeVisitsWithAiPending(): Flow<List<MedicalVisit>> =
-        medicalDao.observeByChild(0L).map { list ->
-            list.filter { it.aiPending }.map { it.toDomain() }
-        }
+        medicalRepo.observeAiPending()
 
     override suspend fun markAiProcessed(visitId: Long) {
-        medicalDao.updateAiFields(visitId, "", "", "", false)
+        medicalRepo.updateAiFields(visitId, "", "", "", false)
     }
 
     private fun observeAndDispatchAiPending() {
@@ -112,11 +110,15 @@ class DefaultFirestoreMedicalRepository @Inject constructor(
 
     private suspend fun processAiPending(visit: MedicalVisit) {
         try {
+            val child = childRepository.getById(visit.childId)
+            val ageMonths = child?.ageMonths ?: java.time.temporal.ChronoUnit.MONTHS.between(
+                java.time.LocalDate.from(visit.date), java.time.LocalDate.now()
+            ).toInt()
             val (systemPrompt, userPrompt) = AiPromptBuilder.buildMedicalSummaryPrompt(
                 rawNote = visit.notes,
-                ageMonths = Period.between(visit.date, LocalDate.now()).toTotalMonths().toInt(),
-                gender = "",
-                allergies = null
+                ageMonths = ageMonths,
+                gender = child?.gender?.name ?: "UNKNOWN",
+                allergies = child?.allergies
             )
             val result = aiDispatcher.executeWithSystemPrompt(
                 task = AiTask.SUMMARIZE_MEDICAL_VISIT,
@@ -127,17 +129,17 @@ class DefaultFirestoreMedicalRepository @Inject constructor(
             result.fold(
                 onSuccess = { raw ->
                     runCatching {
-                        val json = org.json.JSONObject(raw)
-                        val diagnosisSummary = json.optString("diagnosisSummary", "")
-                        val prescriptions = json.optJSONArray("prescriptions")
+                        val jsonResult = JSONObject(raw)
+                        val diagnosisSummary = jsonResult.optString("diagnosisSummary", "")
+                        val prescriptions = jsonResult.optJSONArray("prescriptions")
                             ?.let { arr ->
                                 (0 until arr.length()).map { arr.optString(it) }
                             }?.joinToString("; ") ?: ""
-                        val careInstructions = json.optJSONArray("careInstructions")
+                        val careInstructions = jsonResult.optJSONArray("careInstructions")
                             ?.let { arr ->
                                 (0 until arr.length()).map { arr.optString(it) }
                             }?.joinToString("; ") ?: ""
-                        val isUrgent = json.optString("safetyFlag", "normal") == "urgent"
+                        val isUrgent = jsonResult.optString("safetyFlag", "normal") == "urgent"
 
                         val childId = visit.childId.toString()
                         val visitId = visit.id.toString()
@@ -153,20 +155,20 @@ class DefaultFirestoreMedicalRepository @Inject constructor(
                             .collection("medicalVisits").document(visitId)
                             .set(aiData, SetOptions.merge()).await()
 
-                        medicalDao.updateAiFields(visit.id, diagnosisSummary, prescriptions, careInstructions, isUrgent)
+                        medicalRepo.updateAiFields(visit.id, diagnosisSummary, prescriptions, careInstructions, isUrgent)
                     }.onFailure { e ->
                         Log.w(TAG, "Failed to parse AI result for visit ${visit.id}: ${e.message}")
-                        medicalDao.updateAiFields(visit.id, "", "", "", false)
+                        medicalRepo.updateAiFields(visit.id, "", "", "", false)
                     }
                 },
                 onFailure = { err ->
                     Log.w(TAG, "AI dispatch failed for visit ${visit.id}: ${err.message}")
-                    medicalDao.updateAiFields(visit.id, "", "", "", false)
+                    medicalRepo.updateAiFields(visit.id, "", "", "", false)
                 }
             )
         } catch (e: Exception) {
             Log.e(TAG, "processAiPending error for visit ${visit.id}: ${e.message}")
-            medicalDao.updateAiFields(visit.id, "", "", "", false)
+            medicalRepo.updateAiFields(visit.id, "", "", "", false)
         }
     }
 }

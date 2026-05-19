@@ -5,9 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.babymakisuk.coredata.PrescriptionImagePreprocessor
 import com.babymakisuk.coredata.repository.MedicalAiRepository
-import com.babymakisuk.coredata.dao.MedicalDao
-import com.babymakisuk.coredata.entity.toDomain
-import com.babymakisuk.coredata.entity.toEntity
+import com.babymakisuk.coredata.repository.MedicalRepository
 import com.babymakisuk.coredata.repository.ChildRepository
 import com.babymakisuk.corefirebase.storage.ImageUploadRepository
 import com.babymakisuk.corefirebase.storage.MedicalImageCacheManager
@@ -43,7 +41,7 @@ data class MedicalEditUiState(
 
 @HiltViewModel
 class MedicalEditViewModel @Inject constructor(
-    private val medicalDao: MedicalDao,
+    private val medicalRepo: MedicalRepository,
     private val medicalAiRepo: MedicalAiRepository,
     private val childRepository: ChildRepository,
     private val preprocessor: PrescriptionImagePreprocessor,
@@ -72,9 +70,8 @@ class MedicalEditViewModel @Inject constructor(
         viewModelScope.launch {
             if (visitId > 0L) {
                 existingVisitId = visitId
-                val entity = medicalDao.getById(visitId)
-                if (entity != null) {
-                    val visit = entity.toDomain()
+                val visit = medicalRepo.getById(visitId)
+                if (visit != null) {
                     _uiState.update {
                         it.copy(
                             childId = visit.childId,
@@ -231,7 +228,7 @@ class MedicalEditViewModel @Inject constructor(
                     imageStoragePath = imagePath,
                     aiPending = hasNewImage
                 )
-                val savedId = medicalDao.upsert(visit.toEntity())
+                val savedId = medicalRepo.upsert(visit)
 
                 if (hasNewImage) {
                     _uploadProgress.value = true
@@ -243,11 +240,11 @@ class MedicalEditViewModel @Inject constructor(
                         localPath = localPath
                     )
                     imagePath = ImageStoragePath.FirebaseStorage(remotePath)
-                    medicalDao.upsert(visit.copy(
+                    medicalRepo.upsert(visit.copy(
                         id = visitId,
                         imageStoragePath = imagePath,
                         aiPending = true
-                    ).toEntity())
+                    ))
                 }
 
                 preprocessor.cleanupOldFiles()
