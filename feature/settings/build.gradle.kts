@@ -26,6 +26,8 @@ dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:ui"))
     implementation(project(":core:ai"))          // ApiTestViewModel 需要 ServiceAiClient & AiConfig
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.firestore)
     implementation(libs.generativeai)            // ApiTestViewModel 測試直連用
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)

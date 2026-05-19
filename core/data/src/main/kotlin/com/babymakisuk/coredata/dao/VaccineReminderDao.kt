@@ -40,4 +40,7 @@ interface VaccineReminderDao {
 
     @Delete
     suspend fun delete(entity: VaccineReminderEntity)
+
+    @Query("DELETE FROM vaccine_reminders WHERE isCompleted = 1")
+    suspend fun deleteCompleted()
 }

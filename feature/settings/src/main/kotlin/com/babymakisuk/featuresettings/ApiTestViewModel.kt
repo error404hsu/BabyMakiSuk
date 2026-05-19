@@ -22,8 +22,10 @@ sealed interface ApiTestUiState {
 
 @HiltViewModel
 class ApiTestViewModel @Inject constructor(
-    val aiConfig: AiConfig       // 供 UI 讀取 hasValidKey 與 apiKey
+    private val aiConfig: AiConfig,       // 供 UI 讀取 hasValidKey 與 apiKey
 ) : ViewModel() {
+
+    val hasValidKey: Boolean get() = aiConfig.hasValidKey
 
     private val _uiState = MutableStateFlow<ApiTestUiState>(ApiTestUiState.Idle)
     val uiState: StateFlow<ApiTestUiState> = _uiState.asStateFlow()
@@ -53,7 +55,7 @@ class ApiTestViewModel @Inject constructor(
                 // 測試頁面直接建立臨時 GenerativeModel，不經過生產用的 ServiceAiClient
                 val genModel = GenerativeModel(
                     modelName = model.modelId,
-                    apiKey    = aiConfig.apiKey
+                    apiKey    = aiConfig.apiKey,
                 )
                 val response = genModel.generateContent(testPrompt)
                 response.text ?: "{}"
@@ -61,14 +63,13 @@ class ApiTestViewModel @Inject constructor(
                 onSuccess = { response ->
                     val elapsed = System.currentTimeMillis() - start
                     _uiState.value = ApiTestUiState.Success(response, elapsed)
-                },
-                onFailure = { error ->
-                    val elapsed = System.currentTimeMillis() - start
-                    _uiState.value = ApiTestUiState.Error(
-                        error.localizedMessage ?: "未知錯誤", elapsed
-                    )
                 }
-            )
+            ) { error ->
+                val elapsed = System.currentTimeMillis() - start
+                _uiState.value = ApiTestUiState.Error(
+                    error.localizedMessage ?: "未知錯誤", elapsed
+                )
+            }
         }
     }
 

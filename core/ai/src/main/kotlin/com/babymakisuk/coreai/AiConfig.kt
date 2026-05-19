@@ -9,7 +9,7 @@ package com.babymakisuk.coreai
  *   @Provides fun provideAiConfig() = AiConfig(apiKey = BuildConfig.GEMINI_API_KEY)
  */
 data class AiConfig(
-    val apiKey: String
+    val apiKey: String,
 ) {
     /** 編譯時是否有注入有效 Key */
     val hasValidKey: Boolean get() = apiKey.isNotBlank()

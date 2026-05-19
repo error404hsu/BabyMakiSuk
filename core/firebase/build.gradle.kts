@@ -22,7 +22,11 @@ android {
 
 dependencies {
     api(project(":core:model"))
+    api(project(":core:data"))
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.firestore)
+    implementation(libs.firebase.auth)
+    implementation(libs.firebase.storage)
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
-    // TODO Phase E-1: 蜉蜈･ firebase-firestore-ktx, firebase-storage-ktx
 }

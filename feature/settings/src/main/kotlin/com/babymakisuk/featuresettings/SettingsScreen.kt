@@ -279,6 +279,22 @@ fun SettingsScreen(
                             color = MaterialTheme.colorScheme.surfaceVariant
                         )
                         SettingsItem(
+                            icon = Icons.Default.Cloud,
+                            title = "Firebase 連線測試",
+                            subtitle = "發送 Ping 至 Firestore debug_ping 集合",
+                            onClick = {
+                                viewModel.testFirebaseConnection { message ->
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar(message)
+                                    }
+                                }
+                            }
+                        )
+                        HorizontalDivider(
+                            Modifier.padding(horizontal = 16.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                        SettingsItem(
                             icon = Icons.Default.Notifications,
                             title = "測試月底提醒生成",
                             subtitle = "模擬月底最後一週觸發書庫提醒",

@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.google.services)
 }
 
 kotlin {
@@ -31,6 +32,10 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
+
+        ksp {
+            arg("hilt.correctErrorTypes", "true")
+        }
 
         // 將 Key 注入 BuildConfig；若 local.properties 無此項則為空字串（防止 CI build 失敗）
         buildConfigField(
@@ -61,6 +66,7 @@ dependencies {
     implementation(project(":core:data"))
     implementation(project(":core:ui"))
     implementation(project(":core:ai"))
+    implementation(project(":core:firebase"))
     implementation(project(":feature:home"))
     implementation(project(":feature:growth"))
     implementation(project(":feature:medical"))
@@ -70,6 +76,9 @@ dependencies {
     implementation(project(":feature:ai"))
     implementation(project(":feature:weeklyreport"))
 
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.firestore)
+    implementation(libs.firebase.auth)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -84,4 +93,5 @@ dependencies {
     ksp(libs.hilt.compiler)
     debugImplementation(libs.androidx.ui.tooling)
     implementation(libs.androidx.work.runtime)
+    implementation(libs.hilt.work)
 }

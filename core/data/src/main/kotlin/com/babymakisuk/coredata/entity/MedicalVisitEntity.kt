@@ -1,6 +1,7 @@
 ﻿package com.babymakisuk.coredata.entity
 
 import androidx.room.*
+import com.babymakisuk.coremodel.ImageStoragePath
 import com.babymakisuk.coremodel.MedicalVisit
 import java.time.LocalDate
 
@@ -23,7 +24,7 @@ data class MedicalVisitEntity(
     @ColumnInfo(name = "care_instructions") val careInstructions: String = "",
     @ColumnInfo(name = "is_urgent") val isUrgent: Boolean = false,
     // Phase E-0 新增欄位
-    @ColumnInfo(name = "imageStoragePath") val imageStoragePath: String? = null,
+    @ColumnInfo(name = "imageStoragePath") val imageStoragePath: ImageStoragePath? = ImageStoragePath.None,
     @ColumnInfo(name = "aiPending") val aiPending: Boolean = false
 )
 
@@ -31,7 +32,7 @@ fun MedicalVisitEntity.toDomain() = MedicalVisit(
     id, childId, date, hospital, department, diagnosis, notes,
     if (attachments.isBlank()) emptyList() else attachments.split(","),
     diagnosisSummary, prescriptions, careInstructions,
-    isUrgent, imageStoragePath, aiPending
+    isUrgent, imageStoragePath ?: ImageStoragePath.None, aiPending
 )
 
 fun MedicalVisit.toEntity() = MedicalVisitEntity(

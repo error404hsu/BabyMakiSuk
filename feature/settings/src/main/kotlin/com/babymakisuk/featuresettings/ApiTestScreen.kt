@@ -12,10 +12,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Key
-import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -27,17 +27,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.babymakisuk.coreai.GeminiModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ApiTestScreen(
     onNavigateBack: () -> Unit,
-    viewModel: ApiTestViewModel = hiltViewModel()
+    viewModel: ApiTestViewModel = hiltViewModel(),
 ) {
     val uiState       by viewModel.uiState.collectAsState()
     val selectedModel by viewModel.selectedModel.collectAsState()
-    val hasValidKey   = viewModel.aiConfig.hasValidKey
+    val hasValidKey   = viewModel.hasValidKey
 
     Scaffold(
         topBar = {
@@ -47,17 +46,17 @@ fun ApiTestScreen(
                     IconButton(onClick = onNavigateBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "返回"
+                            contentDescription = "返回",
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.Transparent,
-                    scrolledContainerColor = Color.Transparent
-                )
+                    scrolledContainerColor = Color.Transparent,
+                ),
             )
         },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = MaterialTheme.colorScheme.background,
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -65,7 +64,7 @@ fun ApiTestScreen(
                 .padding(innerPadding)
                 .padding(horizontal = 16.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Spacer(Modifier.height(8.dp))
 
@@ -73,7 +72,7 @@ fun ApiTestScreen(
             Surface(
                 shape = RoundedCornerShape(16.dp),
                 color = MaterialTheme.colorScheme.surfaceColorAtElevation(2.dp),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 ListItem(
                     colors = ListItemDefaults.colors(containerColor = Color.Transparent),
@@ -86,9 +85,9 @@ fun ApiTestScreen(
                                         MaterialTheme.colorScheme.primaryContainer
                                     else
                                         MaterialTheme.colorScheme.errorContainer,
-                                    shape = RoundedCornerShape(10.dp)
+                                    shape = RoundedCornerShape(10.dp),
                                 ),
-                            contentAlignment = Alignment.Center
+                            contentAlignment = Alignment.Center,
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Key,
@@ -96,7 +95,7 @@ fun ApiTestScreen(
                                 tint = if (hasValidKey)
                                     MaterialTheme.colorScheme.onPrimaryContainer
                                 else
-                                    MaterialTheme.colorScheme.onErrorContainer
+                                    MaterialTheme.colorScheme.onErrorContainer,
                             )
                         }
                     },
@@ -108,9 +107,9 @@ fun ApiTestScreen(
                                 MaterialTheme.colorScheme.primary
                             else
                                 MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodyMedium
+                            style = MaterialTheme.typography.bodyMedium,
                         )
-                    }
+                    },
                 )
             }
 
@@ -118,18 +117,18 @@ fun ApiTestScreen(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     Icon(
                         imageVector = Icons.Default.SmartToy,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.primary
+                        tint = MaterialTheme.colorScheme.primary,
                     )
                     Text(
                         text = "選擇模型",
                         style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.primary,
                     )
                 }
                 // 横向可滾動的 FilterChip 清單
@@ -137,7 +136,7 @@ fun ApiTestScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     viewModel.availableModels.forEach { model ->
                         val isSelected = model == selectedModel
@@ -151,7 +150,7 @@ fun ApiTestScreen(
                                     color = if (isSelected)
                                         MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
                                     else
-                                        MaterialTheme.colorScheme.surfaceVariant
+                                        MaterialTheme.colorScheme.surfaceVariant,
                                 ) {
                                     Text(
                                         text = model.badge,
@@ -172,11 +171,11 @@ fun ApiTestScreen(
             // ── 發送按鈕 ──
             Button(
                 onClick  = { viewModel.sendTestRequest() },
-                enabled  = hasValidKey && uiState !is ApiTestUiState.Loading,
+                enabled  = hasValidKey && (uiState !is ApiTestUiState.Loading),
                 modifier = Modifier.fillMaxWidth(),
                 shape    = RoundedCornerShape(12.dp)
             ) {
-                Icon(Icons.Default.Send, contentDescription = null)
+                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
                 Text("發送測試請求（${selectedModel.displayName}）")
             }
@@ -282,7 +281,7 @@ private fun ResultCard(
                 Spacer(Modifier.weight(1f))
                 AssistChip(
                     onClick = {},
-                    label   = { Text("${elapsedMs} ms", style = MaterialTheme.typography.labelSmall) },
+                    label   = { Text("$elapsedMs ms", style = MaterialTheme.typography.labelSmall) },
                     colors  = AssistChipDefaults.assistChipColors(
                         containerColor = containerColor.copy(alpha = 0.6f),
                         labelColor     = contentColor

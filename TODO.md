@@ -1,6 +1,6 @@
 # BabyMakiSuk TODO
 
-更新日期：2026-05-14
+更新日期：2026-05-18
 
 > 📌 開發規範詳見 [`docs/AGENT_GUIDELINES.md`](./docs/AGENT_GUIDELINES.md)
 
@@ -18,7 +18,11 @@
 | D | 每日日誌 × Memo 整合 | ✅ 完成 |
 | 5 | HomeScreen 收折優化 | 🔄 進行中 |
 | 6 | 通知排程 | 🔲 Sprint 6 |
-| E | Firebase 同步 | ⏸ 暫緩 |
+| R | 資料留存與清理 | ✅ 完成 |
+| E-1 | Firebase 基礎設施 + Auth | ✅ 完成 |
+| E-2 | Firestore 同步（基礎版） | ✅ 完成 |
+| E-3 | Firebase 圖片儲存 + 快取 | ✅ 完成 |
+| E-4 | Firebase 深度整合 + 安全規則 | 🔲 E-4 |
 | F | Google Drive 備份 | ⏸ 暫緩 |
 | G | Settings 功能 | ✅ 完成 |
 
@@ -95,6 +99,14 @@
 - [x] 新增 Memo 入口從 HomeScreen 今日日誌區「＋」觸發
 - [x] Memo 編輯全頁 Screen（`library/memo/edit` 路由）
 
+### Phase R — 資料留存與清理（DATA_RETENTION_STRATEGY.md）
+- [x] Phase 1 — DAO 清理方法：DailyLogDao / ToiletDao / AiInsightDao / SystemReminderDao / VaccineReminderDao / MonthlyReportDao
+- [x] Phase 2 — DataRetentionRepository + DataRetentionWorker（PeriodicWorkRequest 7 天）
+- [x] Phase 2 — hilt-work 依賴 + HiltWorkerFactory 設定 + Application 排程
+- [x] Phase 3 — MonthlyReportViewModel 成功後 cleanup 綁定（失敗不清理）
+- [x] Phase 3 — ReportGenerationState sealed interface 狀態機
+- [x] Phase 3 — LibraryScreen 月報逾期紅點角標
+
 ### UI 與重構優化
 - [x] 色票系統更新（Primary / Dark / Tertiary / Background / Text）
 - [x] Lora + Raleway Typography scale
@@ -107,13 +119,28 @@
 - [x] 成長圖表深色模式白色區塊修正
 - [x] 「健護」標籤改為「醫護」
 
-### Phase E-0 — Firebase 留位（不含實作）
+### Phase E-0 — Firebase 留位
 - [x] MedicalVisit 新增 imageStoragePath / aiPending 欄位
 - [x] WeeklyReport domain model
 - [x] WeeklyReportEntity / WeeklyReportFts / WeeklyReportDao
 - [x] AppDatabase bump v2
 - [x] core/firebase 空模組留位
 - [x] core/drive 空模組留位
+
+### Phase E-1 — Firebase 基礎設施 + 匿名認證
+- [x] libs.versions.toml：firebase-bom / firebase-firestore / firebase-auth / firebase-storage
+- [x] app/build.gradle.kts：google-services plugin + firebase-auth 依賴
+- [x] core/firebase/build.gradle.kts：完整 Firebase 依賴
+- [x] ImageStoragePath sealed class（Local / FirebaseStorage / None）
+- [x] ImageStoragePathConverter（Room TypeConverter，向後相容舊資料）
+- [x] FirebaseModule（Hilt DI：FirebaseFirestore / FirebaseAuth / FirebaseStorage）
+- [x] FirebaseAuthRepository + DefaultFirebaseAuthRepository（匿名登入）
+- [x] BabyMakiSukApplication.onCreate()：啟動時自動匿名登入
+
+### Phase E-2 — Firestore 同步（基礎）
+- [x] FirestoreChildRepository + DefaultFirestoreChildRepository（children 集合 CRUD）
+- [x] FirestoreMedicalRepository + DefaultFirestoreMedicalRepository（medicalVisits 集合 + aiPending 監聽）
+- [x] Firestore 離線持久化啟用（firestoreSettings.setPersistenceEnabled(true)）
 
 ---
 
@@ -134,13 +161,36 @@
 - [x] SettingsScreen 通知總開關（DataStore）
 - [ ] POST_NOTIFICATIONS 權限申請 Runtime 確認（Android 13+）
 
+### E-3 — Firebase 圖片儲存 + 快取 ✅ 已完成
+- [x] `ImageUploadRepository` — 壓縮至 <200KB + Firebase Storage 上傳
+- [x] `StorageRepository` — 上傳/下載/刪除 Firebase Storage
+- [x] `MedicalImageCacheManager` — Storage 路徑 ↔ 本機快取 URI
+- [x] `MedicalVisitEntity.imageStoragePath` 改為 `ImageStoragePath` sealed class（TypeConverter 處理，無需 Migration）
+- [x] `MedicalVisit` domain model 同步變更
+- [x] `BackupManager` 適配 ImageStoragePath 序列化
+- [x] `DefaultFirestoreMedicalRepository` 適配 ImageStoragePath → Firestore
+- [x] `MedicalEditViewModel` 儲存後自動上傳圖片至 Storage + 更新 aiPending
+- [x] `MedicalEditViewModel.prescriptionImageUri` StateFlow（支援 Firebase 圖片載入）
+- [x] `feature/medical` 加入 `:core:firebase` 依賴
+
+### E-4 — Firebase 深度整合 + 安全規則（待開發）
+> 詳細規格見 `docs/DATA_RETENTION_STRATEGY.md` → SYNC_ARCHITECTURE.md
+
+- [ ] `StorageCleanupWorker`（每年底滾動清除當年以前照片）
+- [ ] Firebase Auth Custom Claims（data_manager / ai_operator 角色）
+- [ ] Firestore Security Rules 部署
+- [ ] ChildRepository + FirestoreChildRepository 合併（local+remote combine）
+- [ ] aiPending 監聽 → 觸發 ServiceAI 分析
+- [ ] Google 登入 UI（feature/settings）
+- [ ] Storage 配額顯示 UI
+
 ---
 
 ## ⏸ 暫緩 / Backlog
 
 | 項目 | 備註 |
 |------|------|
-| Firebase Auth / Firestore（Phase E-1 以後） | 暫緩，留位模組已建立 |
+| Firebase 深度整合（Phase E-3 / E-4） | 待開發 |
 | Google Drive 備份（Phase F 剩餘） | 暫緩 |
 | feature/vaccine 完整功能 | 目錄留位，孩子 3 歲暫不需要 |
 | WHO 官方 0-60 月 LMS CSV 替換 | stub 精度足夠，上架前再升級 |

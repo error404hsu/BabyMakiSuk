@@ -30,7 +30,7 @@ class HomeViewModel @Inject constructor(
     private val memoRepository: MemoRepository,
     private val medicalDao: MedicalDao,
     private val systemReminderRepository: SystemReminderRepository,
-    private val monthlyReportRepository: MonthlyReportRepository
+    private val monthlyReportRepository: MonthlyReportRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -87,7 +87,7 @@ class HomeViewModel @Inject constructor(
             // 3. 記錄後處理：因為寶寶排便了，將所有未處理的「長時未排便」提醒標記為已解決
             systemReminderRepository.markAllResolvedByType(
                 childId, 
-                com.babymakisuk.coremodel.SystemReminderType.LONG_NO_BM
+                com.babymakisuk.coremodel.SystemReminderType.LONG_NO_BM,
             )
         }
     }
@@ -99,7 +99,7 @@ class HomeViewModel @Inject constructor(
             // 檢查是否已有「未處理」的同類型提醒，避免重複產生
             val existing = systemReminderRepository.getUnresolvedByType(
                 childId, 
-                com.babymakisuk.coremodel.SystemReminderType.LONG_NO_BM
+                com.babymakisuk.coremodel.SystemReminderType.LONG_NO_BM,
             ).first()
             
             if (existing.isEmpty()) {
@@ -133,8 +133,7 @@ class HomeViewModel @Inject constructor(
                         ?: flowOf(emptyList())
 
                     val todayDate = LocalDate.now().toEpochDay()
-                    val todayMemosFlow = memoRepository.getByDate(todayDate)
-                        .let { flowOf(it) }
+                    val todayMemosFlow = flowOf(memoRepository.getByDate(todayDate))
 
                     val remindersFlow = if (children.isNotEmpty()) {
                         // 觀察所有孩子的提醒

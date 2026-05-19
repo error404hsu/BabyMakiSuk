@@ -18,16 +18,15 @@ android {
     compileSdk = 35
     defaultConfig {
         minSdk = 26
-
-        // 【順手修復】設定 Room Schema 匯出路徑，消除編譯時的警告
-        ksp {
-            arg("room.schemaLocation", "$projectDir/schemas")
-        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+}
+
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 dependencies {
@@ -41,8 +40,10 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
+    ksp(libs.androidx.hilt.compiler)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.work.runtime)
+    implementation(libs.hilt.work)
 }

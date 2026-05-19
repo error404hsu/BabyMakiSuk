@@ -54,4 +54,10 @@ interface MonthlyReportDao {
 
     @Delete
     suspend fun delete(report: MonthlyReportEntity)
+
+    @Query("SELECT EXISTS(SELECT 1 FROM monthly_reports WHERE substr(month_start, 1, 7) = :yearMonth)")
+    suspend fun existsForMonth(yearMonth: String): Boolean
+
+    @Query("INSERT INTO monthly_reports_fts(monthly_reports_fts) VALUES('rebuild')")
+    suspend fun rebuildFts()
 }

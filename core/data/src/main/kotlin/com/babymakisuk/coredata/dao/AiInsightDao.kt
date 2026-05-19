@@ -30,4 +30,7 @@ interface AiInsightDao {
 
     @Query("DELETE FROM ai_insights WHERE id = :id")
     suspend fun deleteById(id: String)
+
+    @Query("DELETE FROM ai_insights WHERE createdAt < :cutoffMillis")
+    suspend fun deleteOlderThan(cutoffMillis: Long)
 }

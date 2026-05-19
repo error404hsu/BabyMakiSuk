@@ -1,10 +1,11 @@
 # BabyMakiSuk 資料留存、儲存架構與同步策略
 
-> **文件版本**: v2.0
+> **文件版本**: v2.1
 > **適用模組**: `core/data`, `core/firebase`, `core/drive`
 > **目標讀者**: AI Agents、開發者
 > **最後更新**: 2026-05-18
 > **整合來源**: `DATA_RETENTION_STRATEGY.md` v1.2 + `SYNC_ARCHITECTURE.md` v1.0
+> **實作狀態**: Phase 1-3 ✅ 完成（Phase E / F ⏸ 暫緩）
 
 ---
 
@@ -380,13 +381,14 @@ Google Drive (appDataFolder — 對用戶不可見)
 
 放置路徑：`core/data/src/main/kotlin/com/babymakisuk/coredata/worker/DataRetentionWorker.kt`
 
+> **實作狀態**：✅ 已完成。與規格差異：`backupManager` 為 Phase F 項目，目前以 `// TODO [Phase F]` 跳過。
+
 ```kotlin
 @HiltWorker
 class DataRetentionWorker @AssistedInject constructor(
     @Assisted ctx: Context,
     @Assisted params: WorkerParameters,
     private val retentionRepository: DataRetentionRepository,
-    private val backupManager: BackupManager,
 ) : CoroutineWorker(ctx, params) {
 
     companion object {
@@ -411,17 +413,13 @@ class DataRetentionWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result {
         return try {
-            val now = System.currentTimeMillis()
-
-            // 備份失敗 → 中止所有清除
-            val backupSuccess = runCatching {
-                backupManager.exportAndUploadToDrive()
-            }.isSuccess
-            if (!backupSuccess) return Result.retry()
+            // TODO [Phase F] 加入 backupManager.exportAndUploadToDrive() 前置檢查
+            // 目前無 BackupManager，先跳過備份步驟
 
             val dailyCutoffDay = LocalDate.now().minusDays(90).toEpochDay()
             retentionRepository.cleanDailyLogsWithReportGuard(dailyCutoffDay)
 
+            val now = System.currentTimeMillis()
             retentionRepository.cleanToiletRecordsWithReportGuard(now - CUTOFF_60_DAYS)
             retentionRepository.cleanAiInsights(now - CUTOFF_180_DAYS)
             retentionRepository.cleanTriggeredReminders()
@@ -442,26 +440,31 @@ class DataRetentionWorker @AssistedInject constructor(
 
 放置路徑：`core/data/src/main/kotlin/com/babymakisuk/coredata/repository/DataRetentionRepository.kt`
 
+> **實作狀態**：✅ 已完成。與規格差異：`cleanDailyLogsWithReportGuard()` 內部將 `Long epochDay` 轉為 `LocalDate.toString()` 後傳入 DAO；`cleanToiletRecordsWithReportGuard()` 使用 `toiletDao`（DAO 實際命名）。
+
 ```kotlin
+@Singleton
 class DataRetentionRepository @Inject constructor(
     private val dailyLogDao: DailyLogDao,
-    private val toiletRecordDao: ToiletRecordDao,
+    private val toiletDao: ToiletDao,
     private val aiInsightDao: AiInsightDao,
     private val systemReminderDao: SystemReminderDao,
     private val vaccineReminderDao: VaccineReminderDao,
     private val monthlyReportDao: MonthlyReportDao,
 ) {
-    suspend fun cleanDailyLogsWithReportGuard(cutoffEpochDay: Long) =
-        dailyLogDao.deleteOlderThanWithReportGuard(cutoffEpochDay)
+    suspend fun cleanDailyLogsWithReportGuard(cutoffEpochDay: Long) {
+        val cutoffDate = LocalDate.ofEpochDay(cutoffEpochDay).toString()
+        dailyLogDao.deleteOlderThanWithReportGuard(cutoffDate)
+    }
 
     suspend fun cleanToiletRecordsWithReportGuard(cutoffMillis: Long) =
-        toiletRecordDao.deleteOlderThanWithReportGuard(cutoffMillis)
+        toiletDao.deleteOlderThanWithReportGuard(cutoffMillis)
 
     @Transaction
     suspend fun cleanRawDataForMonth(yearMonth: YearMonth) {
         val yearMonthStr = yearMonth.toString()
         dailyLogDao.deleteByYearMonth(yearMonthStr)
-        toiletRecordDao.deleteByYearMonth(yearMonthStr)
+        toiletDao.deleteByYearMonth(yearMonthStr)
     }
 
     suspend fun cleanAiInsights(cutoffMillis: Long) = aiInsightDao.deleteOlderThan(cutoffMillis)
@@ -473,78 +476,92 @@ class DataRetentionRepository @Inject constructor(
 
 ---
 
-## 十、DAO 需補充的清理方法
+## 十、DAO 已實作的清理方法
+
+> **實作狀態**：✅ 已完成。以下程式碼為實際實作，已依資料庫實際欄位型別與名稱調整。
 
 ### `DailyLogDao`
 
+`date` 欄位型別為 `LocalDate`，Room 以 TEXT `YYYY-MM-DD` 儲存，故使用 `substr()` 而非 epoch 轉換。
+
 ```kotlin
-@Query("DELETE FROM daily_log WHERE date < :cutoffEpochDay")
-suspend fun deleteOlderThan(cutoffEpochDay: Long)
+@Query("DELETE FROM daily_log WHERE date < :cutoffDate")
+suspend fun deleteOlderThan(cutoffDate: String)
 
 @Query("""
     DELETE FROM daily_log
-    WHERE date < :cutoffEpochDay
-    AND strftime('%Y-%m', date(date * 86400, 'unixepoch')) IN (
-        SELECT yearMonth FROM monthly_report
+    WHERE date < :cutoffDate
+    AND substr(date, 1, 7) IN (
+        SELECT DISTINCT substr(month_start, 1, 7) FROM monthly_reports
     )
 """)
-suspend fun deleteOlderThanWithReportGuard(cutoffEpochDay: Long)
+suspend fun deleteOlderThanWithReportGuard(cutoffDate: String)
 
-@Query("DELETE FROM daily_log WHERE strftime('%Y-%m', date(date * 86400, 'unixepoch')) = :yearMonth")
+@Query("DELETE FROM daily_log WHERE substr(date, 1, 7) = :yearMonth")
 suspend fun deleteByYearMonth(yearMonth: String)
 ```
 
-### `ToiletRecordDao`
+### `ToiletDao`
+
+`timestamp` 為 epoch millis（`Long`）。實際 DAO 類別名稱為 `ToiletDao`，表格名稱為 `toilet_records`。
 
 ```kotlin
-@Query("DELETE FROM toilet_record WHERE timestamp < :cutoffMillis")
+@Query("DELETE FROM toilet_records WHERE timestamp < :cutoffMillis")
 suspend fun deleteOlderThan(cutoffMillis: Long)
 
 @Query("""
-    DELETE FROM toilet_record
+    DELETE FROM toilet_records
     WHERE timestamp < :cutoffMillis
-    AND strftime('%Y-%m', datetime(timestamp / 1000, 'unixepoch')) IN (
-        SELECT yearMonth FROM monthly_report
+    AND strftime('%Y-%m', timestamp / 1000, 'unixepoch') IN (
+        SELECT DISTINCT substr(month_start, 1, 7) FROM monthly_reports
     )
 """)
 suspend fun deleteOlderThanWithReportGuard(cutoffMillis: Long)
 
-@Query("DELETE FROM toilet_record WHERE strftime('%Y-%m', datetime(timestamp / 1000, 'unixepoch')) = :yearMonth")
+@Query("DELETE FROM toilet_records WHERE strftime('%Y-%m', timestamp / 1000, 'unixepoch') = :yearMonth")
 suspend fun deleteByYearMonth(yearMonth: String)
 ```
 
 ### `AiInsightDao`
 
+表格名稱為 `ai_insights`（複數），`createdAt` 為 epoch millis。
+
 ```kotlin
-@Query("DELETE FROM ai_insight WHERE createdAt < :cutoffMillis")
+@Query("DELETE FROM ai_insights WHERE createdAt < :cutoffMillis")
 suspend fun deleteOlderThan(cutoffMillis: Long)
 ```
 
 ### `SystemReminderDao`
 
+實際無 `isTriggered` 欄位，改用 `resolvedAt: Long?`（`null` = 未觸發）。故刪除條件為 `resolvedAt IS NOT NULL`。
+
 ```kotlin
-@Query("DELETE FROM system_reminder WHERE isTriggered = 1")
+@Query("DELETE FROM system_reminders WHERE resolvedAt IS NOT NULL")
 suspend fun deleteTriggered()
 ```
 
 ### `VaccineReminderDao`
 
+表格名稱為 `vaccine_reminders`，`isCompleted` 為 `Boolean`（SQLite 存為 0/1）。
+
 ```kotlin
-@Query("DELETE FROM vaccine_reminder WHERE isCompleted = 1")
+@Query("DELETE FROM vaccine_reminders WHERE isCompleted = 1")
 suspend fun deleteCompleted()
 ```
 
 ### `MonthlyReportDao`
 
+表格名稱為 `monthly_reports`，月份由 `month_start`（文字 `YYYY-MM-DD`）前 7 字元萃取。無獨立 `yearMonth` 欄位。
+
 ```kotlin
-@Query("SELECT EXISTS(SELECT 1 FROM monthly_report WHERE yearMonth = :yearMonth)")
+@Query("SELECT EXISTS(SELECT 1 FROM monthly_reports WHERE substr(month_start, 1, 7) = :yearMonth)")
 suspend fun existsForMonth(yearMonth: String): Boolean
 
-@Query("INSERT INTO monthly_report_fts(monthly_report_fts) VALUES('rebuild')")
+@Query("INSERT INTO monthly_reports_fts(monthly_reports_fts) VALUES('rebuild')")
 suspend fun rebuildFts()
 ```
 
-> **效能備註**：若 `daily_log` 與 `toilet_record` 筆數大幅增加，建議額外儲存 `yearMonth` 欄位並建立 index，以降低 `strftime()` 在大量資料上的掃描成本。
+> **效能備註**：若 `daily_log` 與 `toilet_records` 筆數大幅增加，建議於 `daily_log(date)` 與 `toilet_records(timestamp)` 建立 index，並考慮額外儲存 `yearMonth` 衍生欄位以降低 `substr()` / `strftime()` 掃描成本。
 
 ---
 
@@ -637,30 +654,37 @@ interface MonthlyReportDao {
 
 ## 十三、實作 Checklist
 
-### Phase 1：DAO 清理方法（本週）
-- [ ] `DailyLogDao.deleteOlderThan(epochDay)`
-- [ ] `DailyLogDao.deleteOlderThanWithReportGuard(epochDay)`
-- [ ] `DailyLogDao.deleteByYearMonth(yearMonth)`
-- [ ] `ToiletRecordDao.deleteOlderThan(millis)`
-- [ ] `ToiletRecordDao.deleteOlderThanWithReportGuard(millis)`
-- [ ] `ToiletRecordDao.deleteByYearMonth(yearMonth)`
-- [ ] `AiInsightDao.deleteOlderThan(millis)`
-- [ ] `SystemReminderDao.deleteTriggered()`
-- [ ] `VaccineReminderDao.deleteCompleted()`
-- [ ] `MonthlyReportDao.existsForMonth(yearMonth)`
-- [ ] `MonthlyReportDao.rebuildFts()`
+### Phase 1：DAO 清理方法 ✅ 已完成
+- [x] `DailyLogDao.deleteOlderThan(cutoffDate: String)` — LocalDate TEXT 型別，使用 `<` 比較 ISO 字串
+- [x] `DailyLogDao.deleteOlderThanWithReportGuard(cutoffDate: String)` — 子查詢 `substr(date,1,7) IN (SELECT substr(month_start,1,7) FROM monthly_reports)`
+- [x] `DailyLogDao.deleteByYearMonth(yearMonth: String)` — `substr(date,1,7) = :yearMonth`
+- [x] `ToiletDao.deleteOlderThan(millis: Long)` — 注意實際 DAO 名稱為 `ToiletDao` 非 `ToiletRecordDao`
+- [x] `ToiletDao.deleteOlderThanWithReportGuard(millis: Long)` — `strftime` epoch millis 轉換
+- [x] `ToiletDao.deleteByYearMonth(yearMonth: String)`
+- [x] `AiInsightDao.deleteOlderThan(millis: Long)`
+- [x] `SystemReminderDao.deleteTriggered()` — 實際無 `isTriggered` 欄位，改用 `resolvedAt IS NOT NULL`
+- [x] `VaccineReminderDao.deleteCompleted()` — `isCompleted = 1`
+- [x] `MonthlyReportDao.existsForMonth(yearMonth: String)` — 比對 `substr(month_start,1,7)`
+- [x] `MonthlyReportDao.rebuildFts()`
 
-### Phase 2：Repository 與 Worker（本週）
-- [ ] 建立 `DataRetentionRepository.kt`
-- [ ] 建立 `DataRetentionWorker.kt`
-- [ ] 在 `DataModule` 中綁定 Hilt Worker Factory
-- [ ] 在 `Application.onCreate()` 呼叫 `DataRetentionWorker.schedule()`
+### Phase 2：Repository 與 Worker ✅ 已完成
+- [x] 建立 `DataRetentionRepository.kt`（`@Singleton` + `@Inject`，6 個清理方法）
+- [x] 建立 `DataRetentionWorker.kt`（`@HiltWorker`，7 天週期，UNMETERED + 充電）
+- [x] 引入 `androidx.hilt:hilt-work:1.2.0` 至 `core/data` 與 `app` 模組
+- [x] `BabyMakiSukApplication` 實作 `Configuration.Provider` + 注入 `HiltWorkerFactory`
+- [x] 在 `Application.onCreate()` 呼叫 `DataRetentionWorker.schedule(this)`
 
-### Phase 3：月報生成與清理綁定（本週）
-- [ ] `MonthlyReportViewModel.generateReport()` 成功後呼叫 `retentionRepository.cleanRawDataForMonth()`
-- [ ] AI API 失敗時不執行任何清理
-- [ ] 月報頁 UI 狀態機實作（含無網路狀態）
-- [ ] 書庫入口逾期未生成紅點角標邏輯
+### Phase 3：月報生成與清理綁定 ✅ 已完成
+- [x] `MonthlyReportViewModel.generateReport()` 成功後呼叫 `retentionRepository.cleanRawDataForMonth(yearMonth)`
+- [x] AI API 失敗時不執行任何清理（`runCatching { ... }.onSuccess { clean }.onFailure { setError }`）
+- [x] 月報頁 UI 狀態機 — 新增 `sealed interface ReportGenerationState`（Idle / Generating / NoNetwork / Error）
+- [x] 書庫入口逾期未生成紅點角標 — `LibraryViewModel.showMonthlyReportBadge` + `Badge` composable
+
+> **實作註記**：
+> - `DailyLog.date` 為 `LocalDate`，Room 存為 TEXT `YYYY-MM-DD`，SQL 使用 `substr(date,1,7)` 萃取月份，非規格中 epoch day 算法。
+> - `SystemReminderEntity` 使用 `resolvedAt: Long?`（null=未觸發）而非 `isTriggered` 欄位，`deleteTriggered()` 條件為 `resolvedAt IS NOT NULL`。
+> - `DataRetentionWorker` 中的 `backupManager.exportAndUploadToDrive()` 為 Phase F 項目，目前以 `// TODO [Phase F]` 標記暫跳過。
+> - `MonthlyReportDao.existsForMonth()` 比對 `month_start` 欄位前 7 字元，適用於實際資料格式 `"2026-05-01"`。
 
 ### Phase E：Firebase 同步（Phase E）
 - [ ] 建立 `core/firebase` 模組

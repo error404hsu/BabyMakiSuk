@@ -42,7 +42,7 @@ private val LightColors = lightColorScheme(
     background       = Color(0xFFF0F9FF),
     surface          = Color.White,
     onBackground     = Color(0xFF0C4A6E),
-    onSurface        = Color(0xFF0C4A6E)
+    onSurface        = Color(0xFF0C4A6E),
 )
 
 private val DarkColors = darkColorScheme(
@@ -55,7 +55,7 @@ private val DarkColors = darkColorScheme(
     background       = Color(0xFF121212),
     surface          = Color(0xFF1E1E1E),
     onBackground     = Color(0xFFE0E0E0),
-    onSurface        = Color(0xFFE0E0E0)
+    onSurface        = Color(0xFFE0E0E0),
 )
 
 // ── 字型與形狀 ──────────────────────────────────────────
@@ -96,9 +96,6 @@ data class BabySpacing(
 
 val LocalBabySpacing = staticCompositionLocalOf { BabySpacing() }
 
-val spacing: BabySpacing
-    @Composable get() = LocalBabySpacing.current
-
 /**
  * App 全局主題。
  *
@@ -114,10 +111,10 @@ val spacing: BabySpacing
 fun BabyMakiSukTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = false,
-    content: @Composable () -> Unit
+    content: @Composable () -> Unit,
 ) {
     val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+        dynamicColor && (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) -> {
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
@@ -141,7 +138,7 @@ fun BabyMakiSukTheme(
             colorScheme = colorScheme,
             typography = BabyMakiTypography,
             shapes = BabyMakiShapes,
-            content = content
+            content = content,
         )
     }
 }

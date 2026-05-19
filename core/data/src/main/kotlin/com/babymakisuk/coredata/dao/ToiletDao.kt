@@ -27,4 +27,19 @@ interface ToiletDao {
 
     @Delete
     suspend fun delete(record: ToiletRecordEntity)
+
+    @Query("DELETE FROM toilet_records WHERE timestamp < :cutoffMillis")
+    suspend fun deleteOlderThan(cutoffMillis: Long)
+
+    @Query("""
+        DELETE FROM toilet_records
+        WHERE timestamp < :cutoffMillis
+        AND strftime('%Y-%m', timestamp / 1000, 'unixepoch') IN (
+            SELECT DISTINCT substr(month_start, 1, 7) FROM monthly_reports
+        )
+    """)
+    suspend fun deleteOlderThanWithReportGuard(cutoffMillis: Long)
+
+    @Query("DELETE FROM toilet_records WHERE strftime('%Y-%m', timestamp / 1000, 'unixepoch') = :yearMonth")
+    suspend fun deleteByYearMonth(yearMonth: String)
 }

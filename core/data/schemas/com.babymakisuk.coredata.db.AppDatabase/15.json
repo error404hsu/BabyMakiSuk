@@ -1,8 +1,8 @@
 {
   "formatVersion": 1,
   "database": {
-    "version": 14,
-    "identityHash": "3f28e21cdc0bc7fb4381e6f0d5dcfc26",
+    "version": 15,
+    "identityHash": "8c496bdfc87a1ee60305310ac151d954",
     "entities": [
       {
         "tableName": "child_profile",
@@ -150,7 +150,7 @@
       },
       {
         "tableName": "medical_visit",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `childId` INTEGER NOT NULL, `date` TEXT NOT NULL, `hospital` TEXT NOT NULL, `department` TEXT NOT NULL, `diagnosis` TEXT NOT NULL, `notes` TEXT NOT NULL, `attachments` TEXT NOT NULL, `diagnosis_summary` TEXT NOT NULL, `prescriptions` TEXT NOT NULL, `care_instructions` TEXT NOT NULL, `is_urgent` INTEGER NOT NULL, `imageStoragePath` TEXT NOT NULL, `aiPending` INTEGER NOT NULL, FOREIGN KEY(`childId`) REFERENCES `child_profile`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `childId` INTEGER NOT NULL, `date` TEXT NOT NULL, `hospital` TEXT NOT NULL, `department` TEXT NOT NULL, `diagnosis` TEXT NOT NULL, `notes` TEXT NOT NULL, `attachments` TEXT NOT NULL, `diagnosis_summary` TEXT NOT NULL, `prescriptions` TEXT NOT NULL, `care_instructions` TEXT NOT NULL, `is_urgent` INTEGER NOT NULL, `imageStoragePath` TEXT, `aiPending` INTEGER NOT NULL, FOREIGN KEY(`childId`) REFERENCES `child_profile`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "id",
@@ -227,8 +227,7 @@
           {
             "fieldPath": "imageStoragePath",
             "columnName": "imageStoragePath",
-            "affinity": "TEXT",
-            "notNull": true
+            "affinity": "TEXT"
           },
           {
             "fieldPath": "aiPending",
@@ -1019,7 +1018,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '3f28e21cdc0bc7fb4381e6f0d5dcfc26')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '8c496bdfc87a1ee60305310ac151d954')"
     ]
   }
 }

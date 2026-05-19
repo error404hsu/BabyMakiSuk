@@ -2,11 +2,13 @@
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,6 +17,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Badge
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -61,6 +64,7 @@ fun LibraryScreen(
     val aiUpdated by viewModel.aiInsightLastUpdated.collectAsState()
     val memoUpdated by viewModel.memoLastUpdated.collectAsState()
     val systemReminderUpdated by viewModel.systemReminderLastUpdated.collectAsState()
+    val showMonthlyReportBadge by viewModel.showMonthlyReportBadge.collectAsState()
 
     val drawerState = LocalDrawerState.current
     val scope = rememberCoroutineScope()
@@ -106,20 +110,19 @@ fun LibraryScreen(
         ) {
             items(shelves) { shelf ->
                 val lastUpdated = lastUpdatedMap[shelf.route]
+                val showBadge = shelf.route == "monthly_report" && showMonthlyReportBadge
                 ShelfCard(
                     title = "${shelf.emoji} ${shelf.title}",
                     subtitle = shelf.subtitle,
                     lastUpdated = lastUpdated,
+                    showBadge = showBadge,
                     onClick = {
                         scope.launch { drawerState.close() }
                         navController.navigate("${shelf.route}?childId=$selectedChildId") {
-                            // 1. 如果目標頁面已在頂部，則不重複建立
                             launchSingleTop = true
-                            // 2. 彈回首頁（起始點），確保書庫分頁不會無限堆疊
                             popUpTo(navController.graph.findStartDestination().id) {
                                 saveState = true
                             }
-                            // 3. 恢復之前的狀態（如果有的話）
                             restoreState = true
                         }
                     }
@@ -134,6 +137,7 @@ private fun ShelfCard(
     title: String,
     subtitle: String,
     lastUpdated: Long?,
+    showBadge: Boolean,
     onClick: () -> Unit
 ) {
     ElevatedCard(
@@ -148,11 +152,17 @@ private fun ShelfCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (showBadge) {
+                        Spacer(Modifier.width(8.dp))
+                        Badge(containerColor = MaterialTheme.colorScheme.error)
+                    }
+                }
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodyMedium,

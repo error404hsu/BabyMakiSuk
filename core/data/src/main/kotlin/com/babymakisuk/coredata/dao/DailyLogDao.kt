@@ -21,6 +21,21 @@ interface DailyLogDao {
     @Delete
     suspend fun delete(entity: DailyLogEntity)
 
+    @Query("DELETE FROM daily_log WHERE date < :cutoffDate")
+    suspend fun deleteOlderThan(cutoffDate: String)
+
+    @Query("""
+        DELETE FROM daily_log
+        WHERE date < :cutoffDate
+        AND substr(date, 1, 7) IN (
+            SELECT DISTINCT substr(month_start, 1, 7) FROM monthly_reports
+        )
+    """)
+    suspend fun deleteOlderThanWithReportGuard(cutoffDate: String)
+
+    @Query("DELETE FROM daily_log WHERE substr(date, 1, 7) = :yearMonth")
+    suspend fun deleteByYearMonth(yearMonth: String)
+
     @Query("DELETE FROM daily_log")
     suspend fun deleteAll()
 }

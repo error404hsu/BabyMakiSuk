@@ -39,4 +39,7 @@ interface SystemReminderDao {
 
     @Query("UPDATE system_reminders SET resolvedAt = :resolvedAt WHERE childId = :childId AND type = :type AND resolvedAt IS NULL")
     suspend fun markAllResolvedByType(childId: Long, type: String, resolvedAt: Long)
+
+    @Query("DELETE FROM system_reminders WHERE resolvedAt IS NOT NULL")
+    suspend fun deleteTriggered()
 }

@@ -9,6 +9,9 @@ import com.babymakisuk.coredata.dao.MedicalDao
 import com.babymakisuk.coredata.entity.toDomain
 import com.babymakisuk.coredata.entity.toEntity
 import com.babymakisuk.coredata.repository.ChildRepository
+import com.babymakisuk.corefirebase.storage.ImageUploadRepository
+import com.babymakisuk.corefirebase.storage.MedicalImageCacheManager
+import com.babymakisuk.coremodel.ImageStoragePath
 import com.babymakisuk.coremodel.MedicalVisit
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -43,7 +46,9 @@ class MedicalEditViewModel @Inject constructor(
     private val medicalDao: MedicalDao,
     private val medicalAiRepo: MedicalAiRepository,
     private val childRepository: ChildRepository,
-    private val preprocessor: PrescriptionImagePreprocessor
+    private val preprocessor: PrescriptionImagePreprocessor,
+    private val imageUploadRepository: ImageUploadRepository,
+    private val imageCacheManager: MedicalImageCacheManager,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MedicalEditUiState())
@@ -54,6 +59,12 @@ class MedicalEditViewModel @Inject constructor(
 
     private val _savedEvent = MutableSharedFlow<Unit>()
     val savedEvent: SharedFlow<Unit> = _savedEvent.asSharedFlow()
+
+    private val _uploadProgress = MutableStateFlow<Boolean>(false)
+    val uploadProgress: StateFlow<Boolean> = _uploadProgress.asStateFlow()
+
+    private val _prescriptionImageUri = MutableStateFlow<Uri?>(null)
+    val prescriptionImageUri: StateFlow<Uri?> = _prescriptionImageUri.asStateFlow()
 
     private var existingVisitId: Long = 0L
 
@@ -76,9 +87,14 @@ class MedicalEditViewModel @Inject constructor(
                             diagnosisSummary = visit.diagnosisSummary,
                             prescriptions = visit.prescriptions,
                             careInstructions = visit.careInstructions,
-                            imageStoragePath = visit.imageStoragePath
+                            imageStoragePath = when (val p = visit.imageStoragePath) {
+                                is ImageStoragePath.Local -> p.absolutePath
+                                is ImageStoragePath.FirebaseStorage -> p.storagePath
+                                ImageStoragePath.None -> null
+                            }
                         )
                     }
+                    loadPrescriptionImage(visit.imageStoragePath)
                 }
             } else {
                 existingVisitId = 0L
@@ -148,6 +164,10 @@ class MedicalEditViewModel @Inject constructor(
                 imageStoragePath = reviewing.imagePath ?: current.imageStoragePath
             )
         }
+        val path = reviewing.imagePath
+        if (path != null) {
+            _prescriptionImageUri.value = android.net.Uri.fromFile(java.io.File(path))
+        }
         _aiAnalysisState.value = AiAnalysisState.Success(
             diagnosisSummary = reviewing.diagnosisSummary,
             prescriptions = reviewing.prescriptions,
@@ -157,6 +177,21 @@ class MedicalEditViewModel @Inject constructor(
     }
 
     fun resetAiState() { _aiAnalysisState.value = AiAnalysisState.Idle }
+
+    fun onImageSelected(uri: Uri) {
+        _prescriptionImageUri.value = uri
+    }
+
+    fun clearImage() {
+        _prescriptionImageUri.value = null
+        resetAiState()
+    }
+
+    private fun loadPrescriptionImage(path: ImageStoragePath) {
+        viewModelScope.launch {
+            _prescriptionImageUri.value = imageCacheManager.getImageUri(path)
+        }
+    }
 
     fun save() {
         val state = _uiState.value
@@ -173,6 +208,14 @@ class MedicalEditViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
+                var imagePath: ImageStoragePath = when {
+                    state.imageStoragePath == null -> ImageStoragePath.None
+                    state.imageStoragePath.startsWith("firebase:") ->
+                        ImageStoragePath.FirebaseStorage(state.imageStoragePath.removePrefix("firebase:"))
+                    else -> ImageStoragePath.Local(state.imageStoragePath)
+                }
+                val hasNewImage = imagePath is ImageStoragePath.Local
+
                 val visit = MedicalVisit(
                     id = existingVisitId,
                     childId = state.childId,
@@ -185,14 +228,33 @@ class MedicalEditViewModel @Inject constructor(
                     prescriptions = state.prescriptions.trim(),
                     careInstructions = state.careInstructions.trim(),
                     isUrgent = false,
-                    imageStoragePath = state.imageStoragePath,
-                    aiPending = false
+                    imageStoragePath = imagePath,
+                    aiPending = hasNewImage
                 )
-                medicalDao.upsert(visit.toEntity())
+                val savedId = medicalDao.upsert(visit.toEntity())
+
+                if (hasNewImage) {
+                    _uploadProgress.value = true
+                    val localPath = (imagePath as ImageStoragePath.Local).absolutePath
+                    val visitId = if (existingVisitId > 0L) existingVisitId else savedId
+                    val remotePath = imageUploadRepository.uploadPrescription(
+                        childId = state.childId,
+                        visitId = visitId,
+                        localPath = localPath
+                    )
+                    imagePath = ImageStoragePath.FirebaseStorage(remotePath)
+                    medicalDao.upsert(visit.copy(
+                        id = visitId,
+                        imageStoragePath = imagePath,
+                        aiPending = true
+                    ).toEntity())
+                }
 
                 preprocessor.cleanupOldFiles()
+                _uploadProgress.value = false
                 _savedEvent.emit(Unit)
             } catch (e: Exception) {
+                _uploadProgress.value = false
                 _aiAnalysisState.value = AiAnalysisState.Error("儲存失敗：${e.message}")
             }
         }

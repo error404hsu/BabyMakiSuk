@@ -8,6 +8,8 @@ import com.babymakisuk.coredata.DarkModeOption
 import com.babymakisuk.coredata.repository.SettingsRepository
 import com.babymakisuk.coredata.repository.MonthlyReportRepository
 import com.babymakisuk.coremodel.UserRole
+import com.google.firebase.Timestamp
+import com.google.firebase.firestore.FirebaseFirestore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -184,5 +186,23 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             monthlyReportRepository.checkAndCreateMonthlyReportReminder(force = true)
         }
+    }
+
+    fun testFirebaseConnection(onResult: (String) -> Unit) {
+        val db = FirebaseFirestore.getInstance()
+        val pingData = hashMapOf(
+            "timestamp" to Timestamp.now(),
+            "device" to android.os.Build.MODEL,
+            "os" to android.os.Build.VERSION.RELEASE
+        )
+
+        db.collection("debug_ping")
+            .add(pingData)
+            .addOnSuccessListener {
+                onResult("Firebase 連線成功！\n文件 ID: ${it.id}")
+            }
+            .addOnFailureListener {
+                onResult("Firebase 連線失敗：${it.message}")
+            }
     }
 }

@@ -13,6 +13,8 @@ import com.babymakisuk.coredata.dao.MedicalDao
 import com.babymakisuk.coredata.dao.MonthlyReportDao
 import com.babymakisuk.coredata.dao.SystemReminderDao
 import com.babymakisuk.coredata.di.IoDispatcher
+import com.babymakisuk.coredata.entity.MonthlyReportEntity
+import com.babymakisuk.coredata.entity.SystemReminderEntity
 import com.babymakisuk.coredata.entity.toDomain
 import com.babymakisuk.coredata.entity.toEntity
 import com.babymakisuk.coremodel.MonthlyReport
@@ -89,7 +91,7 @@ class DefaultMonthlyReportRepository @Inject constructor(
                 val children = childRepository.getChildren()
                 val targetChildId = children.firstOrNull()?.id ?: return@withContext
 
-                val reminder = com.babymakisuk.coredata.entity.SystemReminderEntity(
+                val reminder = SystemReminderEntity(
                     id = reminderId,
                     childId = targetChildId,
                     type = com.babymakisuk.coremodel.SystemReminderType.MONTHLY_REPORT_PENDING.name,
@@ -101,8 +103,6 @@ class DefaultMonthlyReportRepository @Inject constructor(
                 systemReminderDao.insert(reminder)
             } else if (force) {
                 // 如果是強制測試，且已存在，則將其設為未解決狀態 (Resolved -> Unresolved)
-                systemReminderDao.markResolved(reminderId, -1L) // 使用特定值或 null 代表重置
-                // 由於 markResolved 實作可能不支援 null，我們直接更新整個 Entity
                 val updated = existing.copy(resolvedAt = null, createdAt = System.currentTimeMillis())
                 systemReminderDao.insert(updated)
             }
@@ -193,7 +193,7 @@ class DefaultMonthlyReportRepository @Inject constructor(
             systemReminderBlock = systemReminderBlock
         )
 
-        val (aiSummary, searchKeywords) = try {
+        val resultPair = try {
             val raw = aiDispatcher.executeWithSystemPrompt(
                 task = AiTask.MONTHLY_REPORT,
                 systemPrompt = systemPrompt,
@@ -227,6 +227,8 @@ class DefaultMonthlyReportRepository @Inject constructor(
             Log.e(TAG, "generateMonthlyReport AI failed: ${e.message}")
             Pair("（本月月報 AI 生成失敗，請稍後重試）", emptyList<String>())
         }
+        val aiSummary = resultPair.first
+        val searchKeywords = resultPair.second
 
         val keywords = if (searchKeywords.isNotEmpty()) searchKeywords else {
             medicalVisits.flatMap {

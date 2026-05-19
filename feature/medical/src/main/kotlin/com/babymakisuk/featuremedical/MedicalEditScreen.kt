@@ -80,15 +80,7 @@ fun MedicalEditScreen(
         ) { DatePicker(state = datePickerState) }
     }
 
-    var prescriptionImageUri by remember { mutableStateOf<Uri?>(null) }
-
-    // 當從資料庫讀取到現有圖片路徑時，更新預覽 Uri
-    LaunchedEffect(uiState.imageStoragePath) {
-        val path = uiState.imageStoragePath
-        if (path != null && prescriptionImageUri == null) {
-            prescriptionImageUri = Uri.fromFile(File(path))
-        }
-    }
+    val prescriptionImageUri by viewModel.prescriptionImageUri.collectAsState()
     val imageFile = remember {
         File(context.cacheDir, "prescription_${System.currentTimeMillis()}.jpg")
     }
@@ -97,10 +89,10 @@ fun MedicalEditScreen(
     }
     val cameraLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.TakePicture()
-    ) { success -> if (success) prescriptionImageUri = imageUri }
+    ) { success -> if (success) viewModel.onImageSelected(imageUri) }
     val galleryLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
-    ) { uri -> uri?.let { prescriptionImageUri = it } }
+    ) { uri -> uri?.let { viewModel.onImageSelected(it) } }
 
     Scaffold(
         topBar = {
@@ -225,8 +217,7 @@ fun MedicalEditScreen(
                     )
                     IconButton(
                         onClick = {
-                            prescriptionImageUri = null
-                            viewModel.resetAiState()
+                            viewModel.clearImage()
                         },
                         modifier = Modifier
                             .align(Alignment.TopEnd)

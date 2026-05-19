@@ -6,6 +6,7 @@ import android.net.Uri
 import androidx.core.content.FileProvider
 import com.babymakisuk.coredata.db.AppDatabase
 import com.babymakisuk.coredata.entity.*
+import com.babymakisuk.coremodel.ImageStoragePath
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -252,7 +253,12 @@ class BackupManager @Inject constructor(
         prescriptions = prescriptions,
         careInstructions = careInstructions,
         isUrgent = isUrgent,
-        imageStoragePath = imageStoragePath,
+        imageStoragePath = when (val p = imageStoragePath) {
+            is ImageStoragePath.Local -> "local:${p.absolutePath}"
+            is ImageStoragePath.FirebaseStorage -> "firebase:${p.storagePath}"
+            ImageStoragePath.None -> null
+            else -> null // Sealed interface exhaustiveness
+        },
         aiPending = aiPending
     )
 
@@ -336,7 +342,12 @@ class BackupManager @Inject constructor(
         prescriptions = prescriptions,
         careInstructions = careInstructions,
         isUrgent = isUrgent,
-        imageStoragePath = imageStoragePath,
+        imageStoragePath = when {
+            imageStoragePath == null -> ImageStoragePath.None
+            imageStoragePath.startsWith("local:") -> ImageStoragePath.Local(imageStoragePath.removePrefix("local:"))
+            imageStoragePath.startsWith("firebase:") -> ImageStoragePath.FirebaseStorage(imageStoragePath.removePrefix("firebase:"))
+            else -> ImageStoragePath.Local(imageStoragePath)
+        },
         aiPending = aiPending
     )
 

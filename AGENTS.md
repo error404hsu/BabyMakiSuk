@@ -64,7 +64,14 @@ feature/{name}/      - 各功能模組，每個模組含 Screen / ViewModel / Ui
 ## Room 資料庫規範
 
 - 修改任何 Entity 或新增 Table，**必須** bump `AppDatabase` 版本號並撰寫對應 `MIGRATION_x_y`。
-- 目前版本為 **v4**；新版 Migration 請依序命名 `MIGRATION_4_5`。
+- 目前版本為 **v14**；新版 Migration 請依序命名 `MIGRATION_14_15`。
+
+## Worker 規範
+
+- 使用 `@HiltWorker` + `@AssistedInject` 注入依賴（範例：`DataRetentionWorker`）。
+- Application 需實作 `Configuration.Provider` 並注入 `HiltWorkerFactory`。
+- 週期性 Worker 使用 `PeriodicWorkRequestBuilder`，約束條件使用 `Constraints.Builder`。
+- 所有 WorkManager 排程在 `BabyMakiSukApplication.onCreate()` 中統一初始化。
 
 ---
 
@@ -101,3 +108,4 @@ feature/{name}/      - 各功能模組，每個模組含 Screen / ViewModel / Ui
 - [`README.md`](./README.md) — 模組結構總覽
 - [`TODO.md`](./TODO.md) — 各 Phase 任務清單
 - [`docs/SYNC_ARCHITECTURE.md`](./docs/SYNC_ARCHITECTURE.md) — Firebase + Drive 同步架構規格
+- [`docs/DATA_RETENTION_STRATEGY.md`](./docs/DATA_RETENTION_STRATEGY.md) — 資料留存、清理與 Worker 策略（Phase 1-3 ✅ 已完成）

@@ -25,7 +25,7 @@ import com.babymakisuk.coredata.entity.*
         ChatMessageEntity::class,
         FeverRecordEntity::class
     ],
-    version = 14,
+    version = 15,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -45,6 +45,58 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun feverDao(): FeverDao
 
     companion object {
+        val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Fix medical_visit table (imageStoragePath was marked as NOT NULL in schema 14, 
+                // but Entity uses a converter that can return null, and migration 4_5 didn't specify NOT NULL correctly for some paths)
+                // Actually, schema 14 says imageStoragePath is NOT NULL. 
+                // Let's check the error: found identity hash 8c496bdfc87a1ee60305310ac151d954.
+                // This hash usually means something in the current code (Entities) differs from schema 14.
+                
+                // One common discrepancy is 'imageStoragePath' being NOT NULL in schema but potentially NULL in code or vice-versa.
+                // In MedicalVisitEntity, imageStoragePath is NOT NULL (val imageStoragePath: ImageStoragePath = ImageStoragePath.None).
+                // However, the TypeConverter returns null for ImageStoragePath.None.
+                // Room treats @TypeConverter return type nullability as the column nullability.
+                // Since fromImageStoragePath returns String?, the column should be nullable.
+                // But schema 14.json says it's NOT NULL.
+                
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS medical_visit_new (
+                        id                  INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        childId             INTEGER NOT NULL,
+                        date                TEXT NOT NULL,
+                        hospital            TEXT NOT NULL,
+                        department          TEXT NOT NULL,
+                        diagnosis           TEXT NOT NULL,
+                        notes               TEXT NOT NULL,
+                        attachments         TEXT NOT NULL,
+                        diagnosis_summary   TEXT NOT NULL,
+                        prescriptions       TEXT NOT NULL,
+                        care_instructions   TEXT NOT NULL,
+                        is_urgent           INTEGER NOT NULL,
+                        imageStoragePath    TEXT,
+                        aiPending           INTEGER NOT NULL,
+                        FOREIGN KEY(childId) REFERENCES child_profile(id) ON UPDATE NO ACTION ON DELETE CASCADE
+                    )
+                """.trimIndent())
+                db.execSQL("""
+                    INSERT INTO medical_visit_new (
+                        id, childId, date, hospital, department, diagnosis, notes, attachments,
+                        diagnosis_summary, prescriptions, care_instructions, is_urgent,
+                        imageStoragePath, aiPending
+                    )
+                    SELECT
+                        id, childId, date, hospital, department, diagnosis, notes, attachments,
+                        diagnosis_summary, prescriptions, care_instructions, is_urgent,
+                        imageStoragePath, aiPending
+                    FROM medical_visit
+                """.trimIndent())
+                db.execSQL("DROP TABLE medical_visit")
+                db.execSQL("ALTER TABLE medical_visit_new RENAME TO medical_visit")
+                db.execSQL("CREATE INDEX IF NOT EXISTS index_medical_visit_childId ON medical_visit(childId)")
+            }
+        }
+
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE medical_visit ADD COLUMN imageStoragePath TEXT")

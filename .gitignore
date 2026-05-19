@@ -19,3 +19,6 @@ Thumbs.db
 
 # opencode
 .opencode
+
+# firebase api
+google-services.json
