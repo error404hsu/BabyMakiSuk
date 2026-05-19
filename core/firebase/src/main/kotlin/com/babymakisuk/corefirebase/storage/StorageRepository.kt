@@ -31,4 +31,18 @@ class StorageRepository @Inject constructor(
     suspend fun delete(remotePath: String) {
         storage.reference.child(remotePath).delete().await()
     }
+
+    suspend fun getUsedBytes(): Long = runCatching {
+        val ref = storage.reference.child("children")
+        val listResult = ref.listAll().await()
+        var total = 0L
+        for (prefix in listResult.prefixes) {
+            val items = prefix.listAll().await()
+            for (item in items.items) {
+                val metadata = item.metadata.await()
+                total += metadata.sizeBytes ?: 0L
+            }
+        }
+        total
+    }.getOrDefault(0L)
 }

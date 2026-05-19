@@ -76,6 +76,11 @@ class AiDispatcher @Inject constructor(
                 GeminiModel.GEMINI_31_FLASH_LITE,
                 GeminiModel.GEMINI_25_FLASH,
                 GeminiModel.GEMINI_3_FLASH
+            ),
+            AiTask.SUMMARIZE_MEDICAL_VISIT to listOf(
+                GeminiModel.GEMINI_31_FLASH_LITE,
+                GeminiModel.GEMMA_4_31B,
+                GeminiModel.GEMINI_3_FLASH
             )
         )
     }

@@ -6,6 +6,7 @@ import androidx.work.Configuration
 import com.babymakisuk.corefirebase.auth.FirebaseAuthRepository
 import com.babymakisuk.coredata.worker.DataRetentionWorker
 import com.babymakisuk.coredata.worker.MemoReminderWorker
+import com.babymakisuk.corefirebase.worker.StorageCleanupWorker
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -33,6 +34,7 @@ class BabyMakiSukApplication : Application(), Configuration.Provider {
         super.onCreate()
         MemoReminderWorker.createChannel(this)
         DataRetentionWorker.schedule(this)
+        StorageCleanupWorker.schedule(this)
         applicationScope.launch {
             authRepository.signInAnonymously()
         }

@@ -4,10 +4,13 @@ import android.content.Intent
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.babymakisuk.corefirebase.auth.FirebaseAuthRepository
+import com.babymakisuk.corefirebase.storage.StorageRepository
 import com.babymakisuk.coredata.DarkModeOption
 import com.babymakisuk.coredata.repository.SettingsRepository
 import com.babymakisuk.coredata.repository.MonthlyReportRepository
 import com.babymakisuk.coremodel.UserRole
+import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -22,11 +25,6 @@ import javax.inject.Inject
 /** 匯出 / 匯入的 UI 狀態 */
 sealed interface BackupUiState {
     object Idle : BackupUiState
-    /**
-     * 載入中狀態
-     * @param progress 目前進度 (0.0 ~ 1.0)，若為 null 則顯示不確定進度
-     * @param message 正在進行的具體步驟描述
-     */
     data class Loading(val progress: Float? = null, val message: String? = null) : BackupUiState
     data class ExportReady(val intent: Intent) : BackupUiState
     object ImportSuccess : BackupUiState
@@ -36,10 +34,11 @@ sealed interface BackupUiState {
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val repository: SettingsRepository,
-    private val monthlyReportRepository: MonthlyReportRepository
+    private val monthlyReportRepository: MonthlyReportRepository,
+    private val authRepository: FirebaseAuthRepository,
+    private val storageRepository: StorageRepository,
 ) : ViewModel() {
 
-    // ── 深色模式 ──────────────────────────────────────────
     val darkMode: StateFlow<DarkModeOption> = repository.darkModeFlow.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
@@ -50,7 +49,6 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { repository.setDarkMode(option) }
     }
 
-    // ── 使用者角色 ──────────────────────────────────────────
     val userRole: StateFlow<UserRole> = repository.userRoleFlow.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
@@ -61,7 +59,6 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { repository.setUserRole(role) }
     }
 
-    // ── 雲端 AI 開關 ──────────────────────────────────────────
     val aiCloudEnabled: StateFlow<Boolean> = repository.aiCloudEnabled.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
@@ -71,8 +68,6 @@ class SettingsViewModel @Inject constructor(
     fun setAiCloudEnabled(enabled: Boolean) {
         viewModelScope.launch { repository.setAiCloudEnabled(enabled) }
     }
-
-    // ── 通知開關 ──────────────────────────────────────────
 
     val notificationsEnabled: StateFlow<Boolean> = repository.notificationsEnabled.stateIn(
         scope = viewModelScope,
@@ -84,7 +79,13 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { repository.setNotificationsEnabled(enabled) }
     }
 
-    // ── 資料備份設定 ─────────────────────────────────────
+    // ── Auth 狀態 ─────────────────────────────────────────
+    private val _firebaseUser = MutableStateFlow<FirebaseUser?>(null)
+    val firebaseUser: StateFlow<FirebaseUser?> = _firebaseUser.asStateFlow()
+
+    // ── Storage 配額 ──────────────────────────────────────
+    private val _storageUsedBytes = MutableStateFlow(0L)
+    val storageUsedBytes: StateFlow<Long> = _storageUsedBytes.asStateFlow()
 
     val autoBackupEnabled: StateFlow<Boolean> = repository.autoBackupEnabled.stateIn(
         scope = viewModelScope,
@@ -102,8 +103,6 @@ class SettingsViewModel @Inject constructor(
         initialValue = null
     )
 
-    // ── 開發者模式 ──────────────────────────────────────────
-
     val developerModeEnabled: StateFlow<Boolean> = repository.developerModeEnabled.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
@@ -115,12 +114,9 @@ class SettingsViewModel @Inject constructor(
 
     fun onVersionClick(onDevModeEnabled: () -> Unit) {
         val currentTime = System.currentTimeMillis()
-        if (currentTime - lastClickTime > 2000) {
-            clickCount = 0
-        }
+        if (currentTime - lastClickTime > 2000) clickCount = 0
         clickCount++
         lastClickTime = currentTime
-
         if (clickCount >= 7 && !developerModeEnabled.value) {
             viewModelScope.launch {
                 repository.setDeveloperModeEnabled(true)
@@ -134,7 +130,27 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch { repository.setDeveloperModeEnabled(enabled) }
     }
 
-    // ── 匯出 / 匯入 ──────────────────────────────────────────
+    // ── 初始化監聽 ─────────────────────────────────────────
+    init {
+        viewModelScope.launch {
+            authRepository.observeAuthState().collect { user ->
+                _firebaseUser.value = user
+            }
+        }
+        viewModelScope.launch {
+            _storageUsedBytes.value = storageRepository.getUsedBytes()
+        }
+    }
+
+    // ── Google 登入 / 登出 ───────────────────────────────
+    suspend fun linkGoogleAccount(idToken: String): Result<FirebaseUser> =
+        authRepository.linkWithGoogleCredential(idToken)
+
+    fun signOutGoogle() {
+        authRepository.signOut()
+    }
+
+    // ── 匯出 / 匯入 ───────────────────────────────────────
     private val _backupState = MutableStateFlow<BackupUiState>(BackupUiState.Idle)
     val backupState: StateFlow<BackupUiState> = _backupState.asStateFlow()
 
@@ -166,8 +182,7 @@ class SettingsViewModel @Inject constructor(
         _backupState.value = BackupUiState.Idle
     }
 
-    // ── 測試功能 ──────────────────────────────────────────
-
+    // ── 測試功能 ─────────────────────────────────────────
     fun generateLastMonthReport() {
         viewModelScope.launch {
             _backupState.value = BackupUiState.Loading(message = "正在產生上月合併月報...")
@@ -195,14 +210,8 @@ class SettingsViewModel @Inject constructor(
             "device" to android.os.Build.MODEL,
             "os" to android.os.Build.VERSION.RELEASE
         )
-
-        db.collection("debug_ping")
-            .add(pingData)
-            .addOnSuccessListener {
-                onResult("Firebase 連線成功！\n文件 ID: ${it.id}")
-            }
-            .addOnFailureListener {
-                onResult("Firebase 連線失敗：${it.message}")
-            }
+        db.collection("debug_ping").add(pingData)
+            .addOnSuccessListener { onResult("Firebase 連線成功！\n文件 ID: ${it.id}") }
+            .addOnFailureListener { onResult("Firebase 連線失敗：${it.message}") }
     }
 }

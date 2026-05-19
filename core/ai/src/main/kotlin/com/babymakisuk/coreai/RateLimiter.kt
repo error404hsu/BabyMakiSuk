@@ -24,12 +24,13 @@ class RateLimiter @Inject constructor() {
 
     /** 各 AiTask 每分鐘請求上限 */
     private val LIMITS: Map<AiTask, Int> = mapOf(
-        AiTask.MEDICAL_CONSULTATION to 5,
-        AiTask.MEDICAL_OCR          to 3,
-        AiTask.VOICE_INPUT          to 10,
-        AiTask.MONTHLY_REPORT       to 2,
-        AiTask.QUICK_CHAT           to 10,
-        AiTask.CUSTOM_PRESET        to 5
+        AiTask.MEDICAL_CONSULTATION  to 5,
+        AiTask.MEDICAL_OCR           to 3,
+        AiTask.VOICE_INPUT           to 10,
+        AiTask.MONTHLY_REPORT        to 2,
+        AiTask.QUICK_CHAT            to 10,
+        AiTask.CUSTOM_PRESET         to 5,
+        AiTask.SUMMARIZE_MEDICAL_VISIT to 3
     )
 
     private val mutex = Mutex()

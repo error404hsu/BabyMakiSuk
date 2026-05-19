@@ -23,10 +23,14 @@ android {
 dependencies {
     api(project(":core:model"))
     api(project(":core:data"))
+    implementation(project(":core:ai"))
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.firestore)
     implementation(libs.firebase.auth)
     implementation(libs.firebase.storage)
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
+    implementation(libs.androidx.work.runtime)
+    implementation(libs.hilt.work)
+    ksp(libs.androidx.hilt.compiler)
 }

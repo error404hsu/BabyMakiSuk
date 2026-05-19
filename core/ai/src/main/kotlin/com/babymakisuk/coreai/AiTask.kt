@@ -19,5 +19,7 @@ enum class AiTask(val displayName: String) {
     /** 單輪快速聊天：關閉視窗即清空對話記憶 */
     QUICK_CHAT("快速問答"),
     /** 自定義 System Prompt：由呼叫端注入任意 system instruction */
-    CUSTOM_PRESET("自定義助理")
+    CUSTOM_PRESET("自定義助理"),
+    /** 就醫摘要：當 aiPending flag 為 true 時觸發的就診備註結構化分析 */
+    SUMMARIZE_MEDICAL_VISIT("就醫摘要整理")
 }

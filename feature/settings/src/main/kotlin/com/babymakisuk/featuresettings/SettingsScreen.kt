@@ -1,5 +1,6 @@
 package com.babymakisuk.featuresettings
 
+import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -8,18 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AdminPanelSettings
-import androidx.compose.material.icons.filled.Backup
-import androidx.compose.material.icons.filled.BugReport
-import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.ManageAccounts
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.SmartToy
-import androidx.compose.material.icons.filled.Sync
-import androidx.compose.material.icons.filled.Upload
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -34,6 +24,9 @@ import com.babymakisuk.coredata.DarkModeOption
 import com.babymakisuk.coremodel.UserRole
 import com.babymakisuk.ui.components.BabyTopBar
 import com.babymakisuk.ui.components.LocalDrawerState
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.firebase.auth.FirebaseUser
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -52,6 +45,8 @@ fun SettingsScreen(
     val autoBackupEnabled by viewModel.autoBackupEnabled.collectAsState()
     val lastBackupTime by viewModel.lastBackupTime.collectAsState()
     val developerModeEnabled by viewModel.developerModeEnabled.collectAsState()
+    val firebaseUser by viewModel.firebaseUser.collectAsState()
+    val storageUsedBytes by viewModel.storageUsedBytes.collectAsState()
 
     var showDarkModeSheet by remember { mutableStateOf(false) }
     var showRoleSheet by remember { mutableStateOf(false) }
@@ -66,6 +61,42 @@ fun SettingsScreen(
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri -> uri?.let { showImportConfirm = it } }
+
+    // Google Sign-In setup
+    val googleSignInLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            coroutineScope.launch {
+                try {
+                    val account = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+                    val idToken = account.result?.idToken ?: return@launch
+                    viewModel.linkGoogleAccount(idToken)
+                        .onSuccess { snackbarHostState.showSnackbar("Google 帳號連結成功") }
+                        .onFailure { snackbarHostState.showSnackbar("連結失敗：${it.message}") }
+                } catch (e: Exception) {
+                    snackbarHostState.showSnackbar("Google 登入失敗：${e.message}")
+                }
+            }
+        }
+    }
+
+    val gso = remember {
+        val clientId = runCatching {
+            val id = context.resources.getIdentifier("default_web_client_id", "string", context.packageName)
+            if (id != 0) context.getString(id) else ""
+        }.getOrDefault("")
+
+        GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .apply {
+                if (clientId.isNotEmpty()) {
+                    requestIdToken(clientId)
+                }
+            }
+            .requestEmail()
+            .build()
+    }
+    val googleSignInClient = remember { GoogleSignIn.getClient(context, gso) }
 
     LaunchedEffect(backupState) {
         when (val state = backupState) {
@@ -113,6 +144,23 @@ fun SettingsScreen(
         ) {
             item { Spacer(Modifier.height(8.dp)) }
 
+            // ── 帳號 ──────────────────────────────────────────
+            item {
+                SettingsSection(title = "帳號") {
+                    GoogleSignInItem(
+                        firebaseUser = firebaseUser,
+                        onSignInClick = {
+                            googleSignInLauncher.launch(googleSignInClient.signInIntent)
+                        },
+                        onSignOutClick = {
+                            viewModel.signOutGoogle()
+                            googleSignInClient.signOut()
+                        }
+                    )
+                }
+            }
+
+            // ── 個人化與偏好 ──────────────────────────────────
             item {
                 SettingsSection(title = "個人化與偏好") {
                     SettingsItem(
@@ -161,6 +209,7 @@ fun SettingsScreen(
                 }
             }
 
+            // ── AI 功能 ──────────────────────────────────────
             item {
                 SettingsSection(title = "AI 功能") {
                     ListItem(
@@ -171,9 +220,7 @@ fun SettingsScreen(
                                 color = MaterialTheme.colorScheme.secondaryContainer
                             )
                         },
-                        headlineContent = {
-                            Text("啟用 Gemini 雲端分析")
-                        },
+                        headlineContent = { Text("啟用 Gemini 雲端分析") },
                         supportingContent = {
                             Text(
                                 if (aiCloudEnabled) "雲端 AI 推論啟動中"
@@ -202,14 +249,14 @@ fun SettingsScreen(
                 }
             }
 
+            // ── 資料管理與備份 ──────────────────────────────
             item {
                 SettingsSection(title = "資料管理與備份") {
-                    // 1. 雲端同步 (預留未來 Google Drive / Firebase)
+                    // 雲端同步 + 配額
                     SettingsItem(
                         icon = Icons.Default.Sync,
                         title = "雲端同步",
-                        subtitle = "連結雲端空間進行自動同步 (開發中)",
-                        enabled = false,
+                        subtitle = formatStorageBytes(storageUsedBytes),
                         onClick = {}
                     )
                     HorizontalDivider(
@@ -217,7 +264,7 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.surfaceVariant
                     )
 
-                    // 2. 自動備份
+                    // 自動備份
                     ListItem(
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                         leadingContent = {
@@ -241,7 +288,6 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.surfaceVariant
                     )
 
-                    // 3. 手動匯出
                     SettingsItem(
                         icon = Icons.Default.Upload,
                         title = "立即匯出備份 (.json)",
@@ -254,7 +300,6 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.surfaceVariant
                     )
 
-                    // 4. 手動匯入
                     SettingsItem(
                         icon = Icons.Default.Download,
                         title = "匯入備份檔",
@@ -483,13 +528,11 @@ fun SettingsScreen(
                     } else {
                         CircularProgressIndicator(modifier = Modifier.size(48.dp))
                     }
-
                     Text(
                         text = state.message ?: "正在處理資料...",
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.Bold
                     )
-
                     Surface(
                         color = MaterialTheme.colorScheme.errorContainer,
                         shape = RoundedCornerShape(8.dp)
@@ -505,6 +548,57 @@ fun SettingsScreen(
             }
         }
     }
+}
+
+// ── Google 登入元件 ──────────────────────────────────────────
+@Composable
+private fun GoogleSignInItem(
+    firebaseUser: FirebaseUser?,
+    onSignInClick: () -> Unit,
+    onSignOutClick: () -> Unit,
+) {
+    if (firebaseUser != null) {
+        ListItem(
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            leadingContent = {
+                IconBox(
+                    icon = Icons.Default.Person,
+                    color = MaterialTheme.colorScheme.primaryContainer
+                )
+            },
+            headlineContent = {
+                Text(firebaseUser.email ?: firebaseUser.displayName ?: "已登入")
+            },
+            supportingContent = { Text("點按登出 Google 帳號") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onSignOutClick)
+                .padding(vertical = 4.dp)
+        )
+    } else {
+        ListItem(
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            leadingContent = {
+                IconBox(
+                    icon = Icons.Default.Login,
+                    color = MaterialTheme.colorScheme.secondaryContainer
+                )
+            },
+            headlineContent = { Text("使用 Google 帳號登入") },
+            supportingContent = { Text("連結後可跨裝置同步資料") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onSignInClick)
+                .padding(vertical = 4.dp)
+        )
+    }
+}
+
+// ── 工具函式 ──────────────────────────────────────────────
+private fun formatStorageBytes(bytes: Long): String {
+    if (bytes <= 0) return "已使用 0 MB"
+    val mb = bytes / (1024.0 * 1024.0)
+    return "已使用 ${"%.1f".format(mb)} MB"
 }
 
 @Composable
