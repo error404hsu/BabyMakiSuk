@@ -1,14 +1,20 @@
 package com.babymakisuk.featuresettings
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.workDataOf
 import com.babymakisuk.corefirebase.auth.FirebaseAuthRepository
 import com.babymakisuk.corefirebase.storage.StorageRepository
 import com.babymakisuk.coredata.DarkModeOption
 import com.babymakisuk.coredata.repository.SettingsRepository
 import com.babymakisuk.coredata.repository.MonthlyReportRepository
+import com.babymakisuk.coredata.worker.DataRetentionWorker
+import com.babymakisuk.coredata.worker.MemoReminderWorker
 import com.babymakisuk.coremodel.UserRole
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.Timestamp
@@ -20,6 +26,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
 /** 匯出 / 匯入的 UI 狀態 */
@@ -213,5 +220,71 @@ class SettingsViewModel @Inject constructor(
         db.collection("debug_ping").add(pingData)
             .addOnSuccessListener { onResult("Firebase 連線成功！\n文件 ID: ${it.id}") }
             .addOnFailureListener { onResult("Firebase 連線失敗：${it.message}") }
+    }
+
+    // ── 開發者測試擴充 ────────────────────────────────────
+
+    /** 讀取 Firebase Auth 目前登入狀態摘要 */
+    fun getAuthStatusSummary(onResult: (String) -> Unit) {
+        val user = _firebaseUser.value
+        if (user == null) {
+            onResult("❌ 未登入（FirebaseUser = null）")
+        } else {
+            val type = if (user.isAnonymous) "匿名帳號" else "Google 帳號"
+            onResult("✅ 已登入\n類型：$type\nUID：${user.uid}\nEmail：${user.email ?: "無"}")
+        }
+    }
+
+    /** 強制觸發 DataRetentionWorker（立即清理過期資料） */
+    fun triggerDataRetentionNow(context: Context, onResult: (String) -> Unit) {
+        viewModelScope.launch {
+            runCatching {
+                val request = OneTimeWorkRequestBuilder<DataRetentionWorker>().build()
+                WorkManager.getInstance(context).enqueue(request)
+            }.onSuccess { onResult("✅ DataRetentionWorker 已排入執行佇列") }
+             .onFailure { onResult("❌ 觸發失敗：${it.message}") }
+        }
+    }
+
+    /** 強制觸發即時測試通知（繞過排程） */
+    fun triggerTestNotification(context: Context) {
+        viewModelScope.launch {
+            val request = OneTimeWorkRequestBuilder<MemoReminderWorker>()
+                .setInputData(
+                    workDataOf(
+                        "memo_id" to -1L,
+                        "title" to "🧪 測試通知",
+                        "content" to "這是開發者測試通知，請確認顯示正常"
+                    )
+                ).build()
+            WorkManager.getInstance(context).enqueue(request)
+        }
+    }
+
+    /** Room DB 各 Table 筆數快照（需各 DAO 實作 count()） */
+    fun getDbRowCountSnapshot(onResult: (String) -> Unit) {
+        viewModelScope.launch {
+            runCatching {
+                // TODO: 注入各 DAO 後在此補充真實 count() 查詢
+                // 範例：
+                // val growth = growthDao.count()
+                // val medical = medicalDao.count()
+                // "GrowthRecord：$growth 筆\nMedicalVisit：$medical 筆"
+                "⚠️ 請在 SettingsViewModel 注入各 DAO 並實作 count() 查詢\n詳見 AGENTS.md 補充說明"
+            }.onSuccess { onResult(it) }
+             .onFailure { onResult("❌ 查詢失敗：${it.message}") }
+        }
+    }
+
+    /** Firestore 離線模式切換（停用/啟用網路以測試離線持久化） */
+    fun setFirestoreOfflineMode(offline: Boolean, onResult: (String) -> Unit) {
+        val db = FirebaseFirestore.getInstance()
+        viewModelScope.launch {
+            runCatching {
+                if (offline) db.disableNetwork().await() else db.enableNetwork().await()
+            }.onSuccess {
+                onResult(if (offline) "✅ Firestore 網路已停用（離線模式）" else "✅ Firestore 網路已恢復")
+            }.onFailure { onResult("❌ 操作失敗：${it.message}") }
+        }
     }
 }

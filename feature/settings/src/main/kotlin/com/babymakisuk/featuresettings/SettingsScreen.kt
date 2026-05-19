@@ -252,7 +252,6 @@ fun SettingsScreen(
             // ── 資料管理與備份 ──────────────────────────────
             item {
                 SettingsSection(title = "資料管理與備份") {
-                    // 雲端同步 + 配額
                     SettingsItem(
                         icon = Icons.Default.Sync,
                         title = "雲端同步",
@@ -263,8 +262,6 @@ fun SettingsScreen(
                         Modifier.padding(horizontal = 16.dp),
                         color = MaterialTheme.colorScheme.surfaceVariant
                     )
-
-                    // 自動備份
                     ListItem(
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                         leadingContent = {
@@ -287,7 +284,6 @@ fun SettingsScreen(
                         Modifier.padding(horizontal = 16.dp),
                         color = MaterialTheme.colorScheme.surfaceVariant
                     )
-
                     SettingsItem(
                         icon = Icons.Default.Upload,
                         title = "立即匯出備份 (.json)",
@@ -299,7 +295,6 @@ fun SettingsScreen(
                         Modifier.padding(horizontal = 16.dp),
                         color = MaterialTheme.colorScheme.surfaceVariant
                     )
-
                     SettingsItem(
                         icon = Icons.Default.Download,
                         title = "匯入備份檔",
@@ -310,45 +305,141 @@ fun SettingsScreen(
                 }
             }
 
+            // ── 開發者選項 ────────────────────────────────────
             if (developerModeEnabled) {
+
+                // 分區一：API / Firebase
                 item {
-                    SettingsSection(title = "開發者選項") {
+                    SettingsSection(title = "🛠 開發者 — API / Firebase") {
                         SettingsItem(
                             icon = Icons.Default.BugReport,
-                            title = "API 連線測試",
-                            subtitle = "驗證 Gemini API Key 是否可正常呼叫",
+                            title = "Gemini API 連線測試",
+                            subtitle = "驗證 API Key 是否可正常呼叫",
                             onClick = onNavigateToApiTest
                         )
-                        HorizontalDivider(
-                            Modifier.padding(horizontal = 16.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant
-                        )
+                        HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.surfaceVariant)
+
                         SettingsItem(
                             icon = Icons.Default.Cloud,
                             title = "Firebase 連線測試",
-                            subtitle = "發送 Ping 至 Firestore debug_ping 集合",
+                            subtitle = "寫入 debug_ping 集合並回傳文件 ID",
                             onClick = {
-                                viewModel.testFirebaseConnection { message ->
+                                viewModel.testFirebaseConnection { msg ->
+                                    coroutineScope.launch { snackbarHostState.showSnackbar(msg) }
+                                }
+                            }
+                        )
+                        HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.surfaceVariant)
+
+                        // Auth 狀態檢查
+                        SettingsItem(
+                            icon = Icons.Default.VerifiedUser,
+                            title = "Auth 登入狀態檢查",
+                            subtitle = "顯示目前 FirebaseUser 類型與 UID",
+                            onClick = {
+                                viewModel.getAuthStatusSummary { msg ->
                                     coroutineScope.launch {
-                                        snackbarHostState.showSnackbar(message)
+                                        snackbarHostState.showSnackbar(msg, duration = SnackbarDuration.Long)
                                     }
                                 }
                             }
                         )
-                        HorizontalDivider(
-                            Modifier.padding(horizontal = 16.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant
+                        HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.surfaceVariant)
+
+                        // Firestore 離線模式切換
+                        var firestoreOffline by remember { mutableStateOf(false) }
+                        ListItem(
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            leadingContent = {
+                                IconBox(
+                                    icon = Icons.Default.WifiOff,
+                                    color = MaterialTheme.colorScheme.secondaryContainer
+                                )
+                            },
+                            headlineContent = { Text("Firestore 離線模式") },
+                            supportingContent = {
+                                Text(
+                                    if (firestoreOffline) "✋ 網路已停用，測試離線持久化中"
+                                    else "正常連線中"
+                                )
+                            },
+                            trailingContent = {
+                                Switch(
+                                    checked = firestoreOffline,
+                                    onCheckedChange = { enabled ->
+                                        firestoreOffline = enabled
+                                        viewModel.setFirestoreOfflineMode(enabled) { msg ->
+                                            coroutineScope.launch { snackbarHostState.showSnackbar(msg) }
+                                        }
+                                    }
+                                )
+                            },
+                            modifier = Modifier.padding(vertical = 4.dp)
                         )
+                    }
+                }
+
+                // 分區二：WorkManager / 通知
+                item {
+                    SettingsSection(title = "🛠 開發者 — WorkManager / 通知") {
                         SettingsItem(
                             icon = Icons.Default.Notifications,
                             title = "測試月底提醒生成",
                             subtitle = "模擬月底最後一週觸發書庫提醒",
                             onClick = { viewModel.triggerMonthlyReminderTest() }
                         )
-                        HorizontalDivider(
-                            Modifier.padding(horizontal = 16.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant
+                        HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.surfaceVariant)
+
+                        // 即時通知測試
+                        SettingsItem(
+                            icon = Icons.Default.NotificationsActive,
+                            title = "立即觸發測試通知",
+                            subtitle = "繞過排程，立即發送一則 Memo 提醒通知",
+                            onClick = { viewModel.triggerTestNotification(context) }
                         )
+                        HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.surfaceVariant)
+
+                        // DataRetentionWorker 觸發
+                        SettingsItem(
+                            icon = Icons.Default.DeleteSweep,
+                            title = "立即執行資料清理",
+                            subtitle = "強制觸發 DataRetentionWorker（勿在正式資料上輕易使用）",
+                            onClick = {
+                                viewModel.triggerDataRetentionNow(context) { msg ->
+                                    coroutineScope.launch { snackbarHostState.showSnackbar(msg) }
+                                }
+                            }
+                        )
+                    }
+                }
+
+                // 分區三：資料庫 / 月報
+                item {
+                    SettingsSection(title = "🛠 開發者 — 資料庫 / 月報") {
+                        SettingsItem(
+                            icon = Icons.Default.Summarize,
+                            title = "產生上月合併月報",
+                            subtitle = "彙整所有孩子資料並由 AI 生成上月份總結",
+                            onClick = { viewModel.generateLastMonthReport() }
+                        )
+                        HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.surfaceVariant)
+
+                        // Room DB 快照
+                        SettingsItem(
+                            icon = Icons.Default.Storage,
+                            title = "Room DB 筆數快照",
+                            subtitle = "顯示各 Table 目前的資料筆數",
+                            onClick = {
+                                viewModel.getDbRowCountSnapshot { msg ->
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar(msg, duration = SnackbarDuration.Long)
+                                    }
+                                }
+                            }
+                        )
+                        HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.surfaceVariant)
+
+                        // 開發者模式開關（置底）
                         ListItem(
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                             leadingContent = {
