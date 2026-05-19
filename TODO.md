@@ -1,6 +1,6 @@
 # BabyMakiSuk TODO
 
-更新日期：2026-05-18
+更新日期：2026-05-19
 
 > 📌 開發規範詳見 [`docs/AGENT_GUIDELINES.md`](./docs/AGENT_GUIDELINES.md)
 
@@ -16,13 +16,13 @@
 | H | 書庫（週報 / AI 精華 / Memo） | ✅ 完成 |
 | UI | 設計系統優化 | ✅ 完成 |
 | D | 每日日誌 × Memo 整合 | ✅ 完成 |
-| 5 | HomeScreen 收折優化 | 🔄 進行中 |
-| 6 | 通知排程 | 🔲 Sprint 6 |
+| 5 | HomeScreen 收折優化 | 🔄 進行中（AiMorningBriefingCard 暫緩） |
+| 6 | 通知排程 | ✅ 完成 |
 | R | 資料留存與清理 | ✅ 完成 |
 | E-1 | Firebase 基礎設施 + Auth | ✅ 完成 |
 | E-2 | Firestore 同步（基礎版） | ✅ 完成 |
 | E-3 | Firebase 圖片儲存 + 快取 | ✅ 完成 |
-| E-4 | Firebase 深度整合 + 安全規則 | 🔲 E-4 |
+| E-4 | Firebase 深度整合 + 安全規則 | 🔲 下一步 |
 | F | Google Drive 備份 | ⏸ 暫緩 |
 | G | Settings 功能 | ✅ 完成 |
 
@@ -99,6 +99,12 @@
 - [x] 新增 Memo 入口從 HomeScreen 今日日誌區「＋」觸發
 - [x] Memo 編輯全頁 Screen（`library/memo/edit` 路由）
 
+### Sprint 6 — 通知排程 ✅ 完成
+- [x] WorkManager + NotificationCompat
+- [x] Memo 編輯畫面「設定提醒」DateTimePicker
+- [x] SettingsScreen 通知總開關（DataStore）
+- [x] POST_NOTIFICATIONS 權限申請 Runtime 確認（Android 13+）
+
 ### Phase R — 資料留存與清理（DATA_RETENTION_STRATEGY.md）
 - [x] Phase 1 — DAO 清理方法：DailyLogDao / ToiletDao / AiInsightDao / SystemReminderDao / VaccineReminderDao / MonthlyReportDao
 - [x] Phase 2 — DataRetentionRepository + DataRetentionWorker（PeriodicWorkRequest 7 天）
@@ -142,26 +148,7 @@
 - [x] FirestoreMedicalRepository + DefaultFirestoreMedicalRepository（medicalVisits 集合 + aiPending 監聽）
 - [x] Firestore 離線持久化啟用（firestoreSettings.setPersistenceEnabled(true)）
 
----
-
-## 🔲 待開發
-
-### Sprint 5 — HomeScreen 收折優化
-> 詳細規格見 `docs/AGENT_GUIDELINES.md` → Sprint 5 章節
-
-- [x] ChildSummaryCard 收折 / 展開（AnimatedVisibility / animateFloatAsState）
-- [x] 展開區：上次就醫摘要 + 下次排程 + 本日 Memo
-- [ ] AiMorningBriefingCard（收折版，串接 AiDispatcher）
-
-### Sprint 6 — 通知排程
-> 詳細規格見 `docs/AGENT_GUIDELINES.md` → Sprint 6 章節
-
-- [x] WorkManager + NotificationCompat
-- [x] Memo 編輯畫面「設定提醒」DateTimePicker
-- [x] SettingsScreen 通知總開關（DataStore）
-- [ ] POST_NOTIFICATIONS 權限申請 Runtime 確認（Android 13+）
-
-### E-3 — Firebase 圖片儲存 + 快取 ✅ 已完成
+### Phase E-3 — Firebase 圖片儲存 + 快取 ✅ 完成
 - [x] `ImageUploadRepository` — 壓縮至 <200KB + Firebase Storage 上傳
 - [x] `StorageRepository` — 上傳/下載/刪除 Firebase Storage
 - [x] `MedicalImageCacheManager` — Storage 路徑 ↔ 本機快取 URI
@@ -173,7 +160,18 @@
 - [x] `MedicalEditViewModel.prescriptionImageUri` StateFlow（支援 Firebase 圖片載入）
 - [x] `feature/medical` 加入 `:core:firebase` 依賴
 
-### E-4 — Firebase 深度整合 + 安全規則（待開發）
+---
+
+## 🔲 待開發
+
+### Sprint 5 — HomeScreen 收折優化（部分完成）
+> 詳細規格見 `docs/AGENT_GUIDELINES.md` → Sprint 5 章節
+
+- [x] ChildSummaryCard 收折 / 展開（AnimatedVisibility / animateFloatAsState）
+- [x] 展開區：上次就醫摘要 + 下次排程 + 本日 Memo
+- [ ] AiMorningBriefingCard（收折版，串接 AiDispatcher）⏸ **暫緩**
+
+### E-4 — Firebase 深度整合 + 安全規則（下一步）
 > 詳細規格見 `docs/DATA_RETENTION_STRATEGY.md` → SYNC_ARCHITECTURE.md
 
 - [ ] `StorageCleanupWorker`（每年底滾動清除當年以前照片）
@@ -190,7 +188,7 @@
 
 | 項目 | 備註 |
 |------|------|
-| Firebase 深度整合（Phase E-3 / E-4） | 待開發 |
+| AiMorningBriefingCard | Sprint 5 最後一塊，暫緩 |
 | Google Drive 備份（Phase F 剩餘） | 暫緩 |
 | feature/vaccine 完整功能 | 目錄留位，孩子 3 歲暫不需要 |
 | WHO 官方 0-60 月 LMS CSV 替換 | stub 精度足夠，上架前再升級 |
