@@ -90,6 +90,7 @@
 - [x] 匯入匯出安全提示與進度遮罩 (Loading Overlay)
 - [x] ApiTestScreen（API 連線測試子頁面）
 - [x] FileProvider 設定
+- [x] 開發者選項擴充（Auth狀態/Firestore離線/即時通知/DataRetention/DB快照）
 
 ### Sprint 4 — Memo 整合每日日誌
 - [x] 確認 MemoEntity 是否含 `childId`、`date`、`reminderAt` 欄位
@@ -174,13 +175,30 @@
 ### E-4 — Firebase 深度整合 + 安全規則（下一步）
 > 詳細規格見 `docs/DATA_RETENTION_STRATEGY.md` → SYNC_ARCHITECTURE.md
 
+> ⚠️ **Auth 初始化時序問題**：`BabyMakiSukApplication.onCreate()` 的 `signInAnonymously()` 為非同步，
+> `SettingsViewModel.init {}` 的 `observeAuthState()` 可能在匿名登入完成前訂閱，導致第一筆為 null。
+> 修正方式：在 `init {}` 訂閱前先補 `_firebaseUser.value = authRepository.getCurrentUser()`，
+> 並在 `FirebaseAuthRepository` 補上 `fun getCurrentUser(): FirebaseUser?`。
+
+- [ ] **`SettingsViewModel` Auth 初始化時序修正**（補 `getCurrentUser()` 冷啟動值）
 - [ ] `StorageCleanupWorker`（每年底滾動清除當年以前照片）
+  > ⚠️ **執行順序**：年度總結產生 → StorageCleanupWorker → DataRetentionWorker，不可反序
 - [ ] Firebase Auth Custom Claims（data_manager / ai_operator 角色）
+  > 兩台手機需登入**同一 Google 帳號**才能同步；匿名帳號務必先 `linkWithGoogleCredential()` 再升級，否則資料不延續
 - [ ] Firestore Security Rules 部署
 - [ ] ChildRepository + FirestoreChildRepository 合併（local+remote combine）
 - [ ] aiPending 監聽 → 觸發 ServiceAI 分析
 - [ ] Google 登入 UI（feature/settings）
 - [ ] Storage 配額顯示 UI
+
+### 年度總結（Annual Report）— 建議方案 C（月報二次摘要）
+> Phase F 完成前：方案 A（App 內讀取全年 WeeklyReport → Gemini 二次摘要 → 存入 AiInsightEntity）
+> Phase F 完成後：方案 C（每月月報自動上傳 Drive，年底一鍵觸發年度整合）
+
+- [ ] `AnnualReportGenerator`（讀取 `WeeklyReportDao` 全年摘要 → Gemini prompt → 存入 `AiInsightEntity`）
+  > ⚠️ **執行順序**：年度總結 → StorageCleanupWorker（照片清除）→ DataRetentionWorker（明細清除）
+- [ ] 年度總結入口 UI（書庫 or Settings）
+- [ ] Phase F 完成後升級為方案 C（月報 MD 上傳 Drive → 外部 AI 整合）
 
 ---
 
