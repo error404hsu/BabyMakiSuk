@@ -66,8 +66,27 @@ class DefaultFirestoreMedicalRepository @Inject constructor(
             .set(data, SetOptions.merge()).await()
     }
 
+    /**
+     * 刪除 Firestore 中對應的就診紀錄。
+     * 先從 Room 查詢 childId，再刪除 Firestore 子集合文件。
+     * 若 Room 已刪除（查無 childId），則 skip 並記錄 warning。
+     */
     override suspend fun deleteVisit(visitId: Long) {
-        // Requires childId context; use with external childId for now
+        val entity = medicalDao.getById(visitId)
+        if (entity == null) {
+            Log.w(TAG, "deleteVisit: visitId=$visitId not found in Room, skipping Firestore delete")
+            return
+        }
+        val childId = entity.childId.toString()
+        val visitIdStr = visitId.toString()
+        runCatching {
+            firestore.collection("children").document(childId)
+                .collection("medicalVisits").document(visitIdStr)
+                .delete().await()
+            Log.d(TAG, "deleteVisit: Firestore document deleted (childId=$childId, visitId=$visitIdStr)")
+        }.onFailure { e ->
+            Log.e(TAG, "deleteVisit: Firestore delete failed for visitId=$visitId: ${e.message}")
+        }
     }
 
     override fun observeVisitsWithAiPending(): Flow<List<MedicalVisit>> =
@@ -120,7 +139,6 @@ class DefaultFirestoreMedicalRepository @Inject constructor(
                             }?.joinToString("; ") ?: ""
                         val isUrgent = json.optString("safetyFlag", "normal") == "urgent"
 
-                        // Write AI results to Firestore
                         val childId = visit.childId.toString()
                         val visitId = visit.id.toString()
                         val aiData = mapOf(
@@ -135,7 +153,6 @@ class DefaultFirestoreMedicalRepository @Inject constructor(
                             .collection("medicalVisits").document(visitId)
                             .set(aiData, SetOptions.merge()).await()
 
-                        // Update local Room
                         medicalDao.updateAiFields(visit.id, diagnosisSummary, prescriptions, careInstructions, isUrgent)
                     }.onFailure { e ->
                         Log.w(TAG, "Failed to parse AI result for visit ${visit.id}: ${e.message}")
@@ -152,6 +169,4 @@ class DefaultFirestoreMedicalRepository @Inject constructor(
             medicalDao.updateAiFields(visit.id, "", "", "", false)
         }
     }
-
-
 }
