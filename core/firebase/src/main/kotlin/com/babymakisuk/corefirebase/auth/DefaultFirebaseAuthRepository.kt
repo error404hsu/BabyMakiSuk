@@ -43,8 +43,14 @@ class DefaultFirebaseAuthRepository @Inject constructor(
 
     override suspend fun linkWithGoogleCredential(idToken: String): Result<FirebaseUser> = runCatching {
         val credential = GoogleAuthProvider.getCredential(idToken, null)
-        auth.currentUser?.linkWithCredential(credential)?.await()?.user
-            ?: throw IllegalStateException("Google link returned null user")
+        val currentUser = auth.currentUser
+        if (currentUser != null) {
+            // Link to existing account to preserve data
+            currentUser.linkWithCredential(credential).await().user
+        } else {
+            // No current session, perform fresh sign-in
+            auth.signInWithCredential(credential).await().user
+        } ?: throw IllegalStateException("Google Auth returned null user")
     }
 
     override fun signOut() = auth.signOut()
