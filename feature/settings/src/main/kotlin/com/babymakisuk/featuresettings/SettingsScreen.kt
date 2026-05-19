@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.babymakisuk.coredata.DarkModeOption
 import com.babymakisuk.coremodel.UserRole
+import com.babymakisuk.featuresettings.BuildConfig
 import com.babymakisuk.ui.components.BabyTopBar
 import com.babymakisuk.ui.components.LocalDrawerState
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -82,10 +83,7 @@ fun SettingsScreen(
     }
 
     val gso = remember {
-        val clientId = runCatching {
-            val id = context.resources.getIdentifier("default_web_client_id", "string", context.packageName)
-            if (id != 0) context.getString(id) else ""
-        }.getOrDefault("")
+        val clientId = BuildConfig.GOOGLE_WEB_CLIENT_ID
 
         GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .apply {
