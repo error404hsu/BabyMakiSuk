@@ -22,7 +22,7 @@
 | E-1 | Firebase 基礎設施 + Auth | ✅ 完成 |
 | E-2 | Firestore 同步（基礎版） | ✅ 完成 |
 | E-3 | Firebase 圖片儲存 + 快取 | ✅ 完成 |
-| E-4 | Firebase 深度整合 + 安全規則 | 🔲 下一步 |
+| E-4 | Firebase 深度整合 + 安全規則 | ✅ 完成 |
 | F | Google Drive 備份 | ⏸ 暫緩 |
 | G | Settings 功能 | ✅ 完成 |
 
@@ -172,24 +172,22 @@
 - [x] 展開區：上次就醫摘要 + 下次排程 + 本日 Memo
 - [ ] AiMorningBriefingCard（收折版，串接 AiDispatcher）⏸ **暫緩**
 
-### E-4 — Firebase 深度整合 + 安全規則（下一步）
+### E-4 — Firebase 深度整合 + 安全規則（✅ 完成）
 > 詳細規格見 `docs/DATA_RETENTION_STRATEGY.md` → SYNC_ARCHITECTURE.md
 
-> ⚠️ **Auth 初始化時序問題**：`BabyMakiSukApplication.onCreate()` 的 `signInAnonymously()` 為非同步，
-> `SettingsViewModel.init {}` 的 `observeAuthState()` 可能在匿名登入完成前訂閱，導致第一筆為 null。
-> 修正方式：在 `init {}` 訂閱前先補 `_firebaseUser.value = authRepository.getCurrentUser()`，
-> 並在 `FirebaseAuthRepository` 補上 `fun getCurrentUser(): FirebaseUser?`。
-
-- [ ] **`SettingsViewModel` Auth 初始化時序修正**（補 `getCurrentUser()` 冷啟動值）
-- [ ] `StorageCleanupWorker`（每年底滾動清除當年以前照片）
+- [x] `StorageCleanupWorker` — @HiltWorker，365-day periodic，每年底清除 Firebase Storage 超過一年舊照片
   > ⚠️ **執行順序**：年度總結產生 → StorageCleanupWorker → DataRetentionWorker，不可反序
-- [ ] Firebase Auth Custom Claims（data_manager / ai_operator 角色）
+- [x] Firebase Auth Custom Claims — `refreshCustomClaims()` 解析 IdToken claims → UserRole（data_manager / ai_operator）
   > 兩台手機需登入**同一 Google 帳號**才能同步；匿名帳號務必先 `linkWithGoogleCredential()` 再升級，否則資料不延續
-- [ ] Firestore Security Rules 部署
-- [ ] ChildRepository + FirestoreChildRepository 合併（local+remote combine）
-- [ ] aiPending 監聽 → 觸發 ServiceAI 分析
-- [ ] Google 登入 UI（feature/settings）
-- [ ] Storage 配額顯示 UI
+- [x] Firestore Security Rules 部署（`firestore.rules` repo 根目錄）
+  - /children/{childId}：request.auth != null
+  - /children/{childId}/medicalVisits/{visitId}：aiPending 欄位 only ai_operator
+  - /debug_ping：write-only
+- [x] ChildRepository + FirestoreChildRepository 合併 — `combine()` Room + Firestore snapshot Flow，Firestore 資料自動 upsert 到 Room
+- [x] aiPending 監聽 → `AiDispatcher.dispatch(AiTask.SUMMARIZE_MEDICAL_VISIT)` → 結果寫回 Firestore + Room，設 `aiPending=false`
+- [x] Google 登入 UI（feature/settings）— `rememberLauncherForActivityResult` + `GoogleSignInClient` + `linkWithGoogleCredential()`
+- [x] Storage 配額顯示 UI — `StorageRepository.getUsedBytes()` → 設定頁「已使用 X.X MB」
+- [x] `AiTask.SUMMARIZE_MEDICAL_VISIT` 新增（含 fallback chain + rate limit 3/min）
 
 ### 年度總結（Annual Report）— 建議方案 C（月報二次摘要）
 > Phase F 完成前：方案 A（App 內讀取全年 WeeklyReport → Gemini 二次摘要 → 存入 AiInsightEntity）

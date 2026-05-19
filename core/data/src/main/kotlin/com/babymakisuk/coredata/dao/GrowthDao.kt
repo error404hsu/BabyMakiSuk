@@ -32,4 +32,7 @@ interface GrowthDao {
 
     @Query("UPDATE growth_record SET aiSuggestion = :suggestion WHERE id = :id")
     suspend fun updateAiSuggestion(id: Long, suggestion: String)
+
+    @Query("SELECT COUNT(*) FROM growth_record")
+    suspend fun count(): Int
 }

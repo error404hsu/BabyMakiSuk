@@ -60,4 +60,7 @@ interface MonthlyReportDao {
 
     @Query("INSERT INTO monthly_reports_fts(monthly_reports_fts) VALUES('rebuild')")
     suspend fun rebuildFts()
+
+    @Query("SELECT COUNT(*) FROM monthly_reports")
+    suspend fun count(): Int
 }

@@ -33,4 +33,7 @@ interface AiInsightDao {
 
     @Query("DELETE FROM ai_insights WHERE createdAt < :cutoffMillis")
     suspend fun deleteOlderThan(cutoffMillis: Long)
+
+    @Query("SELECT COUNT(*) FROM ai_insights")
+    suspend fun count(): Int
 }

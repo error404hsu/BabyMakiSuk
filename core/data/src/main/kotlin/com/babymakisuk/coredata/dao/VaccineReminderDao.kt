@@ -43,4 +43,7 @@ interface VaccineReminderDao {
 
     @Query("DELETE FROM vaccine_reminders WHERE isCompleted = 1")
     suspend fun deleteCompleted()
+
+    @Query("SELECT COUNT(*) FROM vaccine_reminders")
+    suspend fun count(): Int
 }

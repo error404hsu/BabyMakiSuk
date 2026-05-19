@@ -52,4 +52,7 @@ interface MemoDao {
 
     @Query("SELECT * FROM memos WHERE childId = :childId ORDER BY date DESC LIMIT 1")
     suspend fun getLatestByChildId(childId: Long): MemoEntity?
+
+    @Query("SELECT COUNT(*) FROM memos")
+    suspend fun count(): Int
 }

@@ -16,6 +16,8 @@ class DefaultFirebaseAuthRepository @Inject constructor(
     private val auth: FirebaseAuth,
 ) : FirebaseAuthRepository {
 
+    override fun getCurrentUser(): FirebaseUser? = auth.currentUser
+
     override suspend fun signInAnonymously(): Result<FirebaseUser> = runCatching {
         auth.signInAnonymously().await().user ?: throw IllegalStateException("Anonymous sign-in returned null user")
     }

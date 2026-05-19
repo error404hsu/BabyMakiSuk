@@ -11,6 +11,15 @@ import androidx.work.workDataOf
 import com.babymakisuk.corefirebase.auth.FirebaseAuthRepository
 import com.babymakisuk.corefirebase.storage.StorageRepository
 import com.babymakisuk.coredata.DarkModeOption
+import com.babymakisuk.coredata.dao.AiInsightDao
+import com.babymakisuk.coredata.dao.DailyLogDao
+import com.babymakisuk.coredata.dao.GrowthDao
+import com.babymakisuk.coredata.dao.MedicalDao
+import com.babymakisuk.coredata.dao.MemoDao
+import com.babymakisuk.coredata.dao.MonthlyReportDao
+import com.babymakisuk.coredata.dao.SystemReminderDao
+import com.babymakisuk.coredata.dao.ToiletDao
+import com.babymakisuk.coredata.dao.VaccineReminderDao
 import com.babymakisuk.coredata.repository.SettingsRepository
 import com.babymakisuk.coredata.repository.MonthlyReportRepository
 import com.babymakisuk.coredata.worker.DataRetentionWorker
@@ -44,6 +53,15 @@ class SettingsViewModel @Inject constructor(
     private val monthlyReportRepository: MonthlyReportRepository,
     private val authRepository: FirebaseAuthRepository,
     private val storageRepository: StorageRepository,
+    private val growthDao: GrowthDao,
+    private val medicalDao: MedicalDao,
+    private val memoDao: MemoDao,
+    private val aiInsightDao: AiInsightDao,
+    private val vaccineReminderDao: VaccineReminderDao,
+    private val systemReminderDao: SystemReminderDao,
+    private val dailyLogDao: DailyLogDao,
+    private val toiletDao: ToiletDao,
+    private val monthlyReportDao: MonthlyReportDao,
 ) : ViewModel() {
 
     val darkMode: StateFlow<DarkModeOption> = repository.darkModeFlow.stateIn(
@@ -140,6 +158,9 @@ class SettingsViewModel @Inject constructor(
     // ── 初始化監聽 ─────────────────────────────────────────
     init {
         viewModelScope.launch {
+            // ★ 先補一次當前值，避免 AuthStateListener 錯過已完成的匿名登入
+            _firebaseUser.value = authRepository.getCurrentUser()
+
             authRepository.observeAuthState().collect { user ->
                 _firebaseUser.value = user
             }
@@ -261,16 +282,22 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
-    /** Room DB 各 Table 筆數快照（需各 DAO 實作 count()） */
+    /** Room DB 各 Table 筆數快照 */
     fun getDbRowCountSnapshot(onResult: (String) -> Unit) {
         viewModelScope.launch {
             runCatching {
-                // TODO: 注入各 DAO 後在此補充真實 count() 查詢
-                // 範例：
-                // val growth = growthDao.count()
-                // val medical = medicalDao.count()
-                // "GrowthRecord：$growth 筆\nMedicalVisit：$medical 筆"
-                "⚠️ 請在 SettingsViewModel 注入各 DAO 並實作 count() 查詢\n詳見 AGENTS.md 補充說明"
+                buildString {
+                    appendLine("📦 Room 資料庫快照")
+                    appendLine("GrowthRecord：${growthDao.count()} 筆")
+                    appendLine("MedicalVisit：${medicalDao.count()} 筆")
+                    appendLine("Memo：${memoDao.count()} 筆")
+                    appendLine("AiInsight：${aiInsightDao.count()} 筆")
+                    appendLine("VaccineReminder：${vaccineReminderDao.count()} 筆")
+                    appendLine("SystemReminder：${systemReminderDao.count()} 筆")
+                    appendLine("DailyLog：${dailyLogDao.count()} 筆")
+                    appendLine("ToiletRecord：${toiletDao.count()} 筆")
+                    append("MonthlyReport：${monthlyReportDao.count()} 筆")
+                }
             }.onSuccess { onResult(it) }
              .onFailure { onResult("❌ 查詢失敗：${it.message}") }
         }

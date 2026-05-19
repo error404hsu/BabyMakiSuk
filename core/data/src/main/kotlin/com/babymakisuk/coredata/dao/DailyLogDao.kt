@@ -38,4 +38,7 @@ interface DailyLogDao {
 
     @Query("DELETE FROM daily_log")
     suspend fun deleteAll()
+
+    @Query("SELECT COUNT(*) FROM daily_log")
+    suspend fun count(): Int
 }

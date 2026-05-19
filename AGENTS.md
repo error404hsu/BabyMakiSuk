@@ -21,8 +21,8 @@ core/model/          - 純 Kotlin domain model（無 Android 依賴）
 core/data/           - Room Entity / DAO / Repository / Migration
 core/ui/             - 共用 Composable、Theme、Typography
 core/ai/             - AiDispatcher、AiTask、AiPreset、AiPromptBuilder、RateLimiter
-core/firebase/       - Firebase（留位模組，勿新增實作）
-core/drive/          - Google Drive（留位模組，勿新增實作）
+core/firebase/       - Firebase Auth / Firestore / Storage（含 Worker、Security Rules）
+core/drive/          - Google Drive（預留模組，勿新增實作）
 feature/{name}/      - 各功能模組，每個模組含 Screen / ViewModel / UiState
 ```
 
@@ -64,7 +64,7 @@ feature/{name}/      - 各功能模組，每個模組含 Screen / ViewModel / Ui
 ## Room 資料庫規範
 
 - 修改任何 Entity 或新增 Table，**必須** bump `AppDatabase` 版本號並撰寫對應 `MIGRATION_x_y`。
-- 目前版本為 **v14**；新版 Migration 請依序命名 `MIGRATION_14_15`。
+- 目前版本為 **v15**（MIGRATION_14_15 已完成）；新版 Migration 請依序命名 `MIGRATION_15_16`。
 
 ## Worker 規範
 
@@ -87,7 +87,7 @@ feature/{name}/      - 各功能模組，每個模組含 Screen / ViewModel / Ui
 
 - ❌ 修改 `core/model` 欄位但未同步更新 Room Entity 與 Migration。
 - ❌ 移除或繞過 `RateLimiter`（防止 API 帳單異常的安全機制）。
-- ❌ 在 `core/firebase` / `core/drive` 留位模組中新增實作邏輯。
+- ❌ 在 `core/drive` 留位模組中新增實作邏輯。
 - ❌ 在 Composable 內使用 `remember { ViewModel() }`。
 
 ---

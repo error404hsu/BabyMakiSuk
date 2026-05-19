@@ -42,4 +42,7 @@ interface MedicalDao {
 
     @Query("SELECT * FROM medical_visit WHERE id = :id")
     suspend fun getById(id: Long): MedicalVisitEntity?
+
+    @Query("SELECT COUNT(*) FROM medical_visit")
+    suspend fun count(): Int
 }

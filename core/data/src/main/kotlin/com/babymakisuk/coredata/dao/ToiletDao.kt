@@ -42,4 +42,7 @@ interface ToiletDao {
 
     @Query("DELETE FROM toilet_records WHERE strftime('%Y-%m', timestamp / 1000, 'unixepoch') = :yearMonth")
     suspend fun deleteByYearMonth(yearMonth: String)
+
+    @Query("SELECT COUNT(*) FROM toilet_records")
+    suspend fun count(): Int
 }

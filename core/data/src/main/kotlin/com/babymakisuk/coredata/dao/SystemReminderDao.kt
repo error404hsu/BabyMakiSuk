@@ -42,4 +42,7 @@ interface SystemReminderDao {
 
     @Query("DELETE FROM system_reminders WHERE resolvedAt IS NOT NULL")
     suspend fun deleteTriggered()
+
+    @Query("SELECT COUNT(*) FROM system_reminders")
+    suspend fun count(): Int
 }
