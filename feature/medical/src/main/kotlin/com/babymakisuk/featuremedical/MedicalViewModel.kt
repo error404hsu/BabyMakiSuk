@@ -17,6 +17,7 @@ import com.babymakisuk.coredata.entity.toEntity
 import com.babymakisuk.coredata.repository.ChildRepository
 import com.babymakisuk.coremodel.Gender
 import com.babymakisuk.coremodel.MedicalVisit
+import com.babymakisuk.corefirebase.firestore.FirestoreMedicalRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
@@ -35,7 +36,8 @@ class MedicalViewModel @Inject constructor(
     private val childRepo: ChildRepository,
     private val medicalDao: MedicalDao,
     private val settingsRepo: SettingsRepository,
-    private val medicalAiRepo: MedicalAiRepository
+    private val medicalAiRepo: MedicalAiRepository,
+    private val firestoreMedicalRepo: FirestoreMedicalRepository
 ) : ViewModel() {
 
     private val _selectedChildId = MutableStateFlow<Long?>(null)
@@ -84,7 +86,6 @@ class MedicalViewModel @Inject constructor(
     private val _editingVisit = MutableStateFlow<MedicalVisit?>(null)
     val editingVisit: StateFlow<MedicalVisit?> = _editingVisit.asStateFlow()
 
-    // ── AI 圖片分析狀態 ──────────────────────────────────────────────────────────────────
     private val _aiAnalysisState = MutableStateFlow<AiAnalysisState>(AiAnalysisState.Idle)
     val aiAnalysisState: StateFlow<AiAnalysisState> = _aiAnalysisState.asStateFlow()
 
@@ -111,30 +112,37 @@ class MedicalViewModel @Inject constructor(
     fun saveVisit(visit: MedicalVisit) {
         viewModelScope.launch {
             medicalDao.upsert(visit.toEntity())
+            // 同步上傳 Firestore
+            runCatching { firestoreMedicalRepo.upsertVisit(visit) }
+                .onFailure { Log.w(TAG, "saveVisit: Firestore upsert failed: ${it.message}") }
             _showForm.value = false
             _aiAnalysisState.value = AiAnalysisState.Idle
         }
     }
 
+    /**
+     * 刪除就診紀錄。
+     * 順序：先呼叫 Firestore delete（此時 Room 仍有 childId 可查詢），
+     * 再從 Room 刪除，確保雲端同步正確執行。
+     */
     fun deleteVisit(visit: MedicalVisit) {
-        viewModelScope.launch { medicalDao.delete(visit.toEntity()) }
+        viewModelScope.launch {
+            // ① 先同步刪除 Firestore（Room entity 尚在，getById 可查到 childId）
+            runCatching { firestoreMedicalRepo.deleteVisit(visit.id) }
+                .onFailure { Log.w(TAG, "deleteVisit: Firestore delete failed: ${it.message}") }
+            // ② 再刪除本機 Room
+            medicalDao.delete(visit.toEntity())
+        }
     }
 
     /**
      * 藥單圖片 AI 分析，帶圖片壓縮與 4MB 守衛。
-     *
-     * 流程：
-     * 1. 在 IO thread 將 Uri 解碼為 Bitmap
-     * 2. 呼叫 [Bitmap.compressForAi] 進行縮放與壓縮（IO thread）
-     * 3. 量測壓縮後大小；超過 4MB 則提前發出 Error，不呼叫 API
-     * 4. 將壓縮後的 Bitmap 傳入 [MedicalAiRepository.analyzePrescriptionImage]
      */
     fun analyzeImageWithAi(imageUri: Uri?, symptomText: String, childId: Long) {
         if (imageUri == null) return
         _aiAnalysisState.value = AiAnalysisState.Analyzing
 
         viewModelScope.launch {
-            // ── [Step 4] 在 IO thread 處理圖片─────────────────────────────────────────────────
             val compressError: String? = withContext(Dispatchers.IO) {
                 val inputStream = context.contentResolver.openInputStream(imageUri)
                     ?: return@withContext "無法開啟圖片資源"
@@ -142,10 +150,8 @@ class MedicalViewModel @Inject constructor(
                 val rawBitmap = BitmapFactory.decodeStream(inputStream)
                     ?: return@withContext "Bitmap 解碼失敗，請確認圖片格式否則重新選取"
 
-                // [Step 4-2] 壓縮 — 必須在 IO Thread
                 val compressed = rawBitmap.compressForAi()
 
-                // [Step 4-3] 4MB 守衛
                 val byteSize = compressed.jpegByteSize()
                 if (byteSize > BitmapUtils.MAX_AI_BYTE_SIZE) {
                     Log.e(
@@ -157,7 +163,7 @@ class MedicalViewModel @Inject constructor(
                     return@withContext "圖片壓縮後仍超過 4MB，請重新拍攝或選擇較小的圖片"
                 }
 
-                null // 沒有錯誤
+                null
             }
 
             if (compressError != null) {
@@ -165,9 +171,6 @@ class MedicalViewModel @Inject constructor(
                 return@launch
             }
 
-            // ── 圖片檢查通過，繼續用原始 Uri 呼叫 Repository ────────────────────────────
-            // 註記：MedicalAiRepository.analyzePrescriptionImage() 接收 Uri 並在內部處理圖片。
-            // 大小守衛已在上方通過，確保傳入的圖片已符合限制。
             val child = childRepo.getById(childId)
             medicalAiRepo.analyzePrescriptionImage(
                 imageUri    = imageUri,
@@ -178,8 +181,8 @@ class MedicalViewModel @Inject constructor(
             ).onSuccess { (result, _) ->
                 _aiAnalysisState.value = AiAnalysisState.Success(
                     diagnosisSummary = result.diagnosisSummary,
-                    prescriptions    = result.prescriptions.joinToString("・"),
-                    careInstructions = result.careInstructions.joinToString("・"),
+                    prescriptions    = result.prescriptions.joinToString("\u30fb"),
+                    careInstructions = result.careInstructions.joinToString("\u30fb"),
                     confidence       = result.confidence ?: 85
                 )
             }.onFailure { e ->
@@ -188,7 +191,6 @@ class MedicalViewModel @Inject constructor(
         }
     }
 
-    /** 重置 AI 狀態（用戶移除圖片時呼叫）。 */
     fun resetAiState() { _aiAnalysisState.value = AiAnalysisState.Idle }
 
     fun triggerAiSummary(visit: MedicalVisit) {
@@ -205,8 +207,8 @@ class MedicalViewModel @Inject constructor(
                 medicalDao.updateAiFields(
                     id               = visit.id,
                     diagnosisSummary = result.diagnosisSummary,
-                    prescriptions    = result.prescriptions.joinToString("・"),
-                    careInstructions = result.careInstructions.joinToString("・"),
+                    prescriptions    = result.prescriptions.joinToString("\u30fb"),
+                    careInstructions = result.careInstructions.joinToString("\u30fb"),
                     isUrgent         = result.safetyFlag == "urgent"
                 )
             }
