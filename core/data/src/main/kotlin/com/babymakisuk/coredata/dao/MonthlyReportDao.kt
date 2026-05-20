@@ -52,6 +52,17 @@ interface MonthlyReportDao {
     """)
     fun getRecentReports(childId: Long, limit: Int = 20): Flow<List<MonthlyReportEntity>>
 
+    /**
+     * 取全部孩子的月報（書庫月報頁使用）
+     * 月報為合併式設計（merged_yyyy-Mmm），不應依 childId 篩選。
+     */
+    @Query("""
+        SELECT * FROM monthly_reports
+        ORDER BY month_start DESC
+        LIMIT :limit
+    """)
+    fun getAllRecent(limit: Int = 20): Flow<List<MonthlyReportEntity>>
+
     @Delete
     suspend fun delete(report: MonthlyReportEntity)
 
